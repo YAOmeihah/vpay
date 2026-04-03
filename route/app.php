@@ -21,7 +21,7 @@ Route::any('test', 'index/test');
 
 // 支付系统路由 - 保持与原项目完全一致的API接口
 Route::any('login', 'index/login');
-Route::any('getMenu', 'index/getMenu');
+Route::any('getMenu', 'index/getMenu')->middleware(\app\middleware\AdminAuth::class);
 Route::any('createOrder', 'index/createOrder');
 Route::any('getOrder', 'index/getOrder');
 Route::any('checkOrder', 'index/checkOrder');
@@ -35,18 +35,22 @@ Route::rule('submit.php', 'epay/submit', 'GET|POST');
 Route::post('api/pay/create', 'epay/createV2');
 Route::post('api/pay/submit', 'epay/submitV2');
 
-// Admin后台管理路由
-Route::any('admin/index/getMain', 'admin/getMain');
-Route::any('admin/index/checkUpdate', 'admin/checkUpdate');
-Route::any('admin/index/getSettings', 'admin/getSettings');
-Route::any('admin/index/saveSetting', 'admin/saveSetting');
-Route::any('admin/index/generateRsaKeys', 'admin/generateRsaKeys');
-Route::any('admin/index/addPayQrcode', 'admin/addPayQrcode');
-Route::any('admin/index/getPayQrcodes', 'admin/getPayQrcodes');
-Route::any('admin/index/delPayQrcode', 'admin/delPayQrcode');
-Route::any('admin/index/getOrders', 'admin/getOrders');
-Route::any('admin/index/delOrder', 'admin/delOrder');
-Route::any('admin/index/setBd', 'admin/setBd');
-Route::any('admin/index/delGqOrder', 'admin/delGqOrder');
-Route::any('admin/index/delLastOrder', 'admin/delLastOrder');
+// Admin后台管理路由（需要登录）
+Route::group('admin/index', function () {
+    Route::any('getMain', 'admin/getMain');
+    Route::any('checkUpdate', 'admin/checkUpdate');
+    Route::any('getSettings', 'admin/getSettings');
+    Route::any('saveSetting', 'admin/saveSetting');
+    Route::any('generateRsaKeys', 'admin/generateRsaKeys');
+    Route::any('addPayQrcode', 'admin/addPayQrcode');
+    Route::any('getPayQrcodes', 'admin/getPayQrcodes');
+    Route::any('delPayQrcode', 'admin/delPayQrcode');
+    Route::any('getOrders', 'admin/getOrders');
+    Route::any('delOrder', 'admin/delOrder');
+    Route::any('setBd', 'admin/setBd');
+    Route::any('delGqOrder', 'admin/delGqOrder');
+    Route::any('delLastOrder', 'admin/delLastOrder');
+})->middleware(\app\middleware\AdminAuth::class);
+
+// 二维码生成（无需登录）
 Route::any('enQrcode', 'admin/enQrcode');

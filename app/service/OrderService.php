@@ -4,7 +4,6 @@ declare(strict_types=1);
 namespace app\service;
 
 use app\model\PayOrder;
-use app\model\PayQrcode;
 use app\model\Setting;
 use app\model\TmpPrice;
 
@@ -19,7 +18,7 @@ class OrderService
     {
         $payId = $params['payId'];
         $type = (int)$params['type'];
-        $price = $params['price'];
+        $price = (string)$params['price'];
         $param = $params['param'] ?? '';
         $notifyUrl = $params['notifyUrl'] ?? Setting::getConfigValue('notifyUrl');
         $returnUrl = $params['returnUrl'] ?? Setting::getConfigValue('returnUrl');
@@ -30,93 +29,47 @@ class OrderService
             throw new \RuntimeException('监控端状态异常，请检查');
         }
 
-        // 竞价分配唯一金额
-        $reallyPrice = bcmul((string)$price, '100');
-        $payQf = Setting::getConfigValue('payQf');
         $orderId = date('YmdHms') . rand(1, 9) . rand(1, 9) . rand(1, 9) . rand(1, 9);
+        $reallyPrice = OrderCreationKernel::reserveUniquePrice($price, $type, $orderId);
 
-        $ok = false;
-        for ($i = 0; $i < 10; $i++) {
-            $tmpPrice = $reallyPrice . '-' . $type;
-            try {
-                TmpPrice::create(['price' => $tmpPrice, 'oid' => $orderId]);
-                $ok = true;
-                break;
-            } catch (\Exception $e) {
-                // 价格冲突，继续尝试
-            }
-            if ($payQf == 1) {
-                $reallyPrice++;
-            } elseif ($payQf == 2) {
-                $reallyPrice--;
-            }
+        try {
+            $payConfig = OrderCreationKernel::resolvePayUrl($type, $reallyPrice);
+            OrderCreationKernel::assertMerchantOrderNotExists($payId);
+
+            $createDate = time();
+            $data = [
+                'close_date'   => 0,
+                'create_date'  => $createDate,
+                'is_auto'      => $payConfig['isAuto'],
+                'notify_url'   => $notifyUrl,
+                'order_id'     => $orderId,
+                'param'        => $param,
+                'pay_date'     => 0,
+                'pay_id'       => $payId,
+                'pay_url'      => $payConfig['payUrl'],
+                'price'        => $price,
+                'really_price' => $reallyPrice,
+                'return_url'   => $returnUrl,
+                'state'        => PayOrder::STATE_UNPAID,
+                'type'         => $type,
+            ];
+
+            OrderCreationKernel::createOrderRecord($data);
+        } catch (\Throwable $e) {
+            OrderCreationKernel::rollbackReservedPrice($orderId);
+            throw $e;
         }
 
-        if (!$ok) {
-            throw new \RuntimeException('订单超出负荷，请稍后重试');
-        }
-
-        $reallyPrice = bcdiv((string)$reallyPrice, '100', 2);
-
-        // 获取支付 URL
-        $payUrl = static::getPayUrl($type);
-        if ($payUrl === '') {
-            throw new \RuntimeException('请您先进入后台配置程序');
-        }
-
-        $isAuto = 1;
-        $matchedQrcode = PayQrcode::where('price', $reallyPrice)
-            ->where('type', $type)
-            ->find();
-        if ($matchedQrcode) {
-            $payUrl = $matchedQrcode['pay_url'];
-            $isAuto = 0;
-        }
-
-        // 检查商户订单号唯一性
-        $exists = PayOrder::where('pay_id', $payId)->find();
-        if ($exists) {
-            throw new \RuntimeException('商户订单号已存在');
-        }
-
-        $createDate = time();
-        $data = [
-            'close_date'   => 0,
-            'create_date'  => $createDate,
-            'is_auto'      => $isAuto,
-            'notify_url'   => $notifyUrl,
-            'order_id'     => $orderId,
-            'param'        => $param,
-            'pay_date'     => 0,
-            'pay_id'       => $payId,
-            'pay_url'      => $payUrl,
-            'price'        => $price,
-            'really_price' => $reallyPrice,
-            'return_url'   => $returnUrl,
-            'state'        => PayOrder::STATE_UNPAID,
-            'type'         => $type,
-        ];
-
-        PayOrder::create($data);
-
-        $time = Setting::getConfigValue('close');
-
-        $orderInfo = [
-            'payId'       => $payId,
-            'orderId'     => $orderId,
-            'payType'     => $type,
-            'price'       => $price,
-            'reallyPrice' => $reallyPrice,
-            'payUrl'      => $payUrl,
-            'isAuto'      => $isAuto,
-            'state'       => PayOrder::STATE_UNPAID,
-            'timeOut'     => $time,
-            'date'        => $createDate,
-        ];
-
-        CacheService::cacheOrder($orderId, $orderInfo);
-
-        return $orderInfo;
+        return OrderCreationKernel::buildAndCacheOrderInfo(
+            $payId,
+            $orderId,
+            $type,
+            $price,
+            $reallyPrice,
+            $payConfig['payUrl'],
+            $payConfig['isAuto'],
+            $createDate
+        );
     }
 
     /**
@@ -172,16 +125,5 @@ class OrderService
         }
 
         return ['matched' => true, 'alreadyProcessed' => false, 'notifyOk' => $notifyOk];
-    }
-
-    private static function getPayUrl(int $type): string
-    {
-        if ($type === PayOrder::TYPE_WECHAT) {
-            return Setting::getConfigValue('wxpay');
-        }
-        if ($type === PayOrder::TYPE_ALIPAY) {
-            return Setting::getConfigValue('zfbpay');
-        }
-        return '';
     }
 }

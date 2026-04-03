@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace app\middleware;
 
+use app\service\security\LoginAttemptLimiter;
 use Closure;
 use think\Request;
 use think\Response;
@@ -39,15 +40,13 @@ class Security
     private function checkRateLimit(Request $request): void
     {
         $clientIp = $request->ip();
-        $key = 'rate_limit_' . md5($clientIp);
-        $requests = cache($key) ?: 0;
+        $limiter = $this->loginAttemptLimiter();
 
-        // 每分钟最多1000个请求（更宽松的限制）
-        if ($requests >= 1000) {
+        if ($limiter->tooManyRequests($clientIp)) {
             abort(429, '请求过于频繁，请稍后重试');
         }
 
-        cache($key, $requests + 1, 60);
+        $limiter->recordRequest($clientIp);
     }
 
     /**
@@ -67,5 +66,10 @@ class Security
             'Server' => '',
             'X-Powered-By' => ''
         ]);
+    }
+
+    private function loginAttemptLimiter(): LoginAttemptLimiter
+    {
+        return new LoginAttemptLimiter();
     }
 }

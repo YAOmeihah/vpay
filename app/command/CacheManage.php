@@ -3,10 +3,15 @@ declare(strict_types=1);
 
 namespace app\command;
 
+use app\model\PayOrder;
+use app\service\admin\AdminSettingsService;
 use think\console\Command;
 use think\console\Input;
 use think\console\Output;
 use app\service\CacheService;
+use app\service\cache\OrderCache;
+use app\service\config\SettingSystemConfig;
+use app\service\order\OrderPayloadFactory;
 
 /**
  * 缓存管理命令
@@ -90,33 +95,30 @@ class CacheManage extends Command
         $output->writeln('正在预热缓存...');
         
         try {
-            // 预热系统配置
-            $settings = \app\model\Setting::select()->toArray();
-            $settingCount = 0;
-            foreach ($settings as $setting) {
-                if (CacheService::cacheSetting($setting['vkey'], $setting['vvalue'])) {
-                    $settingCount++;
-                }
-            }
+            $settingCount = $this->adminSettingsService()->warmSettingsCache();
             $output->writeln("✅ 预热系统配置: {$settingCount} 项");
 
-            // 预热热门订单（最近100个）
-            $orders = \app\model\PayOrder::order('id', 'desc')->limit(100)->select()->toArray();
+            $orders = PayOrder::order('id', 'desc')->limit(100)->select()->toArray();
             $orderCount = 0;
+            $timeOut = $this->systemConfig()->getOrderCloseRaw();
+            $payloadFactory = $this->orderPayloadFactory();
+            $orderCache = $this->orderCache();
+
             foreach ($orders as $order) {
-                $data = [
-                    "payId" => $order['pay_id'],
-                    "orderId" => $order['order_id'],
-                    "payType" => $order['type'],
-                    "price" => $order['price'],
-                    "reallyPrice" => $order['really_price'],
-                    "payUrl" => $order['pay_url'],
-                    "isAuto" => $order['is_auto'],
-                    "state" => $order['state'],
-                    "timeOut" => \app\model\Setting::getConfigValue("close"),
-                    "date" => $order['create_date']
-                ];
-                if (CacheService::cacheOrder($order['order_id'], $data)) {
+                $data = $payloadFactory->create(
+                    (string) $order['pay_id'],
+                    (string) $order['order_id'],
+                    (int) $order['type'],
+                    $order['price'],
+                    $order['really_price'],
+                    (string) $order['pay_url'],
+                    (int) $order['is_auto'],
+                    (int) $order['state'],
+                    $timeOut,
+                    (int) $order['create_date']
+                );
+
+                if ($orderCache->cacheOrder((string) $order['order_id'], $data)) {
                     $orderCount++;
                 }
             }
@@ -126,5 +128,25 @@ class CacheManage extends Command
         } catch (\Exception $e) {
             $output->writeln('❌ 缓存预热失败: ' . $e->getMessage());
         }
+    }
+
+    private function adminSettingsService(): AdminSettingsService
+    {
+        return new AdminSettingsService();
+    }
+
+    private function orderCache(): OrderCache
+    {
+        return new OrderCache();
+    }
+
+    private function orderPayloadFactory(): OrderPayloadFactory
+    {
+        return new OrderPayloadFactory();
+    }
+
+    private function systemConfig(): SettingSystemConfig
+    {
+        return new SettingSystemConfig();
     }
 }

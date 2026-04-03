@@ -45,4 +45,44 @@ class EpaySignService
 
         return hash_equals(static::makeMd5($params, $key), $inputSign);
     }
+
+    public static function makeRsa(array $params, string $privateKeyPem): string
+    {
+        $content = static::buildSignContent($params);
+        $privateKey = openssl_pkey_get_private($privateKeyPem);
+
+        if ($privateKey === false) {
+            throw new \RuntimeException('RSA 私钥格式错误');
+        }
+
+        $signed = openssl_sign($content, $signature, $privateKey, OPENSSL_ALGO_SHA256);
+
+        if (!$signed) {
+            throw new \RuntimeException('RSA 签名失败');
+        }
+
+        return base64_encode($signature);
+    }
+
+    public static function verifyRsa(array $params, string $publicKeyPem): bool
+    {
+        $inputSign = (string)($params['sign'] ?? '');
+        if ($inputSign === '') {
+            return false;
+        }
+
+        $content = static::buildSignContent($params);
+        $publicKey = openssl_pkey_get_public($publicKeyPem);
+
+        if ($publicKey === false) {
+            return false;
+        }
+
+        $decoded = base64_decode($inputSign, true);
+        if ($decoded === false) {
+            return false;
+        }
+
+        return openssl_verify($content, $decoded, $publicKey, OPENSSL_ALGO_SHA256) === 1;
+    }
 }

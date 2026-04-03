@@ -490,8 +490,11 @@ class Index extends BaseController
             $orderData = $res->toArray();
 
             if (\app\service\epay\EpayNotifyService::isEpayOrder($orderData)) {
-                $epayKey = \app\service\epay\EpayConfigService::getConfig()['key'];
-                $url = \app\service\epay\EpayNotifyService::buildReturnUrl($orderData, $epayKey);
+                $epayConfig = \app\service\epay\EpayConfigService::getConfig();
+                $signingKey = \app\service\epay\EpayNotifyService::isEpayV2Order($orderData)
+                    ? $epayConfig['private_key']
+                    : $epayConfig['key'];
+                $url = \app\service\epay\EpayNotifyService::buildReturnUrl($orderData, $signingKey);
             } else {
                 $key = Setting::getConfigValue("key");
 
@@ -624,8 +627,11 @@ class Index extends BaseController
             $orderData = $res->toArray();
 
             if (\app\service\epay\EpayNotifyService::isEpayOrder($orderData)) {
-                $epayKey = \app\service\epay\EpayConfigService::getConfig()['key'];
-                $notifyOk = \app\service\epay\EpayNotifyService::sendNotify($orderData, $epayKey);
+                $epayConfig = \app\service\epay\EpayConfigService::getConfig();
+                $signingKey = \app\service\epay\EpayNotifyService::isEpayV2Order($orderData)
+                    ? $epayConfig['private_key']
+                    : $epayConfig['key'];
+                $notifyOk = \app\service\epay\EpayNotifyService::sendNotify($orderData, $signingKey);
             } else {
                 $url = $res['notify_url'];
 

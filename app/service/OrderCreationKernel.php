@@ -5,6 +5,7 @@ namespace app\service;
 
 use app\model\PayOrder;
 use app\model\PayQrcode;
+use app\model\Setting;
 use app\model\TmpPrice;
 use app\service\cache\OrderCache;
 use app\service\config\SettingSystemConfig;
@@ -90,6 +91,8 @@ class OrderCreationKernel
         int $isAuto,
         int $createDate
     ): array {
+        $rawTimeout = Setting::getConfigValue('close');
+
         $orderInfo = static::payloadFactory()->create(
             $merchantOrderId,
             $orderId,
@@ -99,7 +102,7 @@ class OrderCreationKernel
             $payUrl,
             $isAuto,
             PayOrder::STATE_UNPAID,
-            (string) static::systemConfig()->getOrderCloseMinutes(),
+            $rawTimeout,
             $createDate
         );
 

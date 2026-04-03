@@ -41,10 +41,14 @@ namespace app\service {
 
 namespace tests {
 
+    use app\model\PayOrder;
+    use app\service\OrderCreationKernel;
     use app\service\MonitorService;
     use app\service\NotifyService;
     use app\service\SignService;
+    use app\service\cache\OrderCache;
     use app\service\config\SystemConfig;
+    use app\service\order\OrderPayloadFactory;
     use app\service\runtime\MonitorState;
     use PHPUnit\Framework\Attributes\RunClassInSeparateProcess;
     use PHPUnit\Framework\TestCase as BaseTestCase;
@@ -70,6 +74,7 @@ namespace tests {
             SignServiceAdapterProbe::$config = null;
             MonitorServiceAdapterProbe::$state = null;
             NotifyServiceAdapterProbe::$config = null;
+            OrderCreationKernelProbe::$cachedOrders = [];
 
             parent::tearDown();
         }
@@ -154,6 +159,25 @@ namespace tests {
             $this->assertSame(0, NotifyHttpProbe::$curlOptions[CURLOPT_SSL_VERIFYHOST] ?? 2);
         }
 
+        public function test_order_creation_kernel_preserves_raw_timeout_string_in_payload_and_cache(): void
+        {
+            $this->seedSettings(['close' => '05']);
+
+            $payload = OrderCreationKernelProbe::buildAndCacheOrderInfo(
+                'merchant-002',
+                'order-002',
+                PayOrder::TYPE_WECHAT,
+                '12.34',
+                '12.34',
+                'weixin://pay-url',
+                1,
+                1700000000
+            );
+
+            $this->assertSame('05', $payload['timeOut']);
+            $this->assertSame($payload, OrderCreationKernelProbe::$cachedOrders['order-002'] ?? null);
+        }
+
         private function seedSettings(array $settings): void
         {
             foreach ($settings as $key => $value) {
@@ -201,6 +225,27 @@ namespace tests {
             }
 
             return self::$config;
+        }
+    }
+
+    class OrderCreationKernelProbe extends OrderCreationKernel
+    {
+        public static array $cachedOrders = [];
+
+        protected static function orderCache(): OrderCache
+        {
+            return new class extends OrderCache {
+                public function cacheOrder(string $orderId, array $orderData): bool
+                {
+                    OrderCreationKernelProbe::$cachedOrders[$orderId] = $orderData;
+                    return true;
+                }
+            };
+        }
+
+        protected static function payloadFactory(): OrderPayloadFactory
+        {
+            return new OrderPayloadFactory();
         }
     }
 

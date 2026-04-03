@@ -80,6 +80,56 @@
 
 
 
+    <hr style="margin: 20px 0; border-color: #e6e6e6;">
+    <div class="layui-form-item">
+        <label class="layui-form-label" style="color: #1E9FFF; font-weight: bold;">易支付兼容</label>
+    </div>
+
+    <div class="layui-form-item">
+        <label class="layui-form-label">启用状态</label>
+        <div class="layui-input-block">
+            <select id="epay_enabled">
+                <option value="0">关闭</option>
+                <option value="1">开启</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="layui-form-item">
+        <label class="layui-form-label">商户ID(pid)</label>
+        <div class="layui-input-block">
+            <input type="text" id="epay_pid" placeholder="易支付商户号" autocomplete="off" class="layui-input">
+        </div>
+    </div>
+
+    <div class="layui-form-item">
+        <label class="layui-form-label">商户名称</label>
+        <div class="layui-input-block">
+            <input type="text" id="epay_name" placeholder="订单显示名称，默认：订单支付" autocomplete="off" class="layui-input">
+        </div>
+    </div>
+
+    <div class="layui-form-item">
+        <label class="layui-form-label">MD5密钥(v1)</label>
+        <div class="layui-input-block">
+            <input type="text" id="epay_key" placeholder="留空则不更新，用于 v1 MD5 签名" autocomplete="off" class="layui-input">
+        </div>
+    </div>
+
+    <div class="layui-form-item">
+        <label class="layui-form-label">RSA私钥(v2)</label>
+        <div class="layui-input-block">
+            <textarea id="epay_private_key" placeholder="留空则不更新，PEM格式RSA私钥，用于 v2 签名" class="layui-textarea" style="height: 100px;"></textarea>
+        </div>
+    </div>
+
+    <div class="layui-form-item">
+        <label class="layui-form-label">RSA公钥(v2)</label>
+        <div class="layui-input-block">
+            <textarea id="epay_public_key" placeholder="留空则不更新，PEM格式RSA公钥，用于 v2 验签" class="layui-textarea" style="height: 100px;"></textarea>
+        </div>
+    </div>
+
     <div class="layui-form-item" style="text-align: right;">
         <button class="layui-btn" onclick="save()">保存</button>
     </div>
@@ -296,7 +346,16 @@
         }
         wximg = wximg.replace(/enQrcode\?url=/g,"");
         zfbimg = zfbimg.replace(/enQrcode\?url=/g,"");
-        $.post("admin/index/saveSetting","user="+user+"&pass="+pass+"&notifyUrl="+notifyUrl+"&returnUrl="+returnUrl+"&key="+key+"&wxpay="+wximg+"&zfbpay="+zfbimg+"&close="+close+"&payQf="+payQf,function (data) {
+        var epay_enabled = $("#epay_enabled").val();
+        var epay_pid = $("#epay_pid").val();
+        var epay_name = $("#epay_name").val();
+        var epay_key = $("#epay_key").val();
+        var epay_private_key = $("#epay_private_key").val();
+        var epay_public_key = $("#epay_public_key").val();
+        var postData = "user="+user+"&pass="+pass+"&notifyUrl="+notifyUrl+"&returnUrl="+returnUrl+"&key="+key+"&wxpay="+wximg+"&zfbpay="+zfbimg+"&close="+close+"&payQf="+payQf
+            +"&epay_enabled="+epay_enabled+"&epay_pid="+encodeURIComponent(epay_pid)+"&epay_name="+encodeURIComponent(epay_name)
+            +"&epay_key="+encodeURIComponent(epay_key)+"&epay_private_key="+encodeURIComponent(epay_private_key)+"&epay_public_key="+encodeURIComponent(epay_public_key);
+        $.post("admin/index/saveSetting", postData, function (data) {
             if (data.code==1){
                 $.post("admin/index/getSettings",function (data) {
                     console.log(data);
@@ -307,6 +366,12 @@
                         $("#returnUrl").val(data.data.returnUrl);
                         $("#key").val(data.data.key);
                         $("#close").val(data.data.close);
+                        $("#epay_enabled").val(data.data.epay_enabled || '0');
+                        $("#epay_pid").val(data.data.epay_pid || '');
+                        $("#epay_name").val(data.data.epay_name || '');
+                        $("#epay_key").val('');
+                        $("#epay_private_key").val('');
+                        $("#epay_public_key").val(data.data.epay_public_key || '');
 
                         if (data.data.wxpay!=""){
                             $('#wximg').attr('src', "enQrcode?url="+data.data.wxpay);
@@ -314,6 +379,7 @@
                         if (data.data.zfbpay!=""){
                             $('#zfbimg').attr('src', "enQrcode?url="+data.data.zfbpay);
                         }
+                        layui.form.render();
                     }
                 });
             }
@@ -333,7 +399,12 @@
                 $("#key").val(data.data.key);
                 $("#close").val(data.data.close);
                 $("#payQf").val(data.data.payQf);
-
+                $("#epay_enabled").val(data.data.epay_enabled || '0');
+                $("#epay_pid").val(data.data.epay_pid || '');
+                $("#epay_name").val(data.data.epay_name || '');
+                $("#epay_key").val('');
+                $("#epay_private_key").val('');
+                $("#epay_public_key").val(data.data.epay_public_key || '');
 
                 if (data.data.wxpay!=""){
                     $('#wximg').attr('src', "enQrcode?url="+data.data.wxpay);

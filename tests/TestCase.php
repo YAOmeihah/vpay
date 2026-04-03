@@ -276,22 +276,10 @@ abstract class TestCase extends BaseTestCase
 
     private static function loadTestEnv(): array
     {
-        $env = [];
         $files = [
             self::$rootPath . '.env',
             self::$rootPath . '.env.testing',
         ];
-
-        foreach ($files as $file) {
-            if (!is_file($file)) {
-                continue;
-            }
-
-            $parsed = parse_ini_file($file, false, INI_SCANNER_RAW);
-            if (is_array($parsed)) {
-                $env = array_merge($env, $parsed);
-            }
-        }
 
         $map = [
             'DB_TYPE' => 'VMQ_TEST_DB_TYPE',
@@ -303,17 +291,18 @@ abstract class TestCase extends BaseTestCase
             'DB_CHARSET' => 'VMQ_TEST_DB_CHARSET',
         ];
 
-        foreach ($map as $iniKey => $envVar) {
-            if (array_key_exists($iniKey, $env)) {
-                continue;
-            }
+        return TestEnvResolver::resolve(
+            $files,
+            $map,
+            static function (string $path) {
+                if (!is_file($path)) {
+                    return null;
+                }
 
-            $value = getenv($envVar);
-            if ($value !== false) {
-                $env[$iniKey] = $value;
-            }
-        }
-
-        return $env;
+                $parsed = parse_ini_file($path, false, INI_SCANNER_RAW);
+                return is_array($parsed) ? $parsed : null;
+            },
+            static fn (string $envVar) => getenv($envVar)
+        );
     }
 }

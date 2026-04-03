@@ -612,9 +612,14 @@ class Index extends BaseController
             ->find();
 
         if ($res) {
-            TmpPrice::where("oid", $res['order_id'])->delete();
+            $affected = PayOrder::where("id", $res['id'])->where("state", 0)
+                ->update(array("state" => 1, "pay_date" => time(), "close_date" => time()));
 
-            PayOrder::where("id", $res['id'])->update(array("state" => 1, "pay_date" => time(), "close_date" => time()));
+            if ($affected === 0) {
+                return json($this->getReturn(1, "订单已处理"));
+            }
+
+            TmpPrice::where("oid", $res['order_id'])->delete();
 
             $orderData = $res->toArray();
 

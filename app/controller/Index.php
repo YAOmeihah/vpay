@@ -8,6 +8,7 @@ use app\model\PayOrder;
 use app\model\Setting;
 use app\model\PayQrcode;
 use app\model\TmpPrice;
+use app\service\MonitorService;
 use app\service\NotifyService;
 use app\service\SignService;
 use think\facade\Session;
@@ -516,8 +517,7 @@ class Index extends BaseController
             return json($this->getReturn(-1, "签名校验不通过"));
         }
 
-        Setting::setConfigValue("lastheart", (string)time());
-        Setting::setConfigValue("jkstate", "1");
+        MonitorService::heartbeat();
         return json($this->getReturn());
     }
 
@@ -585,38 +585,13 @@ class Index extends BaseController
     //关闭过期订单接口(请用定时器至少1分钟调用一次)
     public function closeEndOrder()
     {
-        $lastheart = Setting::getConfigValue("lastheart");
-        if ((time() - intval($lastheart)) > 90) {
-            Setting::setConfigValue("jkstate", "0");
+        $affected = MonitorService::closeExpiredOrders();
+
+        if ($affected > 0) {
+            return json($this->getReturn(1, "成功清理" . $affected . "条订单"));
         }
 
-        $time = Setting::getConfigValue("close");
-
-        $closeTime = time() - 60 * intval($time);
-        $close_date = time();
-
-        $res = PayOrder::where("create_date", "<=", $closeTime)
-            ->where("state", 0)
-            ->update(array("state" => -1, "close_date" => $close_date));
-
-        if ($res) {
-            $rows = PayOrder::where("close_date", $close_date)->select();
-            foreach ($rows as $row) {
-                TmpPrice::where("oid", $row['order_id'])->delete();
-            }
-
-            $rows = TmpPrice::select();
-            foreach ($rows as $row) {
-                $re = PayOrder::where("order_id", $row['oid'])->find();
-                if (!$re) {
-                    TmpPrice::where("oid", $row['oid'])->delete();
-                }
-            }
-
-            return json($this->getReturn(1, "成功清理" . $res . "条订单"));
-        } else {
-            return json($this->getReturn(1, "没有等待清理的订单"));
-        }
+        return json($this->getReturn(1, "没有等待清理的订单"));
     }
 
 }

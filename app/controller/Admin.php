@@ -8,7 +8,7 @@ use app\model\PayOrder;
 use app\model\Setting;
 use app\model\PayQrcode;
 use app\model\TmpPrice;
-use think\facade\Session;
+use app\service\NotifyService;
 use think\facade\Db;
 use think\App;
 
@@ -21,40 +21,10 @@ class Admin extends BaseController
     }
 
     /**
-     * 检查管理员权限
-     */
-    protected function checkAdminAuth()
-    {
-        if (!Session::has("admin")) {
-            return false;
-        }
-
-        // 检查Session超时 (24小时，更宽松)
-        $loginTime = Session::get("login_time");
-        if ($loginTime && (time() - $loginTime) > 86400) {
-            Session::clear();
-            return false;
-        }
-
-        // IP检查可选（避免网络环境变化导致的问题）
-        // $loginIp = Session::get("login_ip");
-        // if ($loginIp && $loginIp !== $this->request->ip()) {
-        //     Session::clear();
-        //     return false;
-        // }
-
-        return true;
-    }
-
-    /**
      * 获取后台首页统计数据（带缓存）
      */
     public function getMain()
     {
-        if (!$this->checkAdminAuth()) {
-            return json($this->getReturn(-1, "没有登录"));
-        }
-
         // 先从缓存获取统计数据
         $statsData = \app\service\CacheService::getStats('dashboard');
         if ($statsData) {
@@ -182,10 +152,6 @@ class Admin extends BaseController
      */
     public function checkUpdate()
     {
-        if (!Session::has("admin")) {
-            return json($this->getReturn(-1, "没有登录"));
-        }
-
         // 直接返回最新版本，不进行网络请求
         return json($this->getReturn(0, "程序是最新版"));
 
@@ -213,10 +179,6 @@ class Admin extends BaseController
      */
     public function getSettings()
     {
-        if (!Session::has("admin")) {
-            return json($this->getReturn(-1, "没有登录"));
-        }
-
         $settings = [
             'user' => Setting::getConfigValue('user'),
             'pass' => '', // 密码字段不显示实际值，显示为空
@@ -252,10 +214,6 @@ class Admin extends BaseController
      */
     public function saveSetting()
     {
-        if (!Session::has("admin")) {
-            return json($this->getReturn(-1, "没有登录"));
-        }
-
         $params = [
             'user', 'pass', 'notifyUrl', 'returnUrl', 'key',
             'close', 'payQf', 'wxpay', 'zfbpay',
@@ -305,10 +263,6 @@ class Admin extends BaseController
      */
     public function generateRsaKeys()
     {
-        if (!Session::has("admin")) {
-            return json($this->getReturn(-1, "没有登录"));
-        }
-
         $config = [
             'private_key_bits' => 2048,
             'private_key_type' => OPENSSL_KEYTYPE_RSA,
@@ -338,10 +292,6 @@ class Admin extends BaseController
      */
     public function addPayQrcode()
     {
-        if (!Session::has("admin")) {
-            return json($this->getReturn(-1, "没有登录"));
-        }
-
         PayQrcode::create([
             "type" => (int)$this->request->param("type"),
             "pay_url" => $this->request->param("pay_url"),
@@ -356,10 +306,6 @@ class Admin extends BaseController
      */
     public function getPayQrcodes()
     {
-        if (!Session::has("admin")) {
-            return json($this->getReturn(-1, "没有登录"));
-        }
-
         $page = (int)$this->request->param("page", 1);
         $size = (int)$this->request->param("limit", 10);
         $type = $this->request->param("type");
@@ -384,10 +330,6 @@ class Admin extends BaseController
      */
     public function delPayQrcode()
     {
-        if (!Session::has("admin")) {
-            return json($this->getReturn(-1, "没有登录"));
-        }
-
         PayQrcode::where("id", (int)$this->request->param("id"))->delete();
         return json($this->getReturn());
     }
@@ -397,10 +339,6 @@ class Admin extends BaseController
      */
     public function getOrders()
     {
-        if (!Session::has("admin")) {
-            return json($this->getReturn(-1, "没有登录"));
-        }
-
         $page = (int)$this->request->param("page", 1);
         $size = (int)$this->request->param("limit", 10);
         $type = $this->request->param("type");
@@ -431,10 +369,6 @@ class Admin extends BaseController
      */
     public function delOrder()
     {
-        if (!Session::has("admin")) {
-            return json($this->getReturn(-1, "没有登录"));
-        }
-
         $id = (int)$this->request->param("id");
         $res = PayOrder::where("id", $id)->find();
 
@@ -452,39 +386,13 @@ class Admin extends BaseController
      */
     public function setBd()
     {
-        if (!Session::has("admin")) {
-            return json($this->getReturn(-1, "没有登录"));
-        }
-
         $id = (int)$this->request->param("id");
         $res = PayOrder::where("id", $id)->find();
 
         if ($res) {
             $orderData = $res->toArray();
 
-            if (\app\service\epay\EpayNotifyService::isEpayOrder($orderData)) {
-                $epayConfig = \app\service\epay\EpayConfigService::getConfig();
-                $signingKey = \app\service\epay\EpayNotifyService::isEpayV2Order($orderData)
-                    ? $epayConfig['private_key']
-                    : $epayConfig['key'];
-                $notifyOk = \app\service\epay\EpayNotifyService::sendNotify($orderData, $signingKey);
-            } else {
-                $url = $res['notify_url'];
-                $key = Setting::getConfigValue("key");
-
-                $p = "payId=" . $res['pay_id'] . "&param=" . $res['param'] . "&type=" . $res['type'] . "&price=" . $res['price'] . "&reallyPrice=" . $res['really_price'];
-
-                $sign = $res['pay_id'] . $res['param'] . $res['type'] . $res['price'] . $res['really_price'] . $key;
-                $p = $p . "&sign=" . md5($sign);
-
-                if (strpos($url, "?") === false) {
-                    $url = $url . "?" . $p;
-                } else {
-                    $url = $url . "&" . $p;
-                }
-
-                $notifyOk = $this->getCurl($url) == "success";
-            }
+            $notifyOk = NotifyService::sendNotify($orderData);
 
             if ($notifyOk) {
                 if ($res['state'] == 0) {
@@ -506,10 +414,6 @@ class Admin extends BaseController
      */
     public function delGqOrder()
     {
-        if (!Session::has("admin")) {
-            return json($this->getReturn(-1, "没有登录"));
-        }
-
         PayOrder::where("state", "-1")->delete();
         return json($this->getReturn());
     }
@@ -519,10 +423,6 @@ class Admin extends BaseController
      */
     public function delLastOrder()
     {
-        if (!Session::has("admin")) {
-            return json($this->getReturn(-1, "没有登录"));
-        }
-
         PayOrder::where("create_date", "<", (time() - 604800))->delete();
         return json($this->getReturn());
     }
@@ -562,38 +462,4 @@ class Admin extends BaseController
         }
     }
 
-    /**
-     * 发送HTTP请求
-     */
-    protected function getCurl($url, $post = 0, $cookie = 0, $header = 0, $nobaody = 0)
-    {
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $url);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        $klsf[] = 'Accept:*/*';
-        $klsf[] = 'Accept-Language:zh-cn';
-        $klsf[] = 'User-Agent:Mozilla/5.0 (iPhone; CPU iPhone OS 11_2_1 like Mac OS X) AppleWebKit/604.4.7 (KHTML, like Gecko) Mobile/15C153 MicroMessenger/6.6.1 NetType/WIFI Language/zh_CN';
-        $klsf[] = 'Referer:' . $url;
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $klsf);
-        if ($post) {
-            curl_setopt($ch, CURLOPT_POST, 1);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, $post);
-        }
-        if ($header) {
-            curl_setopt($ch, CURLOPT_HEADER, true);
-        }
-        if ($cookie) {
-            curl_setopt($ch, CURLOPT_COOKIE, $cookie);
-        }
-        if ($nobaody) {
-            curl_setopt($ch, CURLOPT_NOBODY, 1);
-        }
-        curl_setopt($ch, CURLOPT_TIMEOUT, 60);
-        curl_setopt($ch, CURLOPT_ENCODING, 'gzip');
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-        $ret = curl_exec($ch);
-        curl_close($ch);
-        return $ret;
-    }
 }

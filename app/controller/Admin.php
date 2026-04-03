@@ -234,6 +234,10 @@ class Admin extends BaseController
             'payQf' => Setting::getConfigValue('payQf'),
             'wxpay' => Setting::getConfigValue('wxpay'),
             'zfbpay' => Setting::getConfigValue('zfbpay'),
+            'epay_enabled' => Setting::getConfigValue('epay_enabled', '0'),
+            'epay_pid' => Setting::getConfigValue('epay_pid'),
+            'epay_key' => '',
+            'epay_name' => Setting::getConfigValue('epay_name', '订单支付'),
         ];
 
         // 如果key为空，生成一个新的
@@ -255,8 +259,9 @@ class Admin extends BaseController
         }
 
         $params = [
-            'user', 'pass', 'notifyUrl', 'returnUrl', 'key', 
-            'close', 'payQf', 'wxpay', 'zfbpay'
+            'user', 'pass', 'notifyUrl', 'returnUrl', 'key',
+            'close', 'payQf', 'wxpay', 'zfbpay',
+            'epay_enabled', 'epay_pid', 'epay_key', 'epay_name'
         ];
 
         foreach ($params as $param) {
@@ -272,7 +277,22 @@ class Admin extends BaseController
                 $value = password_hash($value, PASSWORD_DEFAULT);
             }
 
-            Setting::setConfigValue($param, $value);
+            if ($param === 'epay_key') {
+                $value = trim((string)$value);
+                if ($value === '') {
+                    continue;
+                }
+            }
+
+            if ($param === 'epay_enabled') {
+                $value = $value === '1' ? '1' : '0';
+            }
+
+            if (in_array($param, ['epay_pid', 'epay_name'], true)) {
+                $value = trim((string)$value);
+            }
+
+            Setting::setConfigValue($param, (string)$value);
         }
 
         // 清除统计缓存（配置变更可能影响统计）
@@ -408,23 +428,30 @@ class Admin extends BaseController
         $res = PayOrder::where("id", $id)->find();
 
         if ($res) {
-            $url = $res['notify_url'];
-            $key = Setting::getConfigValue("key");
+            $orderData = $res->toArray();
 
-            $p = "payId=" . $res['pay_id'] . "&param=" . $res['param'] . "&type=" . $res['type'] . "&price=" . $res['price'] . "&reallyPrice=" . $res['really_price'];
-
-            $sign = $res['pay_id'] . $res['param'] . $res['type'] . $res['price'] . $res['really_price'] . $key;
-            $p = $p . "&sign=" . md5($sign);
-
-            if (strpos($url, "?") === false) {
-                $url = $url . "?" . $p;
+            if (\app\service\epay\EpayNotifyService::isEpayOrder($orderData)) {
+                $epayKey = \app\service\epay\EpayConfigService::getConfig()['key'];
+                $notifyOk = \app\service\epay\EpayNotifyService::sendNotify($orderData, $epayKey);
             } else {
-                $url = $url . "&" . $p;
+                $url = $res['notify_url'];
+                $key = Setting::getConfigValue("key");
+
+                $p = "payId=" . $res['pay_id'] . "&param=" . $res['param'] . "&type=" . $res['type'] . "&price=" . $res['price'] . "&reallyPrice=" . $res['really_price'];
+
+                $sign = $res['pay_id'] . $res['param'] . $res['type'] . $res['price'] . $res['really_price'] . $key;
+                $p = $p . "&sign=" . md5($sign);
+
+                if (strpos($url, "?") === false) {
+                    $url = $url . "?" . $p;
+                } else {
+                    $url = $url . "&" . $p;
+                }
+
+                $notifyOk = $this->getCurl($url) == "success";
             }
 
-            $re = $this->getCurl($url);
-
-            if ($re == "success") {
+            if ($notifyOk) {
                 if ($res['state'] == 0) {
                     TmpPrice::where("oid", $res['order_id'])->delete();
                 }
@@ -432,7 +459,7 @@ class Admin extends BaseController
                 PayOrder::where("id", $res['id'])->update(array("state" => 1));
                 return json($this->getReturn());
             } else {
-                return json($this->getReturn(-2, "补单失败", $re));
+                return json($this->getReturn(-2, "补单失败"));
             }
         } else {
             return json($this->getReturn(-1, "订单不存在"));

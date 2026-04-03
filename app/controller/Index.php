@@ -487,22 +487,29 @@ class Index extends BaseController
                 return json($this->getReturn(-1, "订单已过期"));
             }
 
-            $key = Setting::getConfigValue("key");
+            $orderData = $res->toArray();
 
-            $res['price'] = number_format((float)$res['price'], 2, ".", "");
-            $res['really_price'] = number_format((float)$res['really_price'], 2, ".", "");
-
-            $p = "payId=" . $res['pay_id'] . "&param=" . $res['param'] . "&type=" . $res['type'] . "&price=" . $res['price'] . "&reallyPrice=" . $res['really_price'];
-
-            $sign = $res['pay_id'] . $res['param'] . $res['type'] . $res['price'] . $res['really_price'] . $key;
-            $p = $p . "&sign=" . md5($sign);
-
-            $url = $res['return_url'];
-
-            if (strpos($url, "?") === false) {
-                $url = $url . "?" . $p;
+            if (\app\service\epay\EpayNotifyService::isEpayOrder($orderData)) {
+                $epayKey = \app\service\epay\EpayConfigService::getConfig()['key'];
+                $url = \app\service\epay\EpayNotifyService::buildReturnUrl($orderData, $epayKey);
             } else {
-                $url = $url . "&" . $p;
+                $key = Setting::getConfigValue("key");
+
+                $res['price'] = number_format((float)$res['price'], 2, ".", "");
+                $res['really_price'] = number_format((float)$res['really_price'], 2, ".", "");
+
+                $p = "payId=" . $res['pay_id'] . "&param=" . $res['param'] . "&type=" . $res['type'] . "&price=" . $res['price'] . "&reallyPrice=" . $res['really_price'];
+
+                $sign = $res['pay_id'] . $res['param'] . $res['type'] . $res['price'] . $res['really_price'] . $key;
+                $p = $p . "&sign=" . md5($sign);
+
+                $url = $res['return_url'];
+
+                if (strpos($url, "?") === false) {
+                    $url = $url . "?" . $p;
+                } else {
+                    $url = $url . "&" . $p;
+                }
             }
 
             return json($this->getReturn(1, "成功", $url));
@@ -609,23 +616,31 @@ class Index extends BaseController
 
             PayOrder::where("id", $res['id'])->update(array("state" => 1, "pay_date" => time(), "close_date" => time()));
 
-            $url = $res['notify_url'];
+            $orderData = $res->toArray();
 
-            $key = Setting::getConfigValue("key");
-
-            $p = "payId=" . $res['pay_id'] . "&param=" . $res['param'] . "&type=" . $res['type'] . "&price=" . $res['price'] . "&reallyPrice=" . $res['really_price'];
-
-            $sign = $res['pay_id'] . $res['param'] . $res['type'] . $res['price'] . $res['really_price'] . $key;
-            $p = $p . "&sign=" . md5($sign);
-
-            if (strpos($url, "?") === false) {
-                $url = $url . "?" . $p;
+            if (\app\service\epay\EpayNotifyService::isEpayOrder($orderData)) {
+                $epayKey = \app\service\epay\EpayConfigService::getConfig()['key'];
+                $notifyOk = \app\service\epay\EpayNotifyService::sendNotify($orderData, $epayKey);
             } else {
-                $url = $url . "&" . $p;
+                $url = $res['notify_url'];
+
+                $key = Setting::getConfigValue("key");
+
+                $p = "payId=" . $res['pay_id'] . "&param=" . $res['param'] . "&type=" . $res['type'] . "&price=" . $res['price'] . "&reallyPrice=" . $res['really_price'];
+
+                $sign = $res['pay_id'] . $res['param'] . $res['type'] . $res['price'] . $res['really_price'] . $key;
+                $p = $p . "&sign=" . md5($sign);
+
+                if (strpos($url, "?") === false) {
+                    $url = $url . "?" . $p;
+                } else {
+                    $url = $url . "&" . $p;
+                }
+
+                $notifyOk = $this->getCurl($url) == "success";
             }
 
-            $re = $this->getCurl($url);
-            if ($re == "success") {
+            if ($notifyOk) {
                 return json($this->getReturn());
             } else {
                 PayOrder::where("id", $res['id'])->update(array("state" => 2));

@@ -30,6 +30,8 @@ Route::any('getState', 'index/getState');
 Route::any('appHeart', 'index/appHeart');
 Route::any('appPush', 'index/appPush');
 Route::any('closeEndOrder', 'index/closeEndOrder');
+Route::post('mapi.php', 'epay/mapi');
+Route::post('submit.php', 'epay/submit');
 
 // Admin后台管理路由
 Route::any('admin/index/getMain', 'admin/getMain');

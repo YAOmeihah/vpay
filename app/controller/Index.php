@@ -6,7 +6,6 @@ namespace app\controller;
 use app\BaseController;
 use app\model\PayOrder;
 use app\model\Setting;
-use app\model\PayQrcode;
 use app\model\TmpPrice;
 use app\service\MonitorService;
 use app\service\NotifyService;
@@ -162,77 +161,53 @@ class Index extends BaseController
     {
         $this->closeEndOrder();
 
-        // 输入验证和过滤
-        $payId = $this->request->param("payId");
-        if (!$payId || $payId == "") {
-            return json($this->getReturn(-1, "请传入商户订单号"));
-        }
-        // 基本安全检查，保持兼容性
-        if (strlen($payId) > 100) {
-            return json($this->getReturn(-1, "商户订单号长度超限"));
+        $params = $this->request->param();
+        $validate = new \app\validate\OrderValidate();
+        if (!$validate->check($params)) {
+            return json($this->getReturn(-1, $validate->getError()));
         }
 
-        $type = (int)$this->request->param("type");
-        if (!in_array($type, [1, 2])) {
-            return json($this->getReturn(-1, "支付方式错误=>1|微信 2|支付宝"));
-        }
-
-        $price = $this->request->param("price");
-        if (!$price || $price == "") {
-            return json($this->getReturn(-1, "请传入订单金额"));
-        }
-        if ($price <= 0) {
-            return json($this->getReturn(-1, "订单金额必须大于0"));
-        }
-        // 基本安全检查：防止过大金额
-        if ($price > 999999.99) {
-            return json($this->getReturn(-1, "订单金额超出限制"));
-        }
-
-        $sign = $this->request->param("sign");
-        if (!$sign || $sign == "") {
-            return json($this->getReturn(-1, "请传入签名"));
-        }
-
-        $isHtml = $this->request->param("isHtml");
-        if (!$isHtml || $isHtml == "") {
-            $isHtml = 0;
-        }
-        $param = $this->request->param("param");
-        if (!$param) {
-            $param = "";
-        }
-
-        if ($this->request->param("notifyUrl")) {
-            $notify_url = $this->request->param("notifyUrl");
-            // 基本安全检查：防止过长URL
-            if (strlen($notify_url) > 1000) {
-                return json($this->getReturn(-1, "回调地址长度超限"));
-            }
-        } else {
-            $notify_url = Setting::getConfigValue("notifyUrl");
-        }
-
-        if ($this->request->param("returnUrl")) {
-            $return_url = $this->request->param("returnUrl");
-            // 基本安全检查：防止过长URL
-            if (strlen($return_url) > 1000) {
-                return json($this->getReturn(-1, "返回地址长度超限"));
-            }
-        } else {
-            $return_url = Setting::getConfigValue("returnUrl");
-        }
+        $payId = $params['payId'];
+        $type = (int)$params['type'];
+        $price = $params['price'];
+        $sign = $params['sign'];
+        $isHtml = $params['isHtml'] ?? 0;
+        $param = $params['param'] ?? '';
 
         if (!SignService::verifyCreateOrderSign($payId, $param, $type, $price, $sign)) {
             return json($this->getReturn(-1, "签名错误"));
         }
 
-        $jkstate = Setting::getConfigValue("jkstate");
-        if ($jkstate != "1") {
-            // 根据isHtml参数返回不同格式的响应
+        try {
+            $orderParams = [
+                'payId'     => $payId,
+                'type'      => $type,
+                'price'     => $price,
+                'param'     => $param,
+                'notifyUrl' => $params['notifyUrl'] ?? null,
+                'returnUrl' => $params['returnUrl'] ?? null,
+            ];
+
+            $orderInfo = \app\service\OrderService::createOrder($orderParams);
+
             if ($isHtml == 1) {
-                // 返回简约的HTML错误页面
-                $html = '<!DOCTYPE html>
+                echo "<script>window.location.href = 'payPage/pay.html?orderId=" . $orderInfo['orderId'] . "'</script>";
+            } else {
+                return json($this->getReturn(1, "成功", $orderInfo));
+            }
+        } catch (\RuntimeException $e) {
+            if ($isHtml == 1) {
+                return response($this->renderErrorHtml($e->getMessage()))
+                    ->header(['Content-Type' => 'text/html; charset=utf-8']);
+            }
+            return json($this->getReturn(-1, $e->getMessage()));
+        }
+    }
+
+    private function renderErrorHtml(string $msg): string
+    {
+        $msg = htmlspecialchars($msg, ENT_QUOTES, 'UTF-8');
+        return '<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -240,167 +215,24 @@ class Index extends BaseController
     <title>支付异常</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-        .error-card {
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            padding: 40px 30px;
-            text-align: center;
-            max-width: 400px;
-            width: 100%;
-        }
-        .error-icon {
-            font-size: 48px;
-            color: #ff6b6b;
-            margin-bottom: 20px;
-        }
-        .error-title {
-            font-size: 24px;
-            color: #333;
-            margin-bottom: 15px;
-            font-weight: 600;
-        }
-        .error-message {
-            font-size: 16px;
-            color: #666;
-            line-height: 1.5;
-            margin-bottom: 30px;
-        }
-        .retry-btn {
-            background: #667eea;
-            color: white;
-            border: none;
-            padding: 12px 30px;
-            border-radius: 6px;
-            font-size: 16px;
-            cursor: pointer;
-            transition: background 0.3s ease;
-        }
-        .retry-btn:hover {
-            background: #5a6fd8;
-        }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        .error-card { background: white; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); padding: 40px 30px; text-align: center; max-width: 400px; width: 100%; }
+        .error-icon { font-size: 48px; color: #ff6b6b; margin-bottom: 20px; }
+        .error-title { font-size: 24px; color: #333; margin-bottom: 15px; font-weight: 600; }
+        .error-message { font-size: 16px; color: #666; line-height: 1.5; margin-bottom: 30px; }
+        .retry-btn { background: #667eea; color: white; border: none; padding: 12px 30px; border-radius: 6px; font-size: 16px; cursor: pointer; transition: background 0.3s ease; }
+        .retry-btn:hover { background: #5a6fd8; }
     </style>
 </head>
 <body>
     <div class="error-card">
         <div class="error-icon">⚠️</div>
         <h1 class="error-title">支付异常</h1>
-        <p class="error-message">我们正在修复支付系统，请稍后再试</p>
+        <p class="error-message">' . $msg . '</p>
         <button class="retry-btn" onclick="history.back()">返回上页</button>
     </div>
 </body>
 </html>';
-                return response($html)->header(['Content-Type' => 'text/html; charset=utf-8']);
-            } else {
-                // API调用返回JSON格式
-                return json($this->getReturn(-1, "监控端状态异常，请检查"));
-            }
-        }
-
-        $reallyPrice = bcmul((string)$price, '100');
-
-        $payQf = Setting::getConfigValue("payQf");
-
-        $orderId = date("YmdHms") . rand(1, 9) . rand(1, 9) . rand(1, 9) . rand(1, 9);
-
-        $ok = false;
-        for ($i = 0; $i < 10; $i++) {
-            $tmpPrice = $reallyPrice . "-" . $type;
-
-            try {
-                TmpPrice::create(['price' => $tmpPrice, 'oid' => $orderId]);
-                $ok = true;
-                break;
-            } catch (\Exception $e) {
-                // 继续尝试
-            }
-            if ($payQf == 1) {
-                $reallyPrice++;
-            } else if ($payQf == 2) {
-                $reallyPrice--;
-            }
-        }
-
-        if (!$ok) {
-            return json($this->getReturn(-1, "订单超出负荷，请稍后重试"));
-        }
-
-        $reallyPrice = bcdiv((string)$reallyPrice, '100', 2);
-
-        if ($type == 1) {
-            $payUrl = Setting::getConfigValue("wxpay");
-        } else if ($type == 2) {
-            $payUrl = Setting::getConfigValue("zfbpay");
-        }
-
-        if ($payUrl == "") {
-            return json($this->getReturn(-1, "请您先进入后台配置程序"));
-        }
-        $isAuto = 1;
-        $_payUrl = PayQrcode::where("price", $reallyPrice)
-            ->where("type", $type)
-            ->find();
-        if ($_payUrl) {
-            $payUrl = $_payUrl['pay_url'];
-            $isAuto = 0;
-        }
-
-        $res = PayOrder::where("pay_id", $payId)->find();
-        if ($res) {
-            return json($this->getReturn(-1, "商户订单号已存在"));
-        }
-
-        $createDate = time();
-        $data = array(
-            "close_date" => 0,
-            "create_date" => $createDate,
-            "is_auto" => $isAuto,
-            "notify_url" => $notify_url,
-            "order_id" => $orderId,
-            "param" => $param,
-            "pay_date" => 0,
-            "pay_id" => $payId,
-            "pay_url" => $payUrl,
-            "price" => $price,
-            "really_price" => $reallyPrice,
-            "return_url" => $return_url,
-            "state" => 0,
-            "type" => $type
-        );
-
-        PayOrder::create($data);
-
-        if ($isHtml == 1) {
-            echo "<script>window.location.href = 'payPage/pay.html?orderId=" . $orderId . "'</script>";
-        } else {
-            $time = Setting::getConfigValue("close");
-            $data = array(
-                "payId" => $payId,
-                "orderId" => $orderId,
-                "payType" => $type,
-                "price" => $price,
-                "reallyPrice" => $reallyPrice,
-                "payUrl" => $payUrl,
-                "isAuto" => $isAuto,
-                "state" => 0,
-                "timeOut" => $time,
-                "date" => $createDate
-            );
-
-            // 缓存新创建的订单
-            \app\service\CacheService::cacheOrder($orderId, $data);
-
-            return json($this->getReturn(1, "成功", $data));
-        }
     }
 
     //获取订单信息（带缓存）
@@ -526,60 +358,25 @@ class Index extends BaseController
     {
         $this->closeEndOrder();
 
-        $t = $this->request->param("t");
-        $type = $this->request->param("type");
-        $price = $this->request->param("price");
+        $t = $this->request->param('t');
+        $type = $this->request->param('type');
+        $price = $this->request->param('price');
 
         if (!SignService::verifySimpleSign($type . $price . $t, $this->request->param('sign', ''))) {
             return json($this->getReturn(-1, "签名校验不通过"));
         }
 
-        Setting::setConfigValue("lastpay", (string)time());
+        $result = \app\service\OrderService::handlePayPush($price, (int)$type);
 
-        $res = PayOrder::where("really_price", $price)
-            ->where("state", 0)
-            ->where("type", $type)
-            ->find();
+        if ($result['alreadyProcessed']) {
+            return json($this->getReturn(1, "订单已处理"));
+        }
 
-        if ($res) {
-            $affected = PayOrder::where("id", $res['id'])->where("state", 0)
-                ->update(array("state" => 1, "pay_date" => time(), "close_date" => time()));
-
-            if ($affected === 0) {
-                return json($this->getReturn(1, "订单已处理"));
-            }
-
-            TmpPrice::where("oid", $res['order_id'])->delete();
-
-            $notifyOk = NotifyService::sendNotify($res->toArray());
-
-            if ($notifyOk) {
-                return json($this->getReturn());
-            } else {
-                PayOrder::where("id", $res['id'])->update(array("state" => 2));
-                return json($this->getReturn(-1, "异步通知失败"));
-            }
-        } else {
-            $data = array(
-                "close_date" => 0,
-                "create_date" => time(),
-                "is_auto" => 0,
-                "notify_url" => "",
-                "order_id" => "无订单转账",
-                "param" => "无订单转账",
-                "pay_date" => 0,
-                "pay_id" => "无订单转账",
-                "pay_url" => "",
-                "price" => $price,
-                "really_price" => $price,
-                "return_url" => "",
-                "state" => 1,
-                "type" => $type
-            );
-
-            PayOrder::create($data);
+        if ($result['notifyOk']) {
             return json($this->getReturn());
         }
+
+        return json($this->getReturn(-1, "异步通知失败"));
     }
 
     //关闭过期订单接口(请用定时器至少1分钟调用一次)

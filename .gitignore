@@ -58,5 +58,7 @@ Desktop.ini
 /.serena/
 /.claude/
 /.codex/
+/.worktrees/
+/worktrees/
 docs/superpowers/
 CLAUDE.md

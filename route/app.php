@@ -31,7 +31,7 @@ Route::any('appHeart', 'index/appHeart');
 Route::any('appPush', 'index/appPush');
 Route::any('closeEndOrder', 'index/closeEndOrder');
 Route::post('mapi.php', 'epay/mapi');
-Route::post('submit.php', 'epay/submit');
+Route::rule('submit.php', 'epay/submit', 'GET|POST');
 Route::post('api/pay/create', 'epay/createV2');
 Route::post('api/pay/submit', 'epay/submitV2');
 

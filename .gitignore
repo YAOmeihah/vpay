@@ -57,3 +57,5 @@ Desktop.ini
 # Optional local tool folders
 /.serena/
 /.claude/
+docs/superpowers/
+CLAUDE.md

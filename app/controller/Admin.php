@@ -101,8 +101,9 @@ class Admin extends BaseController
 
     public function profile()
     {
+        $username = Session::get('admin_user', Setting::getConfigValue('user'));
         return json([
-            'username' => Setting::getConfigValue('user'),
+            'username' => $username,
             'nickname' => '管理员',
             'roles' => ['admin'],
             'permissions' => [
@@ -123,7 +124,17 @@ class Admin extends BaseController
 
     public function logout()
     {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+
         Session::clear();
+        Session::destroy();
+
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_regenerate_id(true);
+        }
+
         return json([
             'code' => 1,
             'msg' => '退出成功',

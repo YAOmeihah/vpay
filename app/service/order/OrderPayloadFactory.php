@@ -9,7 +9,7 @@ class OrderPayloadFactory
         string $payId,
         string $orderId,
         int $payType,
-        string $price,
+        float|string $price,
         float|string $reallyPrice,
         string $payUrl,
         int $isAuto,

@@ -8,6 +8,7 @@ use app\model\PayOrder;
 use app\model\Setting;
 use app\model\PayQrcode;
 use app\model\TmpPrice;
+use app\service\SignService;
 use think\facade\Session;
 
 class Index extends BaseController
@@ -28,32 +29,6 @@ class Index extends BaseController
         } catch (\Exception $e) {
             return json(['code' => -1, 'msg' => '数据库连接失败: ' . $e->getMessage()]);
         }
-    }
-
-    /**
-     * 检查管理员权限
-     */
-    protected function checkAdminAuth()
-    {
-        if (!Session::has("admin")) {
-            return false;
-        }
-
-        // 检查Session超时 (24小时，更宽松)
-        $loginTime = Session::get("login_time");
-        if ($loginTime && (time() - $loginTime) > 86400) {
-            Session::clear();
-            return false;
-        }
-
-        // 暂时禁用IP检查，避免网络环境变化导致的问题
-        // $loginIp = Session::get("login_ip");
-        // if ($loginIp && $loginIp !== $this->request->ip()) {
-        //     Session::clear();
-        //     return false;
-        // }
-
-        return true;
     }
 
     //后台用户登录
@@ -125,10 +100,6 @@ class Index extends BaseController
     //后台菜单
     public function getMenu()
     {
-        if (!$this->checkAdminAuth()) {
-            return json($this->getReturn(-1, "没有登录"));
-        }
-
         $menu = array(
             array(
                 "name" => "系统设置",
@@ -230,8 +201,6 @@ class Index extends BaseController
             $param = "";
         }
 
-        $key = Setting::getConfigValue("key");
-
         if ($this->request->param("notifyUrl")) {
             $notify_url = $this->request->param("notifyUrl");
             // 基本安全检查：防止过长URL
@@ -252,8 +221,7 @@ class Index extends BaseController
             $return_url = Setting::getConfigValue("returnUrl");
         }
 
-        $_sign = md5($payId . $param . $type . $price . $key);
-        if ($sign != $_sign) {
+        if (!SignService::verifyCreateOrderSign($payId, $param, $type, $price, $sign)) {
             return json($this->getReturn(-1, "签名错误"));
         }
 
@@ -492,23 +460,7 @@ class Index extends BaseController
                     : $epayConfig['key'];
                 $url = \app\service\epay\EpayNotifyService::buildReturnUrl($orderData, $signingKey);
             } else {
-                $key = Setting::getConfigValue("key");
-
-                $res['price'] = number_format((float)$res['price'], 2, ".", "");
-                $res['really_price'] = number_format((float)$res['really_price'], 2, ".", "");
-
-                $p = "payId=" . $res['pay_id'] . "&param=" . $res['param'] . "&type=" . $res['type'] . "&price=" . $res['price'] . "&reallyPrice=" . $res['really_price'];
-
-                $sign = $res['pay_id'] . $res['param'] . $res['type'] . $res['price'] . $res['really_price'] . $key;
-                $p = $p . "&sign=" . md5($sign);
-
-                $url = $res['return_url'];
-
-                if (strpos($url, "?") === false) {
-                    $url = $url . "?" . $p;
-                } else {
-                    $url = $url . "&" . $p;
-                }
+                $url = SignService::buildSignedUrl($res['return_url'], $res->toArray(), true);
             }
 
             return json($this->getReturn(1, "成功", $url));
@@ -520,12 +472,9 @@ class Index extends BaseController
     //关闭订单
     public function closeOrder()
     {
-        $key = Setting::getConfigValue("key");
         $orderId = $this->request->param("orderId");
 
-        $_sign = $orderId . $key;
-
-        if (md5($_sign) != $this->request->param("sign")) {
+        if (!SignService::verifySimpleSign($orderId, $this->request->param('sign', ''))) {
             return json($this->getReturn(-1, "签名校验不通过"));
         }
 
@@ -552,12 +501,9 @@ class Index extends BaseController
     //获取监控端状态
     public function getState()
     {
-        $key = Setting::getConfigValue("key");
         $t = $this->request->param("t");
 
-        $_sign = $t . $key;
-
-        if (md5($_sign) != $this->request->param("sign")) {
+        if (!SignService::verifySimpleSign($t, $this->request->param('sign', ''))) {
             return json($this->getReturn(-1, "签名校验不通过"));
         }
 
@@ -573,12 +519,9 @@ class Index extends BaseController
     {
         $this->closeEndOrder();
 
-        $key = Setting::getConfigValue("key");
         $t = $this->request->param("t");
 
-        $_sign = $t . $key;
-
-        if (md5($_sign) != $this->request->param("sign")) {
+        if (!SignService::verifySimpleSign($t, $this->request->param('sign', ''))) {
             return json($this->getReturn(-1, "签名校验不通过"));
         }
 
@@ -592,14 +535,11 @@ class Index extends BaseController
     {
         $this->closeEndOrder();
 
-        $key = Setting::getConfigValue("key");
         $t = $this->request->param("t");
         $type = $this->request->param("type");
         $price = $this->request->param("price");
 
-        $_sign = $type . $price . $t . $key;
-
-        if (md5($_sign) != $this->request->param("sign")) {
+        if (!SignService::verifySimpleSign($type . $price . $t, $this->request->param('sign', ''))) {
             return json($this->getReturn(-1, "签名校验不通过"));
         }
 
@@ -629,20 +569,7 @@ class Index extends BaseController
                     : $epayConfig['key'];
                 $notifyOk = \app\service\epay\EpayNotifyService::sendNotify($orderData, $signingKey);
             } else {
-                $url = $res['notify_url'];
-
-                $key = Setting::getConfigValue("key");
-
-                $p = "payId=" . $res['pay_id'] . "&param=" . $res['param'] . "&type=" . $res['type'] . "&price=" . $res['price'] . "&reallyPrice=" . $res['really_price'];
-
-                $sign = $res['pay_id'] . $res['param'] . $res['type'] . $res['price'] . $res['really_price'] . $key;
-                $p = $p . "&sign=" . md5($sign);
-
-                if (strpos($url, "?") === false) {
-                    $url = $url . "?" . $p;
-                } else {
-                    $url = $url . "&" . $p;
-                }
+                $url = SignService::buildSignedUrl($res['notify_url'], $res->toArray());
 
                 $notifyOk = $this->getCurl($url) == "success";
             }

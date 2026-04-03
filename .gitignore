@@ -1,0 +1,59 @@
+# Logs
+*.log
+*.pid
+*.tmp
+*.out
+*.err
+
+# Test / coverage cache
+/.phpunit.result.cache
+/.phpunit.cache/
+/coverage/
+
+# Archives / backups
+*.zip
+*.tar
+*.gz
+*.7z
+*.bak
+*.old
+*.orig
+*~
+
+# Runtime / cache
+/runtime/
+/public/runtime/
+
+# Environment files
+.env
+.env.*
+!.example.env
+!.env.example
+
+# Dependencies
+/vendor/
+
+# Runtime / cache / local data
+.user.ini
+*.cache
+*.sqlite
+*.db
+
+# Composer helper binary
+composer.phar
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# IDE files
+/.idea/
+/.vscode/
+/.settings/
+/.buildpath
+/.project
+
+# Optional local tool folders
+/.serena/
+/.claude/

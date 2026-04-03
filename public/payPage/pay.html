@@ -1,0 +1,688 @@
+
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta http-equiv="Content-Language" content="zh-cn">
+    <meta name="apple-mobile-web-app-capable" content="no"/>
+    <meta name="apple-touch-fullscreen" content="yes"/>
+    <meta name="format-detection" content="telephone=no,email=no"/>
+    <meta name="apple-mobile-web-app-status-bar-style" content="white">
+    <meta name="renderer" content="webkit"/>
+    <meta name="force-rendering" content="webkit"/>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1"/>
+    <meta http-equiv="Expires" content="0">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Cache-control" content="no-cache">
+    <meta http-equiv="Cache" content="no-cache">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <title>扫码支付</title>
+    <link href="pay.css" rel="stylesheet" media="screen">
+    <script src="https://lib.baomitu.com/jquery/3.3.1/jquery.min.js"></script>
+</head>
+
+<body>
+<div class="body" id="body">
+    <h1 class="mod-title">
+
+        <span class="ico_log ico-1" v-if="payType == 1"></span>
+        <span class="ico_log ico-2" v-if="payType == 2"></span>
+
+    </h1>
+
+    <div class="mod-ct">
+        <div class="order">
+        </div>
+        <div class="amount" id="timeOut" style="font-size: 20px;color: red;display: none;"><p>订单已过期，请您返回网站重新发起支付</p><br></div>
+        <div id="orderbody">
+            <div class="amount" id="money">￥{{ reallyPrice }}</div>
+            <div class="qrcode-img-wrapper" data-role="qrPayImgWrapper">
+                <div data-role="qrPayImg" class="qrcode-img-area">
+                    <div class="ui-loading qrcode-loading" data-role="qrPayImgLoading" style="display: none;">加载中</div>
+                    <div style="position: relative;display: inline-block;">
+                        <img  id='show_qrcode' alt="加载中..." :src="'../enQrcode?url='+payUrl" width="210" height="210" style="display: block;">
+                        <!--<img onclick="$('#use').hide()" id="use" src="use_1.png" v-if="payType==1"
+                             style="position: absolute;top: 50%;left: 50%;width:32px;height:32px;margin-left: -16px;margin-top: -16px">
+                        <img onclick="$('#use').hide()" id="use" src="use_2.png" v-if="payType==2"
+                             style="position: absolute;top: 50%;left: 50%;width:32px;height:32px;margin-left: -16px;margin-top: -16px">-->
+                    </div>
+                </div>
+
+
+            </div>
+
+            <div id="mobileSave" class="mobile-save-container" style="display:none;text-align:center;margin:20px auto;padding:20px;background:#fff;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,0.08);max-width:340px;border:1px solid #f0f0f0;">
+                <!-- 微信支付操作指引区域 -->
+                <div v-if="payType == 1" class="wechat-guide-container">
+                    <div class="guide-gif-wrapper">
+                        <img src="wpay.gif" alt="微信支付操作指引" class="wechat-guide-gif">
+                    </div>
+                    <div class="guide-text">
+                        <p>微信支付步骤：</p>
+                        <p>1. 保存二维码到相册</p>
+                        <p>2. 打开微信扫一扫</p>
+                        <p>3. 选择相册扫码支付</p>
+                    </div>
+                </div>
+
+                <button type="button" id="saveQrBtn" class="mobile-save-btn" style="display:inline-block;width:100%;max-width:280px;padding:16px 24px;background:linear-gradient(135deg,#07c160 0%,#06ad56 100%);color:#fff;border:none;border-radius:12px;font-size:18px;font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(7,193,96,0.3);margin:0 auto;line-height:1.4;">保存二维码到相册</button>
+                <div id="saveTip" class="mobile-save-tip" style="font-size:14px;color:#6b7280;margin-top:16px;line-height:1.5;padding:0 12px;text-align:center;">保存后在{{payType1}}中选择“扫一扫”→“相册”扫描已保存的二维码完成支付</div>
+            </div>
+            <!-- 支付确认弹窗 -->
+            <div id="paymentModal" class="payment-modal" style="display:none;">
+                <div class="payment-modal-overlay"></div>
+                <div class="payment-modal-content">
+                    <div class="payment-modal-header">
+                        <h3>支付确认</h3>
+                    </div>
+                    <div class="payment-modal-body">
+                        <p>检测到您可能已经完成了扫码支付</p>
+                        <p>请确认您的支付状态</p>
+                    </div>
+                    <div class="payment-modal-footer">
+                        <button type="button" id="cancelPayBtn" class="payment-modal-btn cancel">取消</button>
+                        <button type="button" id="confirmPayBtn" class="payment-modal-btn confirm">我已支付</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 支付成功跳转提示 -->
+            <div id="successModal" class="success-modal" style="display:none;">
+                <div class="success-modal-overlay"></div>
+                <div class="success-modal-content">
+                    <div class="success-icon">✓</div>
+                    <h3>支付成功</h3>
+                    <p>您已支付成功，正在跳转...</p>
+                    <div class="loading-dots">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 支付检查结果提示 -->
+            <div id="checkResultModal" class="check-result-modal" style="display:none;">
+                <div class="check-result-overlay"></div>
+                <div class="check-result-content">
+                    <div class="check-result-icon" id="checkResultIcon">!</div>
+                    <h3 id="checkResultTitle">检查结果</h3>
+                    <p id="checkResultMessage">正在检查支付状态...</p>
+                    <button type="button" id="checkResultBtn" class="check-result-btn">确定</button>
+                </div>
+            </div>
+
+            <div class="time-item">
+
+
+                <div class="time-item" id="msg">
+                    <h1  v-if="price != reallyPrice">
+                        <span style="color:red">为了您正常支付 请务必付款 {{ reallyPrice }} 元 <br>备注说明无需填写</span><br>
+
+
+                    </h1>
+
+                </div>
+
+
+
+
+
+
+
+                <strong id="hour_show">0时</strong>
+                <strong id="minute_show">0分</strong>
+                <strong id="second_show">0秒</strong>
+            </div>
+
+            <div class="tip">
+                <div class="ico-scan"></div>
+                <div class="tip-text">
+                    <p>请使用{{payType1}}扫一扫</p>
+
+                    <p v-if="isAuto == 0">扫描二维码完成支付</p>
+                    <p v-if="isAuto == 1">扫码后输入金额支付</p>
+
+                </div>
+            </div>
+
+            <div class="detail" id="orderDetail">
+                <dl class="detail-ct" id="desc" style="display: none;">
+                    <dt>金额</dt>
+                    <dd>{{price}}</dd>
+                    <dt>商户订单：</dt>
+                    <dd>{{payId}}</dd>
+                    <dt>创建时间：</dt>
+                    <dd>{{formatDate(date)}}</dd>
+                    <dt>状态</dt>
+                    <dd>等待支付</dd>
+                </dl>
+
+                <a href="javascript:void(0)" class="arrow" onclick="aaa()"><i class="ico-arrow"></i></a>
+            </div>
+        </div>
+
+
+        <div class="tip-text">
+
+        </div>
+
+
+    </div>
+    <div class="foot">
+        <div class="inner">
+            <p>手机用户可保存上方二维码到手机中</p>
+            <p>在{{payType1}}扫一扫中选择“相册”即可</p>
+        </div>
+    </div>
+
+</div>
+<div class="copyRight">
+
+</div>
+
+<script src="https://lib.baomitu.com/vue/2.5.21/vue.min.js"></script>
+
+<script>
+
+    function aaa() {
+        if ($('#orderDetail').hasClass('detail-open')) {
+            $('#orderDetail .detail-ct').slideUp(500, function () {
+                $('#orderDetail').removeClass('detail-open');
+            });
+        } else {
+            $('#orderDetail .detail-ct').slideDown(500, function () {
+                $('#orderDetail').addClass('detail-open');
+            });
+        }
+    }
+    function formatDate(now) {
+        now = new Date(now*1000)
+        return now.getFullYear()
+            + "-" + (now.getMonth()>8?(now.getMonth()+1):"0"+(now.getMonth()+1))
+            + "-" + (now.getDate()>9?now.getDate():"0"+now.getDate())
+            + " " + (now.getHours()>9?now.getHours():"0"+now.getHours())
+            + ":" + (now.getMinutes()>9?now.getMinutes():"0"+now.getMinutes())
+            + ":" + (now.getSeconds()>9?now.getSeconds():"0"+now.getSeconds());
+
+    }
+    var myTimer;
+    function timer(intDiff) {
+        var i = 0;
+        i++;
+        var day = 0,
+            hour = 0,
+            minute = 0,
+            second = 0;//时间默认值
+        if (intDiff > 0) {
+            day = Math.floor(intDiff / (60 * 60 * 24));
+            hour = Math.floor(intDiff / (60 * 60)) - (day * 24);
+            minute = Math.floor(intDiff / 60) - (day * 24 * 60) - (hour * 60);
+            second = Math.floor(intDiff) - (day * 24 * 60 * 60) - (hour * 60 * 60) - (minute * 60);
+        }
+        if (minute <= 9) minute = '0' + minute;
+        if (second <= 9) second = '0' + second;
+        $('#hour_show').html('<s id="h"></s>' + hour + '时');
+        $('#minute_show').html('<s></s>' + minute + '分');
+        $('#second_show').html('<s></s>' + second + '秒');
+        if (hour <= 0 && minute <= 0 && second <= 0) {
+            qrcode_timeout()
+            clearInterval(myTimer);
+
+        }
+        intDiff--;
+
+        myTimer = window.setInterval(function () {
+            i++;
+            var day = 0,
+                hour = 0,
+                minute = 0,
+                second = 0;//时间默认值
+            if (intDiff > 0) {
+                day = Math.floor(intDiff / (60 * 60 * 24));
+                hour = Math.floor(intDiff / (60 * 60)) - (day * 24);
+                minute = Math.floor(intDiff / 60) - (day * 24 * 60) - (hour * 60);
+                second = Math.floor(intDiff) - (day * 24 * 60 * 60) - (hour * 60 * 60) - (minute * 60);
+            }
+            if (minute <= 9) minute = '0' + minute;
+            if (second <= 9) second = '0' + second;
+            $('#hour_show').html('<s id="h"></s>' + hour + '时');
+            $('#minute_show').html('<s></s>' + minute + '分');
+            $('#second_show').html('<s></s>' + second + '秒');
+            if (hour <= 0 && minute <= 0 && second <= 0) {
+                qrcode_timeout()
+                clearInterval(myTimer);
+
+            }
+            intDiff--;
+        }, 1000);
+    }
+
+
+
+    function qrcode_timeout(){
+        document.getElementById("orderbody").style.display = "none";
+        document.getElementById("timeOut").style.display = "";
+    }
+
+
+    function getQueryString(name) {
+        var reg = new RegExp("(^|&)" + name + "=([^&]*)(&|$)", "i");
+        var r = window.location.search.substr(1).match(reg);
+        if (r != null)
+            return decodeURI(r[2]);
+        return null;
+    }
+
+    $.post("../getOrder","orderId="+getQueryString("orderId"),function (data) {
+        if (data.code==1){
+            var time = new Date().getTime()-data.data.date*1000;
+            time = time/1000;
+            time = data.data.timeOut*60 - time;
+
+            if (data.data.state == -1){
+                time = 0;
+            }
+            timer(time);
+
+            if (data.data.payType == 1) {
+                data.data.payType1 = "微信";
+            }else if (data.data.payType == 2) {
+                data.data.payType1 = "支付宝";
+            }
+
+
+            new Vue({
+                el: '#body',
+                data: data.data
+            })
+
+            check();
+
+            // 初始化移动端保存功能
+            initMobileSave();
+
+            // 初始化页面焦点检测
+            pageVisibilityHandler.init();
+        }else{
+            timer(0)
+        }
+    });
+
+    function check(isManualCheck) {
+        $.post("../checkOrder","orderId="+getQueryString("orderId"),function (data) {
+            console.log(data);
+            if (data.code == 1){
+                // 支付成功，显示成功提示并跳转
+                showSuccessModal();
+                setTimeout(function() {
+                    window.location.href = data.data;
+                }, 2000); // 2秒后跳转
+            } else{
+                // 如果是手动检查，显示检查结果
+                if (isManualCheck) {
+                    if (data.data == "订单已过期") {
+                        showCheckResult('error', '检查失败', '订单已过期，请重新下单');
+                    } else {
+                        showCheckResult('error', '未检测到支付', '暂未检测到您的支付，请确认是否已完成支付');
+                    }
+                }
+
+                if (data.data == "订单已过期") {
+                    intDiff = 0;
+                }else{
+                    // 只有非手动检查才继续轮询
+                    if (!isManualCheck) {
+                        setTimeout("check()",1500);
+                    }
+                }
+            }
+        }).fail(function() {
+            // 如果是手动检查且请求失败，显示错误提示
+            if (isManualCheck) {
+                showCheckResult('error', '检查失败', '网络错误，请稍后重试');
+            }
+        });
+    }
+
+// ================= 支付成功和检查结果提示功能 =================
+// 显示支付成功提示
+function showSuccessModal() {
+    var modal = document.getElementById('successModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        console.log('显示支付成功提示');
+    }
+}
+
+// 隐藏支付成功提示
+function hideSuccessModal() {
+    var modal = document.getElementById('successModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// 显示检查结果提示
+function showCheckResult(type, title, message) {
+    var modal = document.getElementById('checkResultModal');
+    var icon = document.getElementById('checkResultIcon');
+    var titleEl = document.getElementById('checkResultTitle');
+    var messageEl = document.getElementById('checkResultMessage');
+    var btn = document.getElementById('checkResultBtn');
+
+    if (modal && icon && titleEl && messageEl) {
+        // 设置图标样式
+        icon.className = 'check-result-icon ' + type;
+        if (type === 'success') {
+            icon.textContent = '✓';
+        } else if (type === 'error') {
+            icon.textContent = '✗';
+        } else if (type === 'loading') {
+            icon.textContent = '⟳';
+        }
+
+        // 设置内容
+        titleEl.textContent = title;
+        messageEl.textContent = message;
+
+        // 显示弹窗
+        modal.style.display = 'flex';
+
+        // 绑定确定按钮事件
+        if (btn) {
+            btn.onclick = function() {
+                hideCheckResult();
+            };
+        }
+
+        console.log('显示检查结果:', type, title, message);
+    }
+}
+
+// 隐藏检查结果提示
+function hideCheckResult() {
+    var modal = document.getElementById('checkResultModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// ================= 移动端保存二维码支持 =================
+// 移动端检测：优先使用 UA，其次通过屏幕宽度兜底
+function isMobile() {
+    var ua = navigator.userAgent || navigator.vendor || window.opera || '';
+    var mobileUA = /android|iphone|ipad|ipod|windows phone|blackberry|bb10|symbian|mobile/i.test(ua);
+    var narrowScreen = Math.max(document.documentElement.clientWidth, window.innerWidth || 0) <= 768;
+    return mobileUA || narrowScreen;
+}
+
+// 显示提示信息
+function showSaveTip(message, type) {
+    var tipElement = document.getElementById('saveTip');
+    if (tipElement) {
+        tipElement.textContent = message;
+        tipElement.className = 'mobile-save-tip' + (type ? ' ' + type : '');
+    }
+}
+
+// 移动端保存二维码的主要方法
+function saveQRCode() {
+    var btn = document.getElementById('saveQrBtn');
+    var img = document.getElementById('show_qrcode');
+
+    if (!btn || !img) {
+        console.log('按钮或图片元素未找到');
+        return;
+    }
+
+    // 添加加载状态
+    btn.disabled = true;
+    btn.classList.add('loading');
+
+    // 检测是否在微信内置浏览器
+    var isWeChat = /micromessenger/i.test(navigator.userAgent);
+    var isQQ = /qq\//i.test(navigator.userAgent);
+
+    setTimeout(function() {
+        try {
+            if (isWeChat || isQQ) {
+                // 微信/QQ内置浏览器：直接新开窗口显示图片，引导长按保存
+                var newWindow = window.open(img.src, '_blank');
+                if (newWindow) {
+                    showSaveTip('已在新窗口打开二维码，请长按图片保存到相册', 'success');
+                } else {
+                    showSaveTip('请允许弹窗，或直接长按上方二维码保存', 'error');
+                }
+            } else {
+                // 其他移动端浏览器：尝试下载
+                var a = document.createElement('a');
+                a.href = img.src;
+                a.download = 'qrcode_' + Date.now() + '.png';
+                a.style.display = 'none';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+
+            }
+        } catch (error) {
+            console.log('保存失败:', error);
+            // 兜底方案：复制图片链接
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(img.src).then(function() {
+                    showSaveTip('图片链接已复制，请在浏览器中打开并保存', 'success');
+                }).catch(function() {
+                    showSaveTip('请长按上方二维码手动保存到相册', 'error');
+                });
+            } else {
+                showSaveTip('请长按上方二维码手动保存到相册', 'error');
+            }
+        }
+
+        // 恢复按钮状态
+        btn.disabled = false;
+        btn.classList.remove('loading');
+    }, 500);
+}
+
+// 等待页面完全加载后初始化
+function initMobileSave() {
+    // 确保在Vue实例创建后执行
+    setTimeout(function() {
+        var mobileSave = document.getElementById('mobileSave');
+        var btn = document.getElementById('saveQrBtn');
+
+        if (!mobileSave || !btn) {
+            console.log('移动端保存元素未找到');
+            return;
+        }
+
+        if (isMobile()) {
+            // 使用类名控制显示，确保CSS样式生效
+            mobileSave.classList.add('show');
+            mobileSave.style.display = 'block';
+            mobileSave.style.visibility = 'visible';
+            mobileSave.style.opacity = '1';
+
+            console.log('移动端检测成功，显示保存按钮');
+
+            // 移除可能存在的旧事件监听器
+            btn.onclick = null;
+
+            // 添加点击事件
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                console.log('保存按钮被点击');
+                saveQRCode();
+            });
+
+            // 添加触摸事件以改善移动端体验
+            btn.addEventListener('touchstart', function(e) {
+                btn.style.transform = 'scale(0.95)';
+            });
+
+            btn.addEventListener('touchend', function(e) {
+                btn.style.transform = '';
+            });
+
+            console.log('移动端保存功能已初始化');
+
+
+        } else {
+            mobileSave.style.display = 'none';
+            console.log('非移动端，隐藏保存按钮');
+        }
+    }, 1000);
+}
+
+// ================= 页面焦点检测与支付确认弹窗 =================
+var pageVisibilityHandler = {
+    isHidden: false,
+    hideTime: null,
+    showTime: null,
+    minHideTime: 3000, // 最少离开3秒才显示弹窗
+    modalShown: false,
+    lastModalTime: 0, // 上次显示弹窗的时间
+    modalCooldown: 30000, // 弹窗冷却时间30秒
+
+    init: function() {
+        var self = this;
+
+        // 监听页面可见性变化
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                self.onPageHide();
+            } else {
+                self.onPageShow();
+            }
+        });
+
+        // 监听窗口焦点变化（兼容性处理）
+        window.addEventListener('blur', function() {
+            self.onPageHide();
+        });
+
+        window.addEventListener('focus', function() {
+            self.onPageShow();
+        });
+
+        // 绑定弹窗按钮事件
+        this.bindModalEvents();
+    },
+
+    onPageHide: function() {
+        if (!this.isHidden) {
+            this.isHidden = true;
+            this.hideTime = Date.now();
+            console.log('页面失去焦点，时间:', new Date().toLocaleTimeString());
+        }
+    },
+
+    onPageShow: function() {
+        if (this.isHidden) {
+            this.isHidden = false;
+            this.showTime = Date.now();
+            var hideDuration = this.showTime - this.hideTime;
+
+            console.log('页面获得焦点，离开时长:', hideDuration + 'ms');
+
+            // 检查是否应该显示弹窗
+            var now = Date.now();
+            var timeSinceLastModal = now - this.lastModalTime;
+
+            // 如果离开时间超过最小时间且在冷却时间外，则显示确认弹窗
+            if (hideDuration >= this.minHideTime &&
+                timeSinceLastModal >= this.modalCooldown &&
+                !this.modalShown) {
+                this.showPaymentModal();
+            }
+        }
+    },
+
+    showPaymentModal: function() {
+        var modal = document.getElementById('paymentModal');
+        if (modal) {
+            modal.style.display = 'flex';
+            this.modalShown = true;
+            this.lastModalTime = Date.now();
+            console.log('显示支付确认弹窗');
+
+            // 添加键盘事件监听（ESC关闭）
+            document.addEventListener('keydown', this.handleKeyDown.bind(this));
+        }
+    },
+
+    hidePaymentModal: function() {
+        var modal = document.getElementById('paymentModal');
+        if (modal) {
+            modal.style.display = 'none';
+            console.log('隐藏支付确认弹窗');
+
+            // 移除键盘事件监听
+            document.removeEventListener('keydown', this.handleKeyDown.bind(this));
+        }
+    },
+
+    handleKeyDown: function(e) {
+        // ESC键关闭弹窗
+        if (e.keyCode === 27) {
+            this.hidePaymentModal();
+            this.modalShown = false;
+        }
+    },
+
+    bindModalEvents: function() {
+        var self = this;
+
+        // 取消按钮
+        var cancelBtn = document.getElementById('cancelPayBtn');
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', function() {
+                self.hidePaymentModal();
+                // 重置状态，允许下次再显示弹窗
+                self.modalShown = false;
+            });
+        }
+
+        // 我已支付按钮
+        var confirmBtn = document.getElementById('confirmPayBtn');
+        if (confirmBtn) {
+            confirmBtn.addEventListener('click', function() {
+                self.hidePaymentModal();
+                // 手动触发支付检测
+                self.triggerPaymentCheck();
+            });
+        }
+
+        // 点击遮罩层关闭弹窗
+        var overlay = document.querySelector('.payment-modal-overlay');
+        if (overlay) {
+            overlay.addEventListener('click', function() {
+                self.hidePaymentModal();
+                self.modalShown = false;
+            });
+        }
+    },
+
+    triggerPaymentCheck: function() {
+        console.log('手动触发支付状态检测');
+
+        // 显示检查中状态
+        showCheckResult('loading', '正在检查', '正在检查您的支付状态，请稍候...');
+
+        // 延迟一下再检查，让用户看到检查提示
+        setTimeout(function() {
+            // 调用现有的check函数，传入true表示是手动检查
+            if (typeof check === 'function') {
+                check(true);
+            }
+        }, 1000);
+    }
+};
+
+</script>
+
+</body>
+</html>

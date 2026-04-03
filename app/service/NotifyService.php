@@ -3,9 +3,10 @@ declare(strict_types=1);
 
 namespace app\service;
 
-use app\model\Setting;
 use app\service\epay\EpayConfigService;
 use app\service\epay\EpayNotifyService;
+use app\service\config\SettingSystemConfig;
+use app\service\config\SystemConfig;
 
 class NotifyService
 {
@@ -83,7 +84,7 @@ class NotifyService
         }
 
         // 读取 SSL 验证开关：默认 "1"（启用），后台可设为 "0" 兼容自签名证书
-        $sslVerify = Setting::getConfigValue('notify_ssl_verify', '1') === '1';
+        $sslVerify = static::systemConfig()->getNotifySslVerifyEnabled();
 
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $url);
@@ -103,5 +104,10 @@ class NotifyService
     private static function isPrivateIp(string $ip): bool
     {
         return filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false;
+    }
+
+    protected static function systemConfig(): SystemConfig
+    {
+        return new SettingSystemConfig();
     }
 }

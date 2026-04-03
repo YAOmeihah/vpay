@@ -4,8 +4,9 @@ declare(strict_types=1);
 namespace app\service\epay;
 
 use app\model\PayOrder;
-use app\model\Setting;
 use app\service\OrderCreationKernel;
+use app\service\runtime\MonitorState;
+use app\service\runtime\SettingMonitorState;
 
 class EpayOrderService
 {
@@ -203,7 +204,7 @@ class EpayOrderService
             throw new \RuntimeException('签名校验失败');
         }
 
-        if (Setting::getConfigValue('jkstate') !== '1') {
+        if (!static::monitorState()->isOnline()) {
             throw new \RuntimeException('监控端状态异常，请检查');
         }
     }
@@ -292,7 +293,7 @@ class EpayOrderService
             throw new \RuntimeException('签名校验失败');
         }
 
-        if (Setting::getConfigValue('jkstate') !== '1') {
+        if (!static::monitorState()->isOnline()) {
             throw new \RuntimeException('监控端状态异常，请检查');
         }
     }
@@ -317,4 +318,8 @@ class EpayOrderService
         return in_array($scheme, ['http', 'https'], true);
     }
 
+    protected static function monitorState(): MonitorState
+    {
+        return new SettingMonitorState();
+    }
 }

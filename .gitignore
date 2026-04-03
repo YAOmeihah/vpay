@@ -23,6 +23,7 @@
 # Runtime / cache
 /runtime/
 /public/runtime/
+/public/console/
 
 # Environment files
 .env

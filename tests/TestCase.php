@@ -26,7 +26,7 @@ abstract class TestCase extends BaseTestCase
         parent::setUpBeforeClass();
 
         self::$rootPath = dirname(__DIR__) . DIRECTORY_SEPARATOR;
-        self::$envConfig = parse_ini_file(self::$rootPath . '.env', false, INI_SCANNER_RAW) ?: [];
+        self::$envConfig = self::loadTestEnv();
         self::$testDatabase = (self::$envConfig['DB_NAME'] ?? 'vmqphp8') . '_codex_test';
 
         self::generateRsaKeys();
@@ -272,5 +272,39 @@ abstract class TestCase extends BaseTestCase
 
         self::$privateKeyPem = $privateKeyPem;
         self::$publicKeyPem = (string) ($publicKeyDetails['key'] ?? '');
+    }
+
+    private static function loadTestEnv(): array
+    {
+        $paths = [
+            self::$rootPath . '.env.testing',
+            self::$rootPath . '.env',
+        ];
+
+        foreach ($paths as $path) {
+            if (is_file($path)) {
+                return parse_ini_file($path, false, INI_SCANNER_RAW) ?: [];
+            }
+        }
+
+        $fallback = [];
+        $map = [
+            'DB_TYPE' => 'VMQ_TEST_DB_TYPE',
+            'DB_HOST' => 'VMQ_TEST_DB_HOST',
+            'DB_PORT' => 'VMQ_TEST_DB_PORT',
+            'DB_NAME' => 'VMQ_TEST_DB_NAME',
+            'DB_USER' => 'VMQ_TEST_DB_USER',
+            'DB_PASS' => 'VMQ_TEST_DB_PASS',
+            'DB_CHARSET' => 'VMQ_TEST_DB_CHARSET',
+        ];
+
+        foreach ($map as $iniKey => $envVar) {
+            $value = getenv($envVar);
+            if ($value !== false) {
+                $fallback[$iniKey] = $value;
+            }
+        }
+
+        return $fallback;
     }
 }

@@ -12,6 +12,7 @@ use think\facade\Session;
 
 class Index extends BaseController
 {
+    use \app\controller\trait\ApiResponse;
     public function index()
     {
         return 'ThinkPHP 8 支付系统已成功运行！';
@@ -27,11 +28,6 @@ class Index extends BaseController
         } catch (\Exception $e) {
             return json(['code' => -1, 'msg' => '数据库连接失败: ' . $e->getMessage()]);
         }
-    }
-
-    public function getReturn($code = 1, $msg = "成功", $data = null)
-    {
-        return array("code" => $code, "msg" => $msg, "data" => $data);
     }
 
     /**

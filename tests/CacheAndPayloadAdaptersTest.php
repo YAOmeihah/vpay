@@ -8,9 +8,46 @@ use app\service\CacheService;
 use app\service\cache\DashboardStatsCache;
 use app\service\cache\OrderCache;
 use app\service\order\OrderPayloadFactory;
+use PHPUnit\Framework\TestCase;
+use think\App;
 
 class CacheAndPayloadAdaptersTest extends TestCase
 {
+    private static App $app;
+    private static string $rootPath;
+    private static string $cachePath;
+
+    public static function setUpBeforeClass(): void
+    {
+        parent::setUpBeforeClass();
+
+        self::$rootPath = dirname(__DIR__) . DIRECTORY_SEPARATOR;
+        self::$app = new App(self::$rootPath);
+        self::$app->initialize();
+        self::configureCache();
+    }
+
+    protected function tearDown(): void
+    {
+        CacheService::clearAll();
+        parent::tearDown();
+    }
+
+    private static function configureCache(): void
+    {
+        self::$cachePath = self::$rootPath . 'runtime' . DIRECTORY_SEPARATOR . 'phpunit-cache-lite' . DIRECTORY_SEPARATOR;
+        if (!is_dir(self::$cachePath)) {
+            mkdir(self::$cachePath, 0777, true);
+        }
+
+        $cacheConfig = self::$app->config->get('cache');
+        $cacheConfig['default'] = 'file';
+        $cacheConfig['stores']['file']['path'] = self::$cachePath;
+
+        self::$app->config->set($cacheConfig, 'cache');
+        CacheService::clearAll();
+    }
+
     public function test_order_payload_factory_preserves_legacy_key_order_and_values(): void
     {
         if (!class_exists(OrderPayloadFactory::class)) {
@@ -22,7 +59,7 @@ class CacheAndPayloadAdaptersTest extends TestCase
             'merchant-001',
             'order-202404040001',
             PayOrder::TYPE_WECHAT,
-            '12.34',
+            12.34,
             '12.35',
             'weixin://pay-url',
             1,
@@ -49,7 +86,7 @@ class CacheAndPayloadAdaptersTest extends TestCase
             'payId' => 'merchant-001',
             'orderId' => 'order-202404040001',
             'payType' => PayOrder::TYPE_WECHAT,
-            'price' => '12.34',
+            'price' => 12.34,
             'reallyPrice' => '12.35',
             'payUrl' => 'weixin://pay-url',
             'isAuto' => 1,

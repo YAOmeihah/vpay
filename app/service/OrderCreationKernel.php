@@ -5,8 +5,11 @@ namespace app\service;
 
 use app\model\PayOrder;
 use app\model\PayQrcode;
-use app\model\Setting;
 use app\model\TmpPrice;
+use app\service\cache\OrderCache;
+use app\service\config\SettingSystemConfig;
+use app\service\config\SystemConfig;
+use app\service\order\OrderPayloadFactory;
 
 class OrderCreationKernel
 {
@@ -21,7 +24,7 @@ class OrderCreationKernel
     public static function reserveUniquePrice(string $price, int $type, string $orderId): string
     {
         $reallyPrice = bcmul($price, '100');
-        $payQf = Setting::getConfigValue('payQf');
+        $payQf = static::systemConfig()->getPayQfMode();
 
         for ($i = 0; $i < 10; $i++) {
             $tmpPrice = $reallyPrice . '-' . $type;
@@ -87,22 +90,20 @@ class OrderCreationKernel
         int $isAuto,
         int $createDate
     ): array {
-        $time = Setting::getConfigValue('close');
+        $orderInfo = static::payloadFactory()->create(
+            $merchantOrderId,
+            $orderId,
+            $type,
+            $price,
+            $reallyPrice,
+            $payUrl,
+            $isAuto,
+            PayOrder::STATE_UNPAID,
+            (string) static::systemConfig()->getOrderCloseMinutes(),
+            $createDate
+        );
 
-        $orderInfo = [
-            'payId'       => $merchantOrderId,
-            'orderId'     => $orderId,
-            'payType'     => $type,
-            'price'       => $price,
-            'reallyPrice' => $reallyPrice,
-            'payUrl'      => $payUrl,
-            'isAuto'      => $isAuto,
-            'state'       => PayOrder::STATE_UNPAID,
-            'timeOut'     => $time,
-            'date'        => $createDate,
-        ];
-
-        CacheService::cacheOrder($orderId, $orderInfo);
+        static::orderCache()->cacheOrder($orderId, $orderInfo);
 
         return $orderInfo;
     }
@@ -110,13 +111,28 @@ class OrderCreationKernel
     private static function getConfigPayUrl(int $type): string
     {
         if ($type === PayOrder::TYPE_WECHAT) {
-            return Setting::getConfigValue('wxpay');
+            return static::systemConfig()->getWeChatPayUrl();
         }
 
         if ($type === PayOrder::TYPE_ALIPAY) {
-            return Setting::getConfigValue('zfbpay');
+            return static::systemConfig()->getAlipayPayUrl();
         }
 
         return '';
+    }
+
+    protected static function systemConfig(): SystemConfig
+    {
+        return new SettingSystemConfig();
+    }
+
+    protected static function orderCache(): OrderCache
+    {
+        return new OrderCache();
+    }
+
+    protected static function payloadFactory(): OrderPayloadFactory
+    {
+        return new OrderPayloadFactory();
     }
 }

@@ -4,8 +4,11 @@ declare(strict_types=1);
 namespace app\service;
 
 use app\model\PayOrder;
-use app\model\Setting;
 use app\model\TmpPrice;
+use app\service\config\SettingSystemConfig;
+use app\service\config\SystemConfig;
+use app\service\runtime\MonitorState;
+use app\service\runtime\SettingMonitorState;
 
 class OrderService
 {
@@ -20,12 +23,11 @@ class OrderService
         $type = (int)$params['type'];
         $price = (string)$params['price'];
         $param = $params['param'] ?? '';
-        $notifyUrl = $params['notifyUrl'] ?? Setting::getConfigValue('notifyUrl');
-        $returnUrl = $params['returnUrl'] ?? Setting::getConfigValue('returnUrl');
+        $notifyUrl = $params['notifyUrl'] ?? static::systemConfig()->getNotifyUrl();
+        $returnUrl = $params['returnUrl'] ?? static::systemConfig()->getReturnUrl();
 
         // 检查监控端状态
-        $jkstate = Setting::getConfigValue('jkstate');
-        if ($jkstate !== '1') {
+        if (!static::monitorState()->isOnline()) {
             throw new \RuntimeException('监控端状态异常，请检查');
         }
 
@@ -78,7 +80,7 @@ class OrderService
      */
     public static function handlePayPush(string $price, int $type): array
     {
-        Setting::setConfigValue('lastpay', (string)time());
+        static::monitorState()->markPaidAt(time());
 
         $res = PayOrder::where('really_price', $price)
             ->where('state', PayOrder::STATE_UNPAID)
@@ -125,5 +127,15 @@ class OrderService
         }
 
         return ['matched' => true, 'alreadyProcessed' => false, 'notifyOk' => $notifyOk];
+    }
+
+    protected static function systemConfig(): SystemConfig
+    {
+        return new SettingSystemConfig();
+    }
+
+    protected static function monitorState(): MonitorState
+    {
+        return new SettingMonitorState();
     }
 }

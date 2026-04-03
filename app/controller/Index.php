@@ -8,6 +8,7 @@ use app\model\PayOrder;
 use app\model\Setting;
 use app\model\PayQrcode;
 use app\model\TmpPrice;
+use app\service\NotifyService;
 use app\service\SignService;
 use think\facade\Session;
 
@@ -451,17 +452,7 @@ class Index extends BaseController
                 return json($this->getReturn(-1, "订单已过期"));
             }
 
-            $orderData = $res->toArray();
-
-            if (\app\service\epay\EpayNotifyService::isEpayOrder($orderData)) {
-                $epayConfig = \app\service\epay\EpayConfigService::getConfig();
-                $signingKey = \app\service\epay\EpayNotifyService::isEpayV2Order($orderData)
-                    ? $epayConfig['private_key']
-                    : $epayConfig['key'];
-                $url = \app\service\epay\EpayNotifyService::buildReturnUrl($orderData, $signingKey);
-            } else {
-                $url = SignService::buildSignedUrl($res['return_url'], $res->toArray(), true);
-            }
+            $url = NotifyService::buildReturnUrl($res->toArray());
 
             return json($this->getReturn(1, "成功", $url));
         } else {
@@ -560,19 +551,7 @@ class Index extends BaseController
 
             TmpPrice::where("oid", $res['order_id'])->delete();
 
-            $orderData = $res->toArray();
-
-            if (\app\service\epay\EpayNotifyService::isEpayOrder($orderData)) {
-                $epayConfig = \app\service\epay\EpayConfigService::getConfig();
-                $signingKey = \app\service\epay\EpayNotifyService::isEpayV2Order($orderData)
-                    ? $epayConfig['private_key']
-                    : $epayConfig['key'];
-                $notifyOk = \app\service\epay\EpayNotifyService::sendNotify($orderData, $signingKey);
-            } else {
-                $url = SignService::buildSignedUrl($res['notify_url'], $res->toArray());
-
-                $notifyOk = $this->getCurl($url) == "success";
-            }
+            $notifyOk = NotifyService::sendNotify($res->toArray());
 
             if ($notifyOk) {
                 return json($this->getReturn());
@@ -640,36 +619,4 @@ class Index extends BaseController
         }
     }
 
-    //发送Http请求
-    protected function getCurl($url, $post = 0, $cookie = 0, $header = 0, $nobaody = 0)
-    {
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $url);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        $klsf[] = 'Accept:*/*';
-        $klsf[] = 'Accept-Language:zh-cn';
-        $klsf[] = 'User-Agent:Mozilla/5.0 (iPhone; CPU iPhone OS 11_2_1 like Mac OS X) AppleWebKit/604.4.7 (KHTML, like Gecko) Mobile/15C153 MicroMessenger/6.6.1 NetType/WIFI Language/zh_CN';
-        $klsf[] = 'Referer:' . $url;
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $klsf);
-        if ($post) {
-            curl_setopt($ch, CURLOPT_POST, 1);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, $post);
-        }
-        if ($header) {
-            curl_setopt($ch, CURLOPT_HEADER, true);
-        }
-        if ($cookie) {
-            curl_setopt($ch, CURLOPT_COOKIE, $cookie);
-        }
-        if ($nobaody) {
-            curl_setopt($ch, CURLOPT_NOBODY, 1);
-        }
-        curl_setopt($ch, CURLOPT_TIMEOUT, 60);
-        curl_setopt($ch, CURLOPT_ENCODING, 'gzip');
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-        $ret = curl_exec($ch);
-        curl_close($ch);
-        return $ret;
-    }
 }

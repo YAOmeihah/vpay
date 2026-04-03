@@ -5,11 +5,16 @@ namespace app\controller;
 
 use app\BaseController;
 use app\model\PayOrder;
-use app\model\Setting;
 use app\model\TmpPrice;
 use app\service\MonitorService;
 use app\service\NotifyService;
 use app\service\SignService;
+use app\service\admin\AdminSettingsService;
+use app\service\admin\DashboardStatsService;
+use app\service\cache\OrderCache;
+use app\service\config\SettingSystemConfig;
+use app\service\runtime\SettingMonitorState;
+use app\service\security\LoginAttemptLimiter;
 use think\facade\Session;
 
 class Index extends BaseController
@@ -48,27 +53,22 @@ class Index extends BaseController
             return json($this->getReturn(-1, "账号或密码错误"));
         }
 
-        // 限制登录频率
         $clientIp = $this->request->ip();
-        $loginKey = 'login_attempts_' . md5($clientIp);
-        $attempts = cache($loginKey) ?: 0;
+        $limiter = $this->loginAttemptLimiter();
 
-        if ($attempts >= 5) {
+        if ($limiter->tooManyLoginAttempts($clientIp)) {
             return json($this->getReturn(-1, "登录失败次数过多，请5分钟后重试"));
         }
 
-        $_user = Setting::getConfigValue("user");
-        $_pass = Setting::getConfigValue("pass");
+        $_user = $this->adminSettingsService()->getAdminUsername();
+        $_pass = $this->adminSettingsService()->getAdminPasswordHash();
 
-        // 验证用户名和密码
         if (!hash_equals((string)$_user, $user) || !password_verify($pass, $_pass)) {
-            // 记录失败次数
-            cache($loginKey, $attempts + 1, 300); // 5分钟
+            $limiter->recordLoginFailure($clientIp);
             return json($this->getReturn(-1, "账号或密码错误"));
         }
 
-        // 登录成功，清除失败记录
-        cache($loginKey, null);
+        $limiter->clearLoginAttempts($clientIp);
 
         // 确保Session已启动
         if (session_status() === PHP_SESSION_NONE) {
@@ -230,8 +230,7 @@ class Index extends BaseController
     {
         $orderId = $this->request->param("orderId");
 
-        // 先从缓存获取
-        $cachedData = \app\service\CacheService::getOrder($orderId);
+        $cachedData = $this->orderCache()->getOrder($orderId);
         if ($cachedData) {
             return json($this->getReturn(1, "成功", $cachedData));
         }
@@ -239,7 +238,7 @@ class Index extends BaseController
         // 缓存未命中，从数据库获取
         $res = PayOrder::where("order_id", $orderId)->find();
         if ($res) {
-            $time = Setting::getConfigValue("close");
+            $time = $this->systemConfig()->getOrderCloseRaw();
 
             $data = array(
                 "payId" => $res['pay_id'],
@@ -254,8 +253,7 @@ class Index extends BaseController
                 "date" => $res['create_date']
             );
 
-            // 存入缓存
-            \app\service\CacheService::cacheOrder($orderId, $data);
+            $this->orderCache()->cacheOrder($orderId, $data);
 
             return json($this->getReturn(1, "成功", $data));
         } else {
@@ -301,10 +299,8 @@ class Index extends BaseController
             PayOrder::where("order_id", $orderId)->update(array("state" => -1, "close_date" => time()));
             TmpPrice::where("oid", $res['order_id'])->delete();
 
-            // 清除订单缓存
-            \app\service\CacheService::deleteOrder($orderId);
-            // 清除统计缓存（因为订单状态变化会影响统计）
-            \app\service\CacheService::deleteStats('dashboard');
+            $this->orderCache()->deleteOrder($orderId);
+            $this->dashboardStatsService()->clearStats();
 
             return json($this->getReturn(1, "成功"));
         } else {
@@ -321,9 +317,10 @@ class Index extends BaseController
             return json($this->getReturn(-1, "签名校验不通过"));
         }
 
-        $lastheart = Setting::getConfigValue("lastheart");
-        $lastpay = Setting::getConfigValue("lastpay");
-        $jkstate = Setting::getConfigValue("jkstate");
+        $monitorState = $this->monitorState();
+        $lastheart = (string) $monitorState->getLastHeartbeatAt();
+        $lastpay = (string) $monitorState->getLastPaidAt();
+        $jkstate = $monitorState->isOnline() ? '1' : '0';
 
         return json($this->getReturn(1, "成功", array("lastheart" => $lastheart, "lastpay" => $lastpay, "jkstate" => $jkstate)));
     }
@@ -379,6 +376,36 @@ class Index extends BaseController
         }
 
         return json($this->getReturn(1, "没有等待清理的订单"));
+    }
+
+    private function adminSettingsService(): AdminSettingsService
+    {
+        return new AdminSettingsService();
+    }
+
+    private function dashboardStatsService(): DashboardStatsService
+    {
+        return new DashboardStatsService();
+    }
+
+    private function loginAttemptLimiter(): LoginAttemptLimiter
+    {
+        return new LoginAttemptLimiter();
+    }
+
+    private function orderCache(): OrderCache
+    {
+        return new OrderCache();
+    }
+
+    private function systemConfig(): SettingSystemConfig
+    {
+        return new SettingSystemConfig();
+    }
+
+    private function monitorState(): SettingMonitorState
+    {
+        return new SettingMonitorState();
     }
 
 }

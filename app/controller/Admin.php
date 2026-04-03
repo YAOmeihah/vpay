@@ -305,6 +305,39 @@ class Admin extends BaseController
     }
 
     /**
+     * 生成 RSA 密钥对
+     */
+    public function generateRsaKeys()
+    {
+        if (!Session::has("admin")) {
+            return json($this->getReturn(-1, "没有登录"));
+        }
+
+        $config = [
+            'private_key_bits' => 2048,
+            'private_key_type' => OPENSSL_KEYTYPE_RSA,
+        ];
+
+        $res = openssl_pkey_new($config);
+        if ($res === false) {
+            return json($this->getReturn(-1, "RSA密钥生成失败"));
+        }
+
+        openssl_pkey_export($res, $privateKey);
+        $details = openssl_pkey_get_details($res);
+        $publicKey = $details['key'] ?? '';
+
+        if ($privateKey === '' || $publicKey === '') {
+            return json($this->getReturn(-1, "RSA密钥导出失败"));
+        }
+
+        return json($this->getReturn(1, "成功", [
+            'private_key' => $privateKey,
+            'public_key' => $publicKey,
+        ]));
+    }
+
+    /**
      * 添加支付二维码
      */
     public function addPayQrcode()

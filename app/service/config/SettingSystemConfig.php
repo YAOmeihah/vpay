@@ -22,14 +22,14 @@ class SettingSystemConfig implements SystemConfig
         return Setting::getConfigValue('key');
     }
 
-    public function getCloseMinutes(): int
+    public function getOrderCloseMinutes(): int
     {
         return (int) Setting::getConfigValue('close');
     }
 
-    public function getPayQfMode(): int
+    public function getPayQfMode(): string
     {
-        return (int) Setting::getConfigValue('payQf');
+        return Setting::getConfigValue('payQf');
     }
 
     public function getWeChatPayUrl(): string
@@ -42,7 +42,7 @@ class SettingSystemConfig implements SystemConfig
         return Setting::getConfigValue('zfbpay');
     }
 
-    public function shouldVerifyNotifySsl(): bool
+    public function getNotifySslVerifyEnabled(): bool
     {
         return Setting::getConfigValue('notify_ssl_verify', '1') === '1';
     }
@@ -51,11 +51,11 @@ class SettingSystemConfig implements SystemConfig
     {
         return [
             'enabled' => Setting::getConfigValue('epay_enabled', '0') === '1',
-            'pid' => Setting::getConfigValue('epay_pid'),
-            'key' => Setting::getConfigValue('epay_key'),
-            'name' => Setting::getConfigValue('epay_name', '订单支付'),
-            'private_key' => Setting::getConfigValue('epay_private_key'),
-            'public_key' => Setting::getConfigValue('epay_public_key'),
+            'pid' => trim(Setting::getConfigValue('epay_pid')),
+            'key' => trim(Setting::getConfigValue('epay_key')),
+            'name' => trim(Setting::getConfigValue('epay_name', '订单支付')),
+            'private_key' => trim(Setting::getConfigValue('epay_private_key')),
+            'public_key' => trim(Setting::getConfigValue('epay_public_key')),
         ];
     }
 }

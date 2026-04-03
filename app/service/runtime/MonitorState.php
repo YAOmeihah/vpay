@@ -5,15 +5,17 @@ namespace app\service\runtime;
 
 interface MonitorState
 {
-    public function getLastHeartbeat(): int;
+    public function getLastHeartbeatAt(): int;
 
-    public function setLastHeartbeat(int $timestamp): void;
+    public function getLastPaidAt(): int;
 
-    public function getLastPayTime(): int;
+    public function markHeartbeatAt(int $timestamp): void;
 
-    public function setLastPayTime(int $timestamp): void;
+    public function markPaidAt(int $timestamp): void;
+
+    public function markOnline(): void;
+
+    public function markOffline(): void;
 
     public function isOnline(): bool;
-
-    public function setOnline(bool $online): void;
 }

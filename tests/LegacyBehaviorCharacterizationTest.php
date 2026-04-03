@@ -13,13 +13,13 @@ class LegacyBehaviorCharacterizationTest extends TestCase
         $key = 'legacy_characterization_key';
         CacheService::deleteSetting($key);
 
-        $firstValue = 'legacy-value-' . uniqid('', true);
+        $firstValue = 'legacy-value-1';
         Setting::setConfigValue($key, $firstValue);
 
         $this->assertSame($firstValue, Setting::getConfigValue($key));
         $this->assertSame($firstValue, CacheService::getSetting($key));
 
-        $secondValue = 'legacy-value-updated-' . uniqid('', true);
+        $secondValue = 'legacy-value-updated';
         Setting::setConfigValue($key, $secondValue);
 
         $this->assertSame($secondValue, Setting::getConfigValue($key));
@@ -28,7 +28,8 @@ class LegacyBehaviorCharacterizationTest extends TestCase
 
     public function test_order_cache_payload_shape_stays_unchanged(): void
     {
-        $orderId = 'legacy-cache-order-' . uniqid('', true);
+        $orderId = 'legacy-cache-order';
+        CacheService::deleteOrder($orderId);
         $payload = [
             'payId' => 'legacy-order',
             'orderId' => $orderId,
@@ -39,7 +40,7 @@ class LegacyBehaviorCharacterizationTest extends TestCase
             'isAuto' => 1,
             'state' => 0,
             'timeOut' => 15,
-            'date' => time(),
+            'date' => 1690000000,
         ];
 
         CacheService::cacheOrder($orderId, $payload);

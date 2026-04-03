@@ -11,15 +11,15 @@ interface SystemConfig
 
     public function getSignKey(): string;
 
-    public function getCloseMinutes(): int;
+    public function getOrderCloseMinutes(): int;
 
-    public function getPayQfMode(): int;
+    public function getPayQfMode(): string;
 
     public function getWeChatPayUrl(): string;
 
     public function getAlipayPayUrl(): string;
 
-    public function shouldVerifyNotifySsl(): bool;
+    public function getNotifySslVerifyEnabled(): bool;
 
     /**
      * @return array{enabled: bool, pid: string, key: string, name: string, private_key: string, public_key: string}

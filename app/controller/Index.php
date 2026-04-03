@@ -35,16 +35,6 @@ class Index extends BaseController
     //后台用户登录
     public function login()
     {
-        
-        $clientIp = $this->request->ip();
-        $loginKey = 'login_attempts_' . md5($clientIp);
-        $attempts = cache($loginKey) ?: 0;
-
-        if ($attempts >= 5) {
-            return json($this->getReturn(-1, "登录失败次数过多，请5分钟后重试"));
-        }
-    
-
         $user = trim($this->request->param("user"));
         $pass = trim($this->request->param("pass"));
 

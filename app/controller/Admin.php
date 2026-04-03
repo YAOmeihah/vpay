@@ -14,14 +14,10 @@ use think\App;
 
 class Admin extends BaseController
 {
+    use \app\controller\trait\ApiResponse;
     public function index()
     {
         return 'Admin Controller - ThinkPHP 8';
-    }
-
-    public function getReturn($code = 1, $msg = "成功", $data = null)
-    {
-        return array("code" => $code, "msg" => $msg, "data" => $data);
     }
 
     /**

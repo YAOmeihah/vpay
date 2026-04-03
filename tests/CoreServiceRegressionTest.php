@@ -74,6 +74,7 @@ namespace tests {
             SignServiceAdapterProbe::$config = null;
             MonitorServiceAdapterProbe::$state = null;
             NotifyServiceAdapterProbe::$config = null;
+            OrderCreationKernelProbe::$config = null;
             OrderCreationKernelProbe::$cachedOrders = [];
 
             parent::tearDown();
@@ -161,7 +162,11 @@ namespace tests {
 
         public function test_order_creation_kernel_preserves_raw_timeout_string_in_payload_and_cache(): void
         {
-            $this->seedSettings(['close' => '05']);
+            $this->seedSettings(['close' => '99']);
+            OrderCreationKernelProbe::$config = new FakeSystemConfig(
+                orderCloseMinutes: 99,
+                orderCloseRaw: '05'
+            );
 
             $payload = OrderCreationKernelProbe::buildAndCacheOrderInfo(
                 'merchant-002',
@@ -230,7 +235,17 @@ namespace tests {
 
     class OrderCreationKernelProbe extends OrderCreationKernel
     {
+        public static ?SystemConfig $config = null;
         public static array $cachedOrders = [];
+
+        protected static function systemConfig(): SystemConfig
+        {
+            if (self::$config === null) {
+                throw new \RuntimeException('Test config was not initialized.');
+            }
+
+            return self::$config;
+        }
 
         protected static function orderCache(): OrderCache
         {
@@ -307,6 +322,7 @@ namespace tests {
             private readonly string $returnUrl = '',
             private readonly string $signKey = '',
             private readonly int $orderCloseMinutes = 15,
+            private readonly string $orderCloseRaw = '15',
             private readonly string $payQfMode = '0',
             private readonly string $weChatPayUrl = '',
             private readonly string $alipayPayUrl = '',
@@ -340,6 +356,11 @@ namespace tests {
         public function getOrderCloseMinutes(): int
         {
             return $this->orderCloseMinutes;
+        }
+
+        public function getOrderCloseRaw(): string
+        {
+            return $this->orderCloseRaw;
         }
 
         public function getPayQfMode(): string

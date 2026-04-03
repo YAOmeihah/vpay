@@ -13,6 +13,8 @@ interface SystemConfig
 
     public function getOrderCloseMinutes(): int;
 
+    public function getOrderCloseRaw(): string;
+
     public function getPayQfMode(): string;
 
     public function getWeChatPayUrl(): string;

@@ -27,6 +27,11 @@ class SettingSystemConfig implements SystemConfig
         return (int) Setting::getConfigValue('close');
     }
 
+    public function getOrderCloseRaw(): string
+    {
+        return Setting::getConfigValue('close');
+    }
+
     public function getPayQfMode(): string
     {
         return Setting::getConfigValue('payQf');

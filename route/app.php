@@ -40,6 +40,7 @@ Route::any('admin/index/getMain', 'admin/getMain');
 Route::any('admin/index/checkUpdate', 'admin/checkUpdate');
 Route::any('admin/index/getSettings', 'admin/getSettings');
 Route::any('admin/index/saveSetting', 'admin/saveSetting');
+Route::any('admin/index/generateRsaKeys', 'admin/generateRsaKeys');
 Route::any('admin/index/addPayQrcode', 'admin/addPayQrcode');
 Route::any('admin/index/getPayQrcodes', 'admin/getPayQrcodes');
 Route::any('admin/index/delPayQrcode', 'admin/delPayQrcode');

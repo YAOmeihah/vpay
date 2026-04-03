@@ -112,19 +112,30 @@
     <div class="layui-form-item">
         <label class="layui-form-label">MD5密钥(v1)</label>
         <div class="layui-input-block">
-            <input type="text" id="epay_key" placeholder="留空则不更新，用于 v1 MD5 签名" autocomplete="off" class="layui-input">
+            <div style="display: flex; gap: 10px;">
+                <input type="text" id="epay_key" placeholder="留空则不更新，用于 v1 MD5 签名" autocomplete="off" class="layui-input" style="flex: 1;">
+                <button type="button" class="layui-btn layui-btn-normal layui-btn-sm" onclick="generateMd5Key()" style="white-space: nowrap;">自动生成</button>
+            </div>
         </div>
     </div>
 
     <div class="layui-form-item">
-        <label class="layui-form-label">RSA私钥(v2)</label>
+        <label class="layui-form-label">RSA密钥(v2)</label>
+        <div class="layui-input-block">
+            <button type="button" class="layui-btn layui-btn-normal layui-btn-sm" onclick="generateRsaKeys()">自动生成RSA密钥对</button>
+            <span id="rsa_gen_tip" style="color: #999; font-size: 12px; margin-left: 10px;"></span>
+        </div>
+    </div>
+
+    <div class="layui-form-item">
+        <label class="layui-form-label">RSA私钥</label>
         <div class="layui-input-block">
             <textarea id="epay_private_key" placeholder="留空则不更新，PEM格式RSA私钥，用于 v2 签名" class="layui-textarea" style="height: 100px;"></textarea>
         </div>
     </div>
 
     <div class="layui-form-item">
-        <label class="layui-form-label">RSA公钥(v2)</label>
+        <label class="layui-form-label">RSA公钥</label>
         <div class="layui-input-block">
             <textarea id="epay_public_key" placeholder="留空则不更新，PEM格式RSA公钥，用于 v2 验签" class="layui-textarea" style="height: 100px;"></textarea>
         </div>
@@ -418,5 +429,30 @@
             }
         });
     }
+    function generateMd5Key() {
+        var chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+        var key = '';
+        for (var i = 0; i < 32; i++) {
+            key += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        $("#epay_key").val(key);
+        layer.msg('MD5密钥已生成，请点击保存');
+    }
+
+    function generateRsaKeys() {
+        $("#rsa_gen_tip").text("生成中...");
+        $.post("admin/index/generateRsaKeys", function (data) {
+            if (data.code == 1) {
+                $("#epay_private_key").val(data.data.private_key);
+                $("#epay_public_key").val(data.data.public_key);
+                $("#rsa_gen_tip").text("已生成，请点击保存").css("color", "#5FB878");
+                layer.msg('RSA密钥对已生成，请点击保存');
+            } else {
+                $("#rsa_gen_tip").text("生成失败").css("color", "#FF5722");
+                layer.msg(data.msg);
+            }
+        });
+    }
+
     getstate();
 </script>

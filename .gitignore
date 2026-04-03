@@ -28,6 +28,10 @@
 # Environment files
 .env
 .env.*
+!/frontend/admin/.env
+!/frontend/admin/.env.development
+!/frontend/admin/.env.production
+!/frontend/admin/.env.staging
 !.example.env
 !.env.example
 

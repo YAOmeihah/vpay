@@ -32,6 +32,8 @@ Route::any('appPush', 'index/appPush');
 Route::any('closeEndOrder', 'index/closeEndOrder');
 Route::post('mapi.php', 'epay/mapi');
 Route::post('submit.php', 'epay/submit');
+Route::post('api/pay/create', 'epay/createV2');
+Route::post('api/pay/submit', 'epay/submitV2');
 
 // Admin后台管理路由
 Route::any('admin/index/getMain', 'admin/getMain');

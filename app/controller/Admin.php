@@ -238,6 +238,8 @@ class Admin extends BaseController
             'epay_pid' => Setting::getConfigValue('epay_pid'),
             'epay_key' => '',
             'epay_name' => Setting::getConfigValue('epay_name', '订单支付'),
+            'epay_private_key' => '',
+            'epay_public_key' => Setting::getConfigValue('epay_public_key'),
         ];
 
         // 如果key为空，生成一个新的
@@ -261,7 +263,8 @@ class Admin extends BaseController
         $params = [
             'user', 'pass', 'notifyUrl', 'returnUrl', 'key',
             'close', 'payQf', 'wxpay', 'zfbpay',
-            'epay_enabled', 'epay_pid', 'epay_key', 'epay_name'
+            'epay_enabled', 'epay_pid', 'epay_key', 'epay_name',
+            'epay_private_key', 'epay_public_key'
         ];
 
         foreach ($params as $param) {
@@ -277,7 +280,7 @@ class Admin extends BaseController
                 $value = password_hash($value, PASSWORD_DEFAULT);
             }
 
-            if ($param === 'epay_key') {
+            if (in_array($param, ['epay_key', 'epay_private_key', 'epay_public_key'], true)) {
                 $value = trim((string)$value);
                 if ($value === '') {
                     continue;
@@ -431,8 +434,11 @@ class Admin extends BaseController
             $orderData = $res->toArray();
 
             if (\app\service\epay\EpayNotifyService::isEpayOrder($orderData)) {
-                $epayKey = \app\service\epay\EpayConfigService::getConfig()['key'];
-                $notifyOk = \app\service\epay\EpayNotifyService::sendNotify($orderData, $epayKey);
+                $epayConfig = \app\service\epay\EpayConfigService::getConfig();
+                $signingKey = \app\service\epay\EpayNotifyService::isEpayV2Order($orderData)
+                    ? $epayConfig['private_key']
+                    : $epayConfig['key'];
+                $notifyOk = \app\service\epay\EpayNotifyService::sendNotify($orderData, $signingKey);
             } else {
                 $url = $res['notify_url'];
                 $key = Setting::getConfigValue("key");

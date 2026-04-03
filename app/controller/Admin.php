@@ -10,6 +10,7 @@ use app\model\PayQrcode;
 use app\model\TmpPrice;
 use app\service\NotifyService;
 use think\facade\Db;
+use think\facade\Session;
 use think\App;
 
 class Admin extends BaseController
@@ -96,6 +97,38 @@ class Admin extends BaseController
         \app\service\CacheService::cacheStats('dashboard', $statsData);
 
         return json($this->getReturn(1, "成功", $statsData));
+    }
+
+    public function profile()
+    {
+        return json([
+            'username' => Setting::getConfigValue('user'),
+            'nickname' => '管理员',
+            'roles' => ['admin'],
+            'permissions' => [
+                'dashboard:view',
+                'settings:view',
+                'settings:save',
+                'monitor:view',
+                'qrcode:add',
+                'qrcode:view',
+                'qrcode:delete',
+                'orders:view',
+                'orders:delete',
+                'orders:repair',
+                'orders:cleanup',
+            ],
+        ]);
+    }
+
+    public function logout()
+    {
+        Session::clear();
+        return json([
+            'code' => 1,
+            'msg' => '退出成功',
+            'data' => null,
+        ]);
     }
 
     /**

@@ -50,6 +50,8 @@ Route::group('admin/index', function () {
     Route::any('setBd', 'admin/setBd');
     Route::any('delGqOrder', 'admin/delGqOrder');
     Route::any('delLastOrder', 'admin/delLastOrder');
+    Route::any('profile', 'admin/profile');
+    Route::any('logout', 'admin/logout');
 })->middleware(\app\middleware\AdminAuth::class);
 
 // 二维码生成（无需登录）

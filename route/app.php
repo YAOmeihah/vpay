@@ -30,12 +30,17 @@ Route::any('getState', 'index/getState');
 Route::any('appHeart', 'index/appHeart');
 Route::any('appPush', 'index/appPush');
 Route::any('closeEndOrder', 'index/closeEndOrder');
+Route::post('mapi.php', 'epay/mapi');
+Route::rule('submit.php', 'epay/submit', 'GET|POST');
+Route::post('api/pay/create', 'epay/createV2');
+Route::post('api/pay/submit', 'epay/submitV2');
 
 // Admin后台管理路由
 Route::any('admin/index/getMain', 'admin/getMain');
 Route::any('admin/index/checkUpdate', 'admin/checkUpdate');
 Route::any('admin/index/getSettings', 'admin/getSettings');
 Route::any('admin/index/saveSetting', 'admin/saveSetting');
+Route::any('admin/index/generateRsaKeys', 'admin/generateRsaKeys');
 Route::any('admin/index/addPayQrcode', 'admin/addPayQrcode');
 Route::any('admin/index/getPayQrcodes', 'admin/getPayQrcodes');
 Route::any('admin/index/delPayQrcode', 'admin/delPayQrcode');

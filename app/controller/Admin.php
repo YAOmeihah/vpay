@@ -234,6 +234,12 @@ class Admin extends BaseController
             'payQf' => Setting::getConfigValue('payQf'),
             'wxpay' => Setting::getConfigValue('wxpay'),
             'zfbpay' => Setting::getConfigValue('zfbpay'),
+            'epay_enabled' => Setting::getConfigValue('epay_enabled', '0'),
+            'epay_pid' => Setting::getConfigValue('epay_pid'),
+            'epay_key' => '',
+            'epay_name' => Setting::getConfigValue('epay_name', '订单支付'),
+            'epay_private_key' => '',
+            'epay_public_key' => Setting::getConfigValue('epay_public_key'),
         ];
 
         // 如果key为空，生成一个新的
@@ -255,8 +261,10 @@ class Admin extends BaseController
         }
 
         $params = [
-            'user', 'pass', 'notifyUrl', 'returnUrl', 'key', 
-            'close', 'payQf', 'wxpay', 'zfbpay'
+            'user', 'pass', 'notifyUrl', 'returnUrl', 'key',
+            'close', 'payQf', 'wxpay', 'zfbpay',
+            'epay_enabled', 'epay_pid', 'epay_key', 'epay_name',
+            'epay_private_key', 'epay_public_key'
         ];
 
         foreach ($params as $param) {
@@ -272,13 +280,61 @@ class Admin extends BaseController
                 $value = password_hash($value, PASSWORD_DEFAULT);
             }
 
-            Setting::setConfigValue($param, $value);
+            if (in_array($param, ['epay_key', 'epay_private_key', 'epay_public_key'], true)) {
+                $value = trim((string)$value);
+                if ($value === '') {
+                    continue;
+                }
+            }
+
+            if ($param === 'epay_enabled') {
+                $value = $value === '1' ? '1' : '0';
+            }
+
+            if (in_array($param, ['epay_pid', 'epay_name'], true)) {
+                $value = trim((string)$value);
+            }
+
+            Setting::setConfigValue($param, (string)$value);
         }
 
         // 清除统计缓存（配置变更可能影响统计）
         \app\service\CacheService::deleteStats('dashboard');
 
         return json($this->getReturn());
+    }
+
+    /**
+     * 生成 RSA 密钥对
+     */
+    public function generateRsaKeys()
+    {
+        if (!Session::has("admin")) {
+            return json($this->getReturn(-1, "没有登录"));
+        }
+
+        $config = [
+            'private_key_bits' => 2048,
+            'private_key_type' => OPENSSL_KEYTYPE_RSA,
+        ];
+
+        $res = openssl_pkey_new($config);
+        if ($res === false) {
+            return json($this->getReturn(-1, "RSA密钥生成失败"));
+        }
+
+        openssl_pkey_export($res, $privateKey);
+        $details = openssl_pkey_get_details($res);
+        $publicKey = $details['key'] ?? '';
+
+        if ($privateKey === '' || $publicKey === '') {
+            return json($this->getReturn(-1, "RSA密钥导出失败"));
+        }
+
+        return json($this->getReturn(1, "成功", [
+            'private_key' => $privateKey,
+            'public_key' => $publicKey,
+        ]));
     }
 
     /**
@@ -408,23 +464,33 @@ class Admin extends BaseController
         $res = PayOrder::where("id", $id)->find();
 
         if ($res) {
-            $url = $res['notify_url'];
-            $key = Setting::getConfigValue("key");
+            $orderData = $res->toArray();
 
-            $p = "payId=" . $res['pay_id'] . "&param=" . $res['param'] . "&type=" . $res['type'] . "&price=" . $res['price'] . "&reallyPrice=" . $res['really_price'];
-
-            $sign = $res['pay_id'] . $res['param'] . $res['type'] . $res['price'] . $res['really_price'] . $key;
-            $p = $p . "&sign=" . md5($sign);
-
-            if (strpos($url, "?") === false) {
-                $url = $url . "?" . $p;
+            if (\app\service\epay\EpayNotifyService::isEpayOrder($orderData)) {
+                $epayConfig = \app\service\epay\EpayConfigService::getConfig();
+                $signingKey = \app\service\epay\EpayNotifyService::isEpayV2Order($orderData)
+                    ? $epayConfig['private_key']
+                    : $epayConfig['key'];
+                $notifyOk = \app\service\epay\EpayNotifyService::sendNotify($orderData, $signingKey);
             } else {
-                $url = $url . "&" . $p;
+                $url = $res['notify_url'];
+                $key = Setting::getConfigValue("key");
+
+                $p = "payId=" . $res['pay_id'] . "&param=" . $res['param'] . "&type=" . $res['type'] . "&price=" . $res['price'] . "&reallyPrice=" . $res['really_price'];
+
+                $sign = $res['pay_id'] . $res['param'] . $res['type'] . $res['price'] . $res['really_price'] . $key;
+                $p = $p . "&sign=" . md5($sign);
+
+                if (strpos($url, "?") === false) {
+                    $url = $url . "?" . $p;
+                } else {
+                    $url = $url . "&" . $p;
+                }
+
+                $notifyOk = $this->getCurl($url) == "success";
             }
 
-            $re = $this->getCurl($url);
-
-            if ($re == "success") {
+            if ($notifyOk) {
                 if ($res['state'] == 0) {
                     TmpPrice::where("oid", $res['order_id'])->delete();
                 }
@@ -432,7 +498,7 @@ class Admin extends BaseController
                 PayOrder::where("id", $res['id'])->update(array("state" => 1));
                 return json($this->getReturn());
             } else {
-                return json($this->getReturn(-2, "补单失败", $re));
+                return json($this->getReturn(-2, "补单失败"));
             }
         } else {
             return json($this->getReturn(-1, "订单不存在"));

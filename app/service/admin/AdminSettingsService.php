@@ -56,14 +56,19 @@ class AdminSettingsService
         ];
 
         foreach ($params as $param) {
-            $value = $input[$param] ?? '';
+            if (!array_key_exists($param, $input)) {
+                continue;
+            }
+
+            $value = $input[$param];
 
             if ($param === 'pass') {
-                if (empty($value)) {
+                $value = trim((string) $value);
+                if ($value === '' || $value === '0') {
                     continue;
                 }
 
-                $value = password_hash((string) $value, PASSWORD_DEFAULT);
+                $value = password_hash($value, PASSWORD_DEFAULT);
             }
 
             if (in_array($param, ['epay_key', 'epay_private_key', 'epay_public_key'], true)) {
@@ -75,13 +80,19 @@ class AdminSettingsService
 
             if ($param === 'epay_enabled') {
                 $value = (string) (($value === '1' || $value === 1) ? '1' : '0');
+            } else {
+                $value = (string) $value;
             }
 
-            if (in_array($param, ['epay_pid', 'epay_name'], true)) {
-                $value = trim((string) $value);
+            if (in_array($param, [
+                'user', 'notifyUrl', 'returnUrl', 'key',
+                'close', 'payQf', 'wxpay', 'zfbpay',
+                'epay_pid', 'epay_name'
+            ], true)) {
+                $value = trim($value);
             }
 
-            $this->setConfigValue($param, (string) $value);
+            $this->setConfigValue($param, $value);
         }
 
         $this->dashboardStatsService()->clearStats();

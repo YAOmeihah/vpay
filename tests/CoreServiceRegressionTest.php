@@ -39,10 +39,308 @@ namespace app\service {
     }
 }
 
+namespace app\model {
+
+    if (!class_exists(__NAMESPACE__ . '\PayOrder', false)) {
+        /**
+         * Minimal in-memory replacement for the Think ORM model used by OrderService.
+         * Only the methods exercised by this test suite are implemented.
+         */
+        class PayOrder
+        {
+            public const STATE_UNPAID = 0;
+            public const STATE_PAID = 1;
+            public const STATE_NOTIFY_FAILED = 2;
+            public const STATE_EXPIRED = -1;
+
+            public const TYPE_WECHAT = 1;
+            public const TYPE_ALIPAY = 2;
+
+            /**
+             * @var array<int, array<string, mixed>>
+             */
+            private static array $rows = [];
+
+            private static int $nextId = 1;
+
+            public static function reset(): void
+            {
+                self::$rows = [];
+                self::$nextId = 1;
+            }
+
+            /**
+             * @param array<string, mixed> $row
+             */
+            public static function seed(array $row): int
+            {
+                $id = (int) ($row['id'] ?? self::$nextId++);
+                $row['id'] = $id;
+                self::$rows[$id] = $row;
+                return $id;
+            }
+
+            public static function where(string $field, mixed $value): PayOrderQuery
+            {
+                return (new PayOrderQuery())->where($field, $value);
+            }
+
+            /**
+             * @param array<string, mixed> $data
+             */
+            public static function create(array $data): FakePayOrderRow
+            {
+                $id = self::$nextId++;
+                $data['id'] = $id;
+                self::$rows[$id] = $data;
+                return new FakePayOrderRow($data);
+            }
+
+            /**
+             * @return array<int, array<string, mixed>>
+             */
+            public static function allRows(): array
+            {
+                return self::$rows;
+            }
+
+            /**
+             * @param array<int, array<string, mixed>> $rows
+             */
+            public static function replaceRows(array $rows): void
+            {
+                self::$rows = $rows;
+            }
+        }
+
+        final class PayOrderQuery
+        {
+            /**
+             * @var array<string, mixed>
+             */
+            private array $wheres = [];
+
+            public function where(string $field, mixed $value): self
+            {
+                $this->wheres[$field] = $value;
+                return $this;
+            }
+
+            public function find(): ?FakePayOrderRow
+            {
+                foreach (PayOrder::allRows() as $row) {
+                    if ($this->matches($row)) {
+                        return new FakePayOrderRow($row);
+                    }
+                }
+
+                return null;
+            }
+
+            public function findOrFail(): FakePayOrderRow
+            {
+                $row = $this->find();
+                if ($row === null) {
+                    throw new \RuntimeException('record not found');
+                }
+
+                return $row;
+            }
+
+            /**
+             * @param array<string, mixed> $data
+             */
+            public function update(array $data): int
+            {
+                $rows = PayOrder::allRows();
+                $affected = 0;
+
+                foreach ($rows as $id => $row) {
+                    if (!$this->matches($row)) {
+                        continue;
+                    }
+
+                    $rows[$id] = array_merge($row, $data);
+                    $affected++;
+                }
+
+                PayOrder::replaceRows($rows);
+                return $affected;
+            }
+
+            /**
+             * @param array<string, mixed> $row
+             */
+            private function matches(array $row): bool
+            {
+                foreach ($this->wheres as $field => $expected) {
+                    if (!array_key_exists($field, $row)) {
+                        return false;
+                    }
+
+                    if ($row[$field] !== $expected) {
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+        }
+
+        final class FakePayOrderRow implements \ArrayAccess
+        {
+            /**
+             * @param array<string, mixed> $data
+             */
+            public function __construct(private array $data)
+            {
+            }
+
+            public function offsetExists(mixed $offset): bool
+            {
+                return array_key_exists((string) $offset, $this->data);
+            }
+
+            public function offsetGet(mixed $offset): mixed
+            {
+                return $this->data[(string) $offset] ?? null;
+            }
+
+            public function offsetSet(mixed $offset, mixed $value): void
+            {
+                $this->data[(string) $offset] = $value;
+            }
+
+            public function offsetUnset(mixed $offset): void
+            {
+                unset($this->data[(string) $offset]);
+            }
+
+            /**
+             * @return array<string, mixed>
+             */
+            public function toArray(): array
+            {
+                return $this->data;
+            }
+
+            public function getAttr(string $key): mixed
+            {
+                return $this->data[$key] ?? null;
+            }
+        }
+    }
+
+    if (!class_exists(__NAMESPACE__ . '\TmpPrice', false)) {
+        class TmpPrice
+        {
+            /**
+             * @var array<int, array{oid: string, price?: string}>
+             */
+            private static array $rows = [];
+
+            private static int $nextId = 1;
+
+            public static function reset(): void
+            {
+                self::$rows = [];
+                self::$nextId = 1;
+            }
+
+            public static function seed(string $oid, string $price = ''): int
+            {
+                $id = self::$nextId++;
+                self::$rows[$id] = ['oid' => $oid, 'price' => $price];
+                return $id;
+            }
+
+            /**
+             * @param array<string, mixed> $data
+             */
+            public static function create(array $data): void
+            {
+                self::seed((string) ($data['oid'] ?? ''), (string) ($data['price'] ?? ''));
+            }
+
+            public static function where(string $field, mixed $value): TmpPriceQuery
+            {
+                return (new TmpPriceQuery())->where($field, $value);
+            }
+
+            /**
+             * @return array<int, array{oid: string, price?: string}>
+             */
+            public static function allRows(): array
+            {
+                return self::$rows;
+            }
+
+            /**
+             * @param array<int, array{oid: string, price?: string}> $rows
+             */
+            public static function replaceRows(array $rows): void
+            {
+                self::$rows = $rows;
+            }
+        }
+
+        final class TmpPriceQuery
+        {
+            /**
+             * @var array<string, mixed>
+             */
+            private array $wheres = [];
+
+            public function where(string $field, mixed $value): self
+            {
+                $this->wheres[$field] = $value;
+                return $this;
+            }
+
+            public function delete(): int
+            {
+                $rows = TmpPrice::allRows();
+                $affected = 0;
+
+                foreach ($rows as $id => $row) {
+                    if (!$this->matches($row)) {
+                        continue;
+                    }
+
+                    unset($rows[$id]);
+                    $affected++;
+                }
+
+                TmpPrice::replaceRows($rows);
+                return $affected;
+            }
+
+            /**
+             * @param array{oid: string, price?: string} $row
+             */
+            private function matches(array $row): bool
+            {
+                foreach ($this->wheres as $field => $expected) {
+                    if (!array_key_exists($field, $row)) {
+                        return false;
+                    }
+
+                    if ($row[$field] !== $expected) {
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+        }
+    }
+}
+
 namespace tests {
 
     use app\model\PayOrder;
     use app\service\OrderCreationKernel;
+    use app\service\OrderService;
     use app\service\MonitorService;
     use app\service\NotifyService;
     use app\service\SignService;
@@ -183,6 +481,50 @@ namespace tests {
             $this->assertSame($payload, OrderCreationKernelProbe::$cachedOrders['order-002'] ?? null);
         }
 
+        public function test_order_service_handle_pay_push_first_match_returns_notify_ok_shape(): void
+        {
+            // Ensure the notify path is deterministic and doesn't touch real network.
+            NotifyHttpProbe::enable(
+                hostMap: ['merchant.example' => '93.184.216.34'],
+                result: 'success'
+            );
+
+            // SignService reads the signing key through SettingSystemConfig -> Setting (aliased to FakeSetting).
+            $this->seedSettings(['key' => 'test-sign-key']);
+
+            // Seed an unpaid order that should be matched and processed exactly once.
+            PayOrder::reset();
+            \app\model\TmpPrice::reset();
+
+            PayOrder::seed([
+                'close_date' => 0,
+                'create_date' => 1700000000,
+                'is_auto' => 0,
+                'notify_url' => 'https://merchant.example/notify',
+                'order_id' => 'order-1001',
+                'param' => 'attach',
+                'pay_date' => 0,
+                'pay_id' => 'merchant-1001',
+                'pay_url' => 'weixin://pay-url',
+                'price' => '12.34',
+                'really_price' => '12.34',
+                'return_url' => 'https://merchant.example/return',
+                'state' => PayOrder::STATE_UNPAID,
+                'type' => PayOrder::TYPE_WECHAT,
+            ]);
+            \app\model\TmpPrice::seed('order-1001', '1234-1');
+
+            OrderServiceAdapterProbe::$state = new RecordingMonitorState();
+
+            $result = OrderServiceAdapterProbe::handlePayPush('12.34', PayOrder::TYPE_WECHAT);
+
+            $this->assertSame([
+                'matched' => true,
+                'alreadyProcessed' => false,
+                'notifyOk' => true,
+            ], $result);
+        }
+
         private function seedSettings(array $settings): void
         {
             foreach ($settings as $key => $value) {
@@ -261,6 +603,20 @@ namespace tests {
         protected static function payloadFactory(): OrderPayloadFactory
         {
             return new OrderPayloadFactory();
+        }
+    }
+
+    class OrderServiceAdapterProbe extends OrderService
+    {
+        public static ?MonitorState $state = null;
+
+        protected static function monitorState(): MonitorState
+        {
+            if (self::$state === null) {
+                throw new \RuntimeException('Test monitor state was not initialized.');
+            }
+
+            return self::$state;
         }
     }
 

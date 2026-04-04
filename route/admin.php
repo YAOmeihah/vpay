@@ -14,6 +14,7 @@ Route::group('admin/index', function () {
     Route::any('addPayQrcode', 'admin/addPayQrcode');
     Route::any('getPayQrcodes', 'admin/getPayQrcodes');
     Route::any('delPayQrcode', 'admin/delPayQrcode');
+    Route::post('decodeQrcode', 'admin/decodeQrcode');
     Route::any('getOrders', 'admin/getOrders');
     Route::any('delOrder', 'admin/delOrder');
     Route::any('setBd', 'admin/setBd');

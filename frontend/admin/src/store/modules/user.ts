@@ -1,4 +1,5 @@
 import { defineStore } from "pinia";
+import Cookies from "js-cookie";
 import {
   type userType,
   store,
@@ -10,7 +11,7 @@ import {
 import { type UserResult, getLogin } from "@/api/user";
 import { adminLogout } from "@/api/admin/auth";
 import { useMultiTagsStoreHook } from "./multiTags";
-import { userKey } from "@/utils/auth";
+import { multipleTabsKey, userKey } from "@/utils/auth";
 
 export const useUserStore = defineStore("pure-user", {
   state: (): userType => ({
@@ -69,6 +70,11 @@ export const useUserStore = defineStore("pure-user", {
         this.SET_ROLES(result.data.roles);
         this.SET_PERMS(result.data.permissions);
         await storageLocal().setItem(userKey, result.data);
+        Cookies.set(
+          multipleTabsKey,
+          "true",
+          this.isRemembered ? { expires: this.loginDay } : {}
+        );
       }
 
       return result;
@@ -79,6 +85,7 @@ export const useUserStore = defineStore("pure-user", {
       this.username = "";
       this.roles = [];
       this.permissions = [];
+      Cookies.remove(multipleTabsKey);
       storageLocal().removeItem(userKey);
       useMultiTagsStoreHook().handleTags("equal", [...routerArrays]);
       resetRouter();

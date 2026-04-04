@@ -317,6 +317,46 @@ class Admin extends BaseController
     }
 
     /**
+     * 解码二维码图片
+     */
+    public function decodeQrcode()
+    {
+        $base64 = (string)$this->request->param("base64", "");
+        if ($base64 === "") {
+            return json($this->getReturn(-1, "图片数据不能为空"));
+        }
+
+        $imageBlob = base64_decode($base64, true);
+        if ($imageBlob === false || $imageBlob === "") {
+            return json($this->getReturn(-1, "图片数据无效"));
+        }
+
+        try {
+            $libDir = $this->app->getRootPath() . "public/qr-code/lib/";
+            if (!class_exists("QrReader", false)) {
+                $originalIncludePath = get_include_path();
+                try {
+                    set_include_path($libDir . PATH_SEPARATOR . $originalIncludePath);
+                    require_once $libDir . "QrReader.php";
+                } finally {
+                    set_include_path($originalIncludePath);
+                }
+            }
+
+            $reader = new \QrReader($imageBlob, \QrReader::SOURCE_TYPE_BLOB);
+            $decoded = trim((string)$reader->text());
+
+            if ($decoded === "") {
+                return json($this->getReturn(-1, "二维码识别失败"));
+            }
+
+            return json($this->getReturn(1, "成功", $decoded));
+        } catch (\Throwable $e) {
+            return json($this->getReturn(-1, "二维码识别失败"));
+        }
+    }
+
+    /**
      * 获取订单列表
      */
     public function getOrders()
@@ -384,7 +424,7 @@ class Admin extends BaseController
                 PayOrder::where("id", $res['id'])->update(array("state" => 1));
                 return json($this->getReturn());
             } else {
-                return json($this->getReturn(-2, "补单失败"));
+                return json($this->getReturn(-2, "补单失败，异步通知返回错误"));
             }
         } else {
             return json($this->getReturn(-1, "订单不存在"));

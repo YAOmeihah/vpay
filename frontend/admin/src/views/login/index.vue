@@ -56,8 +56,9 @@ const onLogin = async (formEl: FormInstance | undefined) => {
             // 获取后端路由
             return initRouter().then(() => {
               disabled.value = true;
+              const targetPath = getTopMenu(true)?.path || "/dashboard";
               router
-                .push(getTopMenu(true).path)
+                .push(targetPath)
                 .then(() => {
                   message("登录成功", { type: "success" });
                 })

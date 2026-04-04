@@ -28,3 +28,10 @@ export const deletePayQrcode = (data: { id: number }) =>
     "/admin/index/delPayQrcode",
     { data }
   );
+
+export const decodeQrcodeImage = (data: { base64: string }) =>
+  http.request<{ code: number; msg: string; data: string | null }>(
+    "post",
+    "/admin/index/decodeQrcode",
+    { data }
+  );

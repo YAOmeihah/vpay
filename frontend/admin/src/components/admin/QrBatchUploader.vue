@@ -3,6 +3,8 @@ import { ref, reactive } from "vue";
 import { message } from "@/utils/message";
 import { addPayQrcode } from "@/api/admin/qrcode";
 import type { UploadFile } from "element-plus";
+import { decodeQrFromFile } from "@/utils/qrcode";
+import { isValidMoneyInput } from "@/utils/adminLegacy";
 
 const props = defineProps<{
   type: 1 | 2;
@@ -22,49 +24,10 @@ interface QrRow {
 const rows = ref<QrRow[]>([]);
 const submitting = ref(false);
 
-const decodeQr = async (file: File): Promise<string> => {
-  return new Promise(resolve => {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    img.onload = () => {
-      const canvas = document.createElement("canvas");
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext("2d")!;
-      ctx.drawImage(img, 0, 0);
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      // 使用 BarcodeDetector API（现代浏览器支持）
-      if ("BarcodeDetector" in window) {
-        const detector = new (window as any).BarcodeDetector({
-          formats: ["qr_code"]
-        });
-        detector
-          .detect(img)
-          .then((codes: any[]) => {
-            URL.revokeObjectURL(url);
-            resolve(codes[0]?.rawValue ?? "");
-          })
-          .catch(() => {
-            URL.revokeObjectURL(url);
-            resolve("");
-          });
-      } else {
-        URL.revokeObjectURL(url);
-        resolve("");
-      }
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      resolve("");
-    };
-    img.src = url;
-  });
-};
-
 const handleFileChange = async (uploadFile: UploadFile) => {
   const file = uploadFile.raw!;
   const previewUrl = URL.createObjectURL(file);
-  const decodedUrl = await decodeQr(file);
+  const decodedUrl = await decodeQrFromFile(file);
   rows.value.push(
     reactive({
       file,
@@ -97,6 +60,11 @@ const submitAll = async () => {
       row.errMsg = "请填写金额";
       continue;
     }
+    if (!isValidMoneyInput(row.price)) {
+      row.status = "error";
+      row.errMsg = "金额格式不正确";
+      continue;
+    }
     try {
       const res = await addPayQrcode({
         type: props.type,
@@ -116,7 +84,10 @@ const submitAll = async () => {
   }
   submitting.value = false;
   const okCount = rows.value.filter(r => r.status === "ok").length;
-  if (okCount) message(`成功上传 ${okCount} 条`, { type: "success" });
+  if (okCount) {
+    message(`成功上传 ${okCount} 条`, { type: "success" });
+    rows.value = rows.value.filter(row => row.status !== "ok");
+  }
 };
 </script>
 

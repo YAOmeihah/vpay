@@ -10,6 +10,7 @@ import {
   deleteOldOrders
 } from "@/api/admin/orders";
 import OrderDetailDialog from "@/components/admin/OrderDetailDialog.vue";
+import { formatUnixTimestamp, normalizePagedList } from "@/utils/adminLegacy";
 
 defineOptions({ name: "OrderList" });
 
@@ -43,9 +44,20 @@ const loadList = async () => {
       state: filters.state || undefined
     });
     if (res.code === 1) {
-      list.value = res.data;
-      total.value = res.count;
+      const { items, total: count } = normalizePagedList(res);
+      list.value = items;
+      total.value = count;
+    } else {
+      list.value = [];
+      total.value = 0;
+      message(res.msg || "订单列表加载失败", { type: "error" });
     }
+  } catch (error: any) {
+    list.value = [];
+    total.value = 0;
+    message(error?.msg || error?.message || "订单列表加载失败", {
+      type: "error"
+    });
   } finally {
     loading.value = false;
   }
@@ -78,6 +90,21 @@ const handleRepair = async (row: any) => {
   if (res.code === 1) {
     message("补单成功", { type: "success" });
     loadList();
+  } else if (res.code === -2 && res.data) {
+    try {
+      await ElMessageBox.confirm(
+        "补单失败，异步通知返回错误，是否查看通知返回数据？",
+        "提示",
+        {
+          confirmButtonText: "查看",
+          cancelButtonText: "取消",
+          type: "warning"
+        }
+      );
+      await ElMessageBox.alert(String(res.data), "通知返回数据", {
+        dangerouslyUseHTMLString: false
+      });
+    } catch {}
   } else {
     message(res.msg || "补单失败", { type: "error" });
   }
@@ -123,11 +150,23 @@ onMounted(loadList);
 
       <!-- 过滤栏 -->
       <div class="flex gap-3 mb-4">
-        <el-select v-model="filters.type" placeholder="支付类型" clearable style="width: 130px">
+        <el-select
+          v-model="filters.type"
+          placeholder="支付类型"
+          clearable
+          style="width: 130px"
+          @change="onSearch"
+        >
           <el-option label="微信" value="1" />
           <el-option label="支付宝" value="2" />
         </el-select>
-        <el-select v-model="filters.state" placeholder="订单状态" clearable style="width: 130px">
+        <el-select
+          v-model="filters.state"
+          placeholder="订单状态"
+          clearable
+          style="width: 130px"
+          @change="onSearch"
+        >
           <el-option label="过期" value="-1" />
           <el-option label="待支付" value="0" />
           <el-option label="完成" value="1" />
@@ -137,8 +176,12 @@ onMounted(loadList);
       </div>
 
       <!-- 表格 -->
-      <el-table :data="list" v-loading="loading" border>
-        <el-table-column label="创建时间" prop="create_date" width="160" />
+      <el-table :data="list" v-loading="loading" border empty-text="暂无订单数据">
+        <el-table-column label="创建时间" width="180">
+          <template #default="{ row }">
+            {{ formatUnixTimestamp(row.create_date) }}
+          </template>
+        </el-table-column>
         <el-table-column label="商户订单号" prop="pay_id" min-width="160" show-overflow-tooltip />
         <el-table-column label="云端订单号" prop="order_id" min-width="160" show-overflow-tooltip />
         <el-table-column label="类型" width="80">

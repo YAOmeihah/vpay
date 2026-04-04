@@ -101,7 +101,16 @@ class Admin extends BaseController
 
     public function profile()
     {
-        $username = Session::get('admin_user', Setting::getConfigValue('user'));
+        $username = Session::get('admin_user');
+
+        if (!$username) {
+            return json([
+                'code' => -1,
+                'msg' => '没有登录',
+                'data' => null,
+            ]);
+        }
+
         return json([
             'username' => $username,
             'nickname' => '管理员',

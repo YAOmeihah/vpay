@@ -3,7 +3,6 @@
 use think\facade\Route;
 
 Route::any('login', 'admin.Auth/login');
-Route::any('getMenu', 'admin.Menu/getMenu')->middleware(\app\middleware\AdminAuth::class);
 
 Route::group('admin/index', function () {
     Route::any('getMain', 'admin/getMain');

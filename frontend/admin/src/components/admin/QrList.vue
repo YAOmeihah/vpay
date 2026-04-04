@@ -50,26 +50,17 @@ onMounted(loadList);
       <template #header><span>{{ title }}</span></template>
 
       <el-table :data="list" v-loading="loading" border>
-        <el-table-column label="预览" width="100">
+        <el-table-column label="二维码" width="220">
           <template #default="{ row }">
             <el-image
               :src="`/enQrcode?url=${encodeURIComponent(row.pay_url)}`"
-              style="width: 64px; height: 64px"
+              style="width: 180px; height: 180px"
               fit="contain"
               :preview-src-list="[`/enQrcode?url=${encodeURIComponent(row.pay_url)}`]"
             />
           </template>
         </el-table-column>
         <el-table-column label="金额" prop="price" width="100" />
-        <el-table-column label="支付地址" prop="pay_url" min-width="200" show-overflow-tooltip />
-        <el-table-column label="状态" width="90">
-          <template #default="{ row }">
-            <el-tag :type="row.state === 1 ? 'success' : 'info'">
-              {{ row.state === 1 ? "使用中" : "空闲" }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="添加时间" prop="create_time" width="180" />
         <el-table-column label="操作" width="100" fixed="right">
           <template #default="{ row }">
             <el-button type="danger" size="small" text @click="handleDelete(row)">

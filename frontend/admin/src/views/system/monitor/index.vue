@@ -1,33 +1,26 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
 import { getSettings } from "@/api/admin/settings";
+import {
+  buildMonitorConfigUrl,
+  buildQrcodePreviewUrl,
+  formatUnixTimestamp,
+  getMonitorStatus
+} from "@/utils/adminLegacy";
 
 defineOptions({ name: "MonitorSettings" });
 
 const loading = ref(false);
 const settings = ref<any>({});
 
-const statusText = computed(() => {
-  const s = settings.value.jkstate;
-  if (s === -1) return "监控端未绑定，请您扫码绑定";
-  if (s === 0) return "监控端已掉线，请检查 App 是否正常运行";
-  if (s === 1) return "运行正常";
-  return "未知状态";
-});
-
-const statusType = computed(() => {
-  const s = settings.value.jkstate;
-  if (s === 1) return "success";
-  if (s === 0) return "danger";
-  return "warning";
-});
+const status = computed(() => getMonitorStatus(settings.value.jkstate));
 
 const configUrl = computed(() =>
-  settings.value.key ? `${location.origin}/${settings.value.key}` : ""
+  buildMonitorConfigUrl(location.host, settings.value.key)
 );
 
 const qrcodeUrl = computed(() =>
-  configUrl.value ? `/enQrcode?url=${encodeURIComponent(configUrl.value)}` : ""
+  buildQrcodePreviewUrl(configUrl.value)
 );
 
 const loadSettings = async () => {
@@ -40,6 +33,14 @@ const loadSettings = async () => {
   }
 };
 
+const openLocalAppDownload = () => {
+  window.open("/v.apk", "_blank");
+};
+
+const openLatestAppDownload = () => {
+  window.open("https://github.com/szvone/vmqApk/releases", "_blank");
+};
+
 onMounted(loadSettings);
 </script>
 
@@ -48,13 +49,19 @@ onMounted(loadSettings);
     <el-card shadow="hover" v-loading="loading">
       <template #header><span>监控端状态</span></template>
 
-      <el-descriptions :column="1" border>
+        <el-descriptions :column="1" border>
         <el-descriptions-item label="运行状态">
-          <el-tag :type="statusType">{{ statusText }}</el-tag>
+          <el-tag :type="status.type">{{ status.text }}</el-tag>
         </el-descriptions-item>
-        <el-descriptions-item label="最后心跳">{{ settings.lastheart || "无" }}</el-descriptions-item>
-        <el-descriptions-item label="最后支付">{{ settings.lastpay || "无" }}</el-descriptions-item>
-        <el-descriptions-item label="通讯密钥">{{ settings.key || "未设置" }}</el-descriptions-item>
+        <el-descriptions-item label="最后心跳">
+          {{ formatUnixTimestamp(settings.lastheart) }}
+        </el-descriptions-item>
+        <el-descriptions-item label="最后收款">
+          {{ formatUnixTimestamp(settings.lastpay) }}
+        </el-descriptions-item>
+        <el-descriptions-item label="配置数据">
+          {{ configUrl || "未设置" }}
+        </el-descriptions-item>
       </el-descriptions>
 
       <el-divider content-position="left">配置二维码</el-divider>
@@ -64,11 +71,18 @@ onMounted(loadSettings);
         <div class="flex justify-center p-5 bg-gray-50 rounded">
           <img :src="qrcodeUrl" alt="配置二维码" class="max-w-xs w-full" />
         </div>
-        <el-input v-model="configUrl" readonly class="mt-4">
+        <el-input :model-value="configUrl" readonly class="mt-4">
           <template #prepend>配置地址</template>
         </el-input>
       </template>
       <el-alert v-else title="请先在系统设置中配置通讯密钥" type="warning" :closable="false" />
+
+      <div class="mt-4 flex gap-3 justify-end">
+        <el-button @click="openLocalAppDownload">下载监控端</el-button>
+        <el-button @click="openLatestAppDownload">
+          最新版监控端下载
+        </el-button>
+      </div>
     </el-card>
   </div>
 </template>

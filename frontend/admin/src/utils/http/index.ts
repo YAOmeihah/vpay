@@ -77,7 +77,10 @@ class PureHttp {
           return response.data;
         }
         // 处理未认证响应
-        if ((response.data as any)?.code === -1) {
+        if (
+          (response.data as any)?.code === -1 &&
+          !response.config.skipUnauthorizedLogout
+        ) {
           useUserStoreHook().logOut();
           return Promise.reject(response.data);
         }

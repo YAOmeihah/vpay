@@ -5,6 +5,7 @@ namespace app\controller\admin;
 
 use app\BaseController;
 use app\service\admin\AdminSettingsService;
+use app\service\security\LoginAttemptLimiter;
 use think\facade\Session;
 
 class Auth extends BaseController
@@ -25,10 +26,9 @@ class Auth extends BaseController
         }
 
         $clientIp = $this->request->ip();
-        $loginKey = 'login_attempts_' . md5($clientIp);
-        $attempts = cache($loginKey) ?: 0;
+        $limiter = $this->loginAttemptLimiter();
 
-        if ($attempts >= 5) {
+        if ($limiter->tooManyLoginAttempts($clientIp)) {
             return json($this->getReturn(-1, "登录失败次数过多，请5分钟后重试"));
         }
 
@@ -36,19 +36,19 @@ class Auth extends BaseController
         $_user = $settings->getAdminUsername();
         $_pass = $settings->getAdminPasswordHash();
 
-        if (!hash_equals((string)$_user, $user) || !password_verify($pass, $_pass)) {
-            cache($loginKey, $attempts + 1, 300);
+        if (!hash_equals((string) $_user, $user) || !password_verify($pass, $_pass)) {
+            $limiter->recordLoginFailure($clientIp);
             return json($this->getReturn(-1, "账号或密码错误"));
         }
 
-        cache($loginKey, null);
+        $limiter->clearLoginAttempts($clientIp);
 
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
         }
 
         Session::set("admin", 1);
-        Session::set("admin_user", (string)$_user);
+        Session::set("admin_user", (string) $_user);
         Session::set("login_time", time());
         Session::set("login_ip", $clientIp);
 
@@ -62,5 +62,10 @@ class Auth extends BaseController
     private function adminSettingsService(): AdminSettingsService
     {
         return $this->app->make(AdminSettingsService::class);
+    }
+
+    private function loginAttemptLimiter(): LoginAttemptLimiter
+    {
+        return $this->app->make(LoginAttemptLimiter::class);
     }
 }

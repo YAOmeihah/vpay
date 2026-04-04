@@ -3,6 +3,10 @@ import router from "./router";
 import { setupStore } from "@/store";
 import { getPlatformConfig } from "./config";
 import { MotionPlugin } from "@vueuse/motion";
+import {
+  clearChunkReloadMarker,
+  installChunkReloadRecovery
+} from "@/utils/chunkReload";
 // import { useEcharts } from "@/plugins/echarts";
 import { createApp, type Directive } from "vue";
 import { useElementPlus } from "@/plugins/elementPlus";
@@ -23,6 +27,8 @@ import "./assets/iconfont/iconfont.js";
 import "./assets/iconfont/iconfont.css";
 
 const app = createApp(App);
+
+installChunkReloadRecovery(router);
 
 // 自定义指令
 import * as directives from "@/directives";
@@ -56,6 +62,7 @@ getPlatformConfig(app).then(async config => {
   setupStore(app);
   app.use(router);
   await router.isReady();
+  clearChunkReloadMarker(sessionStorage);
   injectResponsiveStorage(app, config);
   app.use(MotionPlugin).use(useElementPlus).use(Table);
   // .use(PureDescriptions)

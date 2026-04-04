@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { computed, ref, onMounted } from "vue";
 import { getDashboardStats } from "@/api/admin/dashboard";
 import StatCard from "@/components/admin/StatCard.vue";
+import { mapDashboardStats } from "@/utils/adminLegacy";
 
 defineOptions({ name: "Dashboard" });
 
 const loading = ref(true);
 const stats = ref<any>({});
+const viewStats = computed(() => mapDashboardStats(stats.value));
 
 const loadStats = async () => {
   try {
@@ -25,16 +27,22 @@ onMounted(loadStats);
   <div class="p-4">
     <el-row :gutter="16" v-loading="loading">
       <el-col :xs="24" :sm="12" :md="6">
-        <StatCard title="今日订单" :value="stats.today_order ?? 0" icon="ri:file-list-line" tone="primary" />
+        <StatCard title="今日总订单" :value="viewStats.todayOrder" icon="ri:file-list-line" tone="primary" />
       </el-col>
       <el-col :xs="24" :sm="12" :md="6">
-        <StatCard title="今日金额" :value="stats.today_money ?? '0.00'" icon="ri:money-cny-circle-line" tone="success" />
+        <StatCard title="今日成功订单" :value="viewStats.todaySuccessOrder" icon="ri:checkbox-circle-line" tone="success" />
       </el-col>
       <el-col :xs="24" :sm="12" :md="6">
-        <StatCard title="总订单" :value="stats.order ?? 0" icon="ri:file-list-3-line" tone="warning" />
+        <StatCard title="今日失败订单" :value="viewStats.todayCloseOrder" icon="ri:close-circle-line" tone="danger" />
       </el-col>
       <el-col :xs="24" :sm="12" :md="6">
-        <StatCard title="总金额" :value="stats.money ?? '0.00'" icon="ri:money-cny-box-line" tone="danger" />
+        <StatCard title="今日收入" :value="viewStats.todayMoney" icon="ri:money-cny-circle-line" tone="warning" />
+      </el-col>
+      <el-col :xs="24" :sm="12" :md="6">
+        <StatCard title="总收入" :value="viewStats.countMoney" icon="ri:money-cny-box-line" tone="primary" />
+      </el-col>
+      <el-col :xs="24" :sm="12" :md="6">
+        <StatCard title="总成功订单" :value="viewStats.countOrder" icon="ri:file-list-3-line" tone="success" />
       </el-col>
     </el-row>
 

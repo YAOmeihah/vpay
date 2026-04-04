@@ -24,6 +24,8 @@
 /runtime/
 /public/runtime/
 /public/console/
+/test-results/
+/frontend/admin/.codex-test/
 
 # Environment files
 .env

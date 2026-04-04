@@ -109,9 +109,11 @@ class ControllerEdgeServiceRegressionTest extends TestCase
             'epay_private_key',
             'epay_public_key',
         ], array_keys($settings));
+        $this->assertSame('admin', $settings['user']);
         $this->assertSame('', $settings['pass']);
         $this->assertSame('', $settings['epay_key']);
         $this->assertSame('', $settings['epay_private_key']);
+        $this->assertSame('PUBLIC-KEY', $settings['epay_public_key']);
         $this->assertSame('generated-sign-key', $settings['key']);
         $this->assertSame(['key' => 'generated-sign-key'], $service->savedSettings);
     }
@@ -391,6 +393,9 @@ class ControllerEdgeServiceRegressionTest extends TestCase
     public function test_monitor_state_raw_accessors_preserve_empty_string_values(): void
     {
         $state = new class extends SettingMonitorState {
+            public array $getKeys = [];
+            public array $setKeys = [];
+
             /**
              * @var array<string, string>
              */
@@ -402,11 +407,13 @@ class ControllerEdgeServiceRegressionTest extends TestCase
 
             protected function getConfigValue(string $key, string $default = ''): string
             {
+                $this->getKeys[] = $key;
                 return $this->values[$key] ?? $default;
             }
 
             protected function setConfigValue(string $key, string $value): bool
             {
+                $this->setKeys[] = $key;
                 $this->values[$key] = $value;
 
                 return true;
@@ -419,13 +426,22 @@ class ControllerEdgeServiceRegressionTest extends TestCase
         $this->assertSame(0, $state->getLastHeartbeatAt());
         $this->assertSame(0, $state->getLastPaidAt());
         $this->assertFalse($state->isOnline());
+        $this->assertSame(['lastheart', 'lastpay', 'jkstate'], array_values(array_unique($state->getKeys)));
+
+        $state->markHeartbeatAt(1712200000);
+        $state->markPaidAt(1712200300);
+        $state->markOnline();
+        $state->markOffline();
+
+        $this->assertSame(['lastheart', 'lastpay', 'jkstate'], array_values(array_unique($state->setKeys)));
     }
 
     private static function configureCache(): void
     {
-        self::$cachePath = self::$rootPath . 'runtime' . DIRECTORY_SEPARATOR . 'phpunit-cache-edge' . DIRECTORY_SEPARATOR;
-        if (!is_dir(self::$cachePath)) {
-            mkdir(self::$cachePath, 0777, true);
+        $suffix = substr(sha1(self::$rootPath), 0, 12);
+        self::$cachePath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'vpay-phpunit-cache-edge-' . $suffix . DIRECTORY_SEPARATOR;
+        if (!is_dir(self::$cachePath) && !@mkdir(self::$cachePath, 0777, true) && !is_dir(self::$cachePath)) {
+            throw new \RuntimeException('Failed to create PHPUnit cache directory: ' . self::$cachePath);
         }
 
         $cacheConfig = self::$app->config->get('cache');

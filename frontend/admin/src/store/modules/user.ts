@@ -15,15 +15,15 @@ import { userKey } from "@/utils/auth";
 export const useUserStore = defineStore("pure-user", {
   state: (): userType => ({
     // 头像
-    avatar: storageLocal().getItem(userKey)?.avatar ?? "",
+    avatar: (storageLocal().getItem(userKey) as any)?.avatar ?? "",
     // 用户名
-    username: storageLocal().getItem(userKey)?.username ?? "",
+    username: (storageLocal().getItem(userKey) as any)?.username ?? "",
     // 昵称
-    nickname: storageLocal().getItem(userKey)?.nickname ?? "",
+    nickname: (storageLocal().getItem(userKey) as any)?.nickname ?? "",
     // 页面级别权限
-    roles: storageLocal().getItem(userKey)?.roles ?? [],
+    roles: (storageLocal().getItem(userKey) as any)?.roles ?? [],
     // 按钮级别权限
-    permissions: storageLocal().getItem(userKey)?.permissions ?? [],
+    permissions: (storageLocal().getItem(userKey) as any)?.permissions ?? [],
     // 是否勾选了登录页的免登录
     isRemembered: false,
     // 登录页的免登录存储几天，默认7天

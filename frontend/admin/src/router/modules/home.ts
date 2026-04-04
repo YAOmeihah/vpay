@@ -7,7 +7,7 @@ export default {
   component: Layout,
   redirect: "/dashboard",
   meta: {
-    icon: "ep/home-filled",
+    icon: "ep:home-filled",
     title: "控制台",
     rank: 0
   },
@@ -15,7 +15,7 @@ export default {
     {
       path: "/dashboard",
       name: "DashboardHome",
-      component: () => import("@/views/welcome/index.vue"),
+      component: () => import("@/views/dashboard/index.vue"),
       meta: {
         title: "控制台",
         showLink: VITE_HIDE_HOME === "true" ? false : true

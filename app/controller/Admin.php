@@ -85,24 +85,37 @@ class Admin extends BaseController
 
     public function profile()
     {
-        $username = Session::get('admin_user', Setting::getConfigValue('user'));
+        $username = Session::get('admin_user');
+
+        if (!$username) {
+            return json([
+                'code' => -1,
+                'msg' => '没有登录',
+                'data' => null,
+            ]);
+        }
 
         return json([
-            'username' => $username,
-            'nickname' => '管理员',
-            'roles' => ['admin'],
-            'permissions' => [
-                'dashboard:view',
-                'settings:view',
-                'settings:save',
-                'monitor:view',
-                'qrcode:add',
-                'qrcode:view',
-                'qrcode:delete',
-                'orders:view',
-                'orders:delete',
-                'orders:repair',
-                'orders:cleanup',
+            'code' => 1,
+            'msg' => '成功',
+            'data' => [
+                'avatar' => '',
+                'username' => (string) $username,
+                'nickname' => '管理员',
+                'roles' => ['admin'],
+                'permissions' => [
+                    'dashboard:view',
+                    'settings:view',
+                    'settings:save',
+                    'monitor:view',
+                    'qrcode:add',
+                    'qrcode:view',
+                    'qrcode:delete',
+                    'orders:view',
+                    'orders:delete',
+                    'orders:repair',
+                    'orders:cleanup',
+                ],
             ],
         ]);
     }

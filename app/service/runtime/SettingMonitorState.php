@@ -9,36 +9,61 @@ class SettingMonitorState implements MonitorState
 {
     public function getLastHeartbeatAt(): int
     {
-        return (int) Setting::getConfigValue('lastheart');
+        return (int) $this->getLastHeartbeatRaw();
     }
 
     public function getLastPaidAt(): int
     {
-        return (int) Setting::getConfigValue('lastpay');
+        return (int) $this->getLastPaidRaw();
+    }
+
+    public function getLastHeartbeatRaw(): string
+    {
+        return $this->getConfigValue('lastheart');
+    }
+
+    public function getLastPaidRaw(): string
+    {
+        return $this->getConfigValue('lastpay');
+    }
+
+    public function getOnlineFlagRaw(): string
+    {
+        return $this->getConfigValue('jkstate');
     }
 
     public function markHeartbeatAt(int $timestamp): void
     {
-        Setting::setConfigValue('lastheart', (string) $timestamp);
+        $this->setConfigValue('lastheart', (string) $timestamp);
     }
 
     public function markPaidAt(int $timestamp): void
     {
-        Setting::setConfigValue('lastpay', (string) $timestamp);
+        $this->setConfigValue('lastpay', (string) $timestamp);
     }
 
     public function markOnline(): void
     {
-        Setting::setConfigValue('jkstate', '1');
+        $this->setConfigValue('jkstate', '1');
     }
 
     public function markOffline(): void
     {
-        Setting::setConfigValue('jkstate', '0');
+        $this->setConfigValue('jkstate', '0');
     }
 
     public function isOnline(): bool
     {
-        return Setting::getConfigValue('jkstate') === '1';
+        return $this->getOnlineFlagRaw() === '1';
+    }
+
+    protected function getConfigValue(string $key, string $default = ''): string
+    {
+        return Setting::getConfigValue($key, $default);
+    }
+
+    protected function setConfigValue(string $key, string $value): bool
+    {
+        return Setting::setConfigValue($key, $value);
     }
 }

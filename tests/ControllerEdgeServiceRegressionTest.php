@@ -242,6 +242,84 @@ class ControllerEdgeServiceRegressionTest extends TestCase
         $this->assertArrayNotHasKey('pass', $service->savedSettings);
     }
 
+    public function test_admin_settings_service_accepts_partial_payment_payload_without_touching_other_sections(): void
+    {
+        $service = new class extends AdminSettingsService {
+            public array $savedSettings = [];
+
+            protected function setConfigValue(string $key, string $value): bool
+            {
+                $this->savedSettings[$key] = $value;
+                return true;
+            }
+
+            protected function dashboardStatsService(): DashboardStatsService
+            {
+                return new class extends DashboardStatsService {
+                    public function clearStats(): bool
+                    {
+                        return true;
+                    }
+                };
+            }
+        };
+
+        $service->saveSettings([
+            'notifyUrl' => 'https://merchant.example/new-notify',
+            'returnUrl' => 'https://merchant.example/new-return',
+            'key' => 'next-sign-key',
+            'close' => '30',
+            'payQf' => '2',
+        ]);
+
+        $this->assertSame([
+            'notifyUrl' => 'https://merchant.example/new-notify',
+            'returnUrl' => 'https://merchant.example/new-return',
+            'key' => 'next-sign-key',
+            'close' => '30',
+            'payQf' => '2',
+        ], $service->savedSettings);
+    }
+
+    public function test_admin_settings_service_skips_blank_sensitive_values_during_partial_epay_save(): void
+    {
+        $service = new class extends AdminSettingsService {
+            public array $savedSettings = [];
+
+            protected function setConfigValue(string $key, string $value): bool
+            {
+                $this->savedSettings[$key] = $value;
+                return true;
+            }
+
+            protected function dashboardStatsService(): DashboardStatsService
+            {
+                return new class extends DashboardStatsService {
+                    public function clearStats(): bool
+                    {
+                        return true;
+                    }
+                };
+            }
+        };
+
+        $service->saveSettings([
+            'epay_enabled' => '1',
+            'epay_pid' => '10002',
+            'epay_name' => '收银台',
+            'epay_key' => '',
+            'epay_private_key' => '',
+            'epay_public_key' => 'PUBLIC-KEY-NEXT',
+        ]);
+
+        $this->assertSame('1', $service->savedSettings['epay_enabled'] ?? null);
+        $this->assertSame('10002', $service->savedSettings['epay_pid'] ?? null);
+        $this->assertSame('收银台', $service->savedSettings['epay_name'] ?? null);
+        $this->assertSame('PUBLIC-KEY-NEXT', $service->savedSettings['epay_public_key'] ?? null);
+        $this->assertArrayNotHasKey('epay_key', $service->savedSettings);
+        $this->assertArrayNotHasKey('epay_private_key', $service->savedSettings);
+    }
+
     public function test_admin_permission_service_keeps_canonical_admin_permissions_list(): void
     {
         if (!class_exists(AdminPermissionService::class)) {

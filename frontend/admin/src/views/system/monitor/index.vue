@@ -7,6 +7,7 @@ import {
   formatUnixTimestamp,
   getMonitorStatus
 } from "@/utils/adminLegacy";
+import { monitorQrPreviewStyle } from "./qrPreview";
 
 defineOptions({ name: "MonitorSettings" });
 
@@ -68,8 +69,13 @@ onMounted(loadSettings);
 
       <template v-if="configUrl">
         <el-alert title="使用监控端 App 扫描此二维码进行绑定" type="info" :closable="false" class="mb-4" />
-        <div class="flex justify-center p-5 bg-gray-50 rounded">
-          <img :src="qrcodeUrl" alt="配置二维码" class="max-w-xs w-full" />
+        <div class="flex justify-center p-4 bg-gray-50 rounded">
+          <img
+            :src="qrcodeUrl"
+            alt="配置二维码"
+            class="max-w-full"
+            :style="monitorQrPreviewStyle"
+          />
         </div>
         <el-input :model-value="configUrl" readonly class="mt-4">
           <template #prepend>配置地址</template>

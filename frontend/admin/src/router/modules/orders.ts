@@ -4,6 +4,7 @@ export default {
   path: "/orders",
   name: "Orders",
   component: Layout,
+  redirect: "/orders/index",
   meta: {
     icon: "ri:file-list-3-line",
     title: "订单列表",

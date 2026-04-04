@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace app\controller\admin;
 
 use app\BaseController;
-use app\model\Setting;
+use app\service\admin\AdminSettingsService;
 use think\facade\Session;
 
 class Auth extends BaseController
@@ -32,8 +32,9 @@ class Auth extends BaseController
             return json($this->getReturn(-1, "登录失败次数过多，请5分钟后重试"));
         }
 
-        $_user = Setting::getConfigValue("user");
-        $_pass = Setting::getConfigValue("pass");
+        $settings = $this->adminSettingsService();
+        $_user = $settings->getAdminUsername();
+        $_pass = $settings->getAdminPasswordHash();
 
         if (!hash_equals((string)$_user, $user) || !password_verify($pass, $_pass)) {
             cache($loginKey, $attempts + 1, 300);
@@ -56,5 +57,10 @@ class Auth extends BaseController
         }
 
         return json($this->getReturn(1, "登录成功"));
+    }
+
+    private function adminSettingsService(): AdminSettingsService
+    {
+        return $this->app->make(AdminSettingsService::class);
     }
 }

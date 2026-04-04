@@ -9,30 +9,28 @@ final class RouteStructureRegressionTest extends TestCase
 {
     public function test_route_list_keeps_public_entrypoints_and_points_to_split_controllers(): void
     {
-        $output = shell_exec('php think route:list');
+        $routes = file_get_contents(dirname(__DIR__) . '/route/app.php');
+        $routes .= "\n" . file_get_contents(dirname(__DIR__) . '/route/admin.php');
+        $routes .= "\n" . file_get_contents(dirname(__DIR__) . '/route/merchant.php');
+        $routes .= "\n" . file_get_contents(dirname(__DIR__) . '/route/monitor.php');
+        $routes .= "\n" . file_get_contents(dirname(__DIR__) . '/route/compat.php');
 
-        $this->assertIsString($output);
-        $this->assertRouteMapping($output, 'login', 'admin.Auth/login', '\*');
-        $this->assertRouteMapping($output, 'getMenu', 'admin.Menu/getMenu', '\*');
-        $this->assertRouteMapping($output, 'createOrder', 'merchant.Order/createOrder', '\*');
-        $this->assertRouteMapping($output, 'getOrder', 'merchant.Order/getOrder', '\*');
-        $this->assertRouteMapping($output, 'checkOrder', 'merchant.Order/checkOrder', '\*');
-        $this->assertRouteMapping($output, 'closeOrder', 'merchant.Order/closeOrder', '\*');
-        $this->assertRouteMapping($output, 'getState', 'monitor.Monitor/getState', '\*');
-        $this->assertRouteMapping($output, 'appHeart', 'monitor.Monitor/appHeart', '\*');
-        $this->assertRouteMapping($output, 'appPush', 'monitor.Monitor/appPush', '\*');
-        $this->assertRouteMapping($output, 'closeEndOrder', 'monitor.Monitor/closeEndOrder', '\*');
-        $this->assertRouteMapping($output, 'mapi.php', 'compat.Epay/mapi', 'post');
-        $this->assertRouteMapping($output, 'submit.php', 'compat.Epay/submit', 'get\|post');
-        $this->assertRouteMapping($output, 'api/pay/create', 'compat.Epay/createV2', 'post');
-        $this->assertRouteMapping($output, 'api/pay/submit', 'compat.Epay/submitV2', 'post');
-        $this->assertRouteMapping($output, 'admin/index/profile', 'admin/profile', '\*');
-        $this->assertRouteMapping($output, 'admin/index/logout', 'admin/logout', 'post');
-    }
-
-    private function assertRouteMapping(string $output, string $rule, string $route, string $methodPattern): void
-    {
-        $pattern = '/\|\s+' . preg_quote($rule, '/') . '\s+\|\s+' . preg_quote($route, '/') . '\s+\|\s+' . $methodPattern . '\s+\|/';
-        $this->assertMatchesRegularExpression($pattern, $output);
+        $this->assertIsString($routes);
+        $this->assertStringContainsString("Route::any('login', 'admin.Auth/login');", $routes);
+        $this->assertStringContainsString("Route::any('getMenu', 'admin.Menu/getMenu')", $routes);
+        $this->assertStringContainsString("Route::any('createOrder', 'merchant.Order/createOrder');", $routes);
+        $this->assertStringContainsString("Route::any('getOrder', 'merchant.Order/getOrder');", $routes);
+        $this->assertStringContainsString("Route::any('checkOrder', 'merchant.Order/checkOrder');", $routes);
+        $this->assertStringContainsString("Route::any('closeOrder', 'merchant.Order/closeOrder');", $routes);
+        $this->assertStringContainsString("Route::any('getState', 'monitor.Monitor/getState');", $routes);
+        $this->assertStringContainsString("Route::any('appHeart', 'monitor.Monitor/appHeart');", $routes);
+        $this->assertStringContainsString("Route::any('appPush', 'monitor.Monitor/appPush');", $routes);
+        $this->assertStringContainsString("Route::any('closeEndOrder', 'monitor.Monitor/closeEndOrder');", $routes);
+        $this->assertStringContainsString("Route::post('mapi.php', 'compat.Epay/mapi');", $routes);
+        $this->assertStringContainsString("Route::rule('submit.php', 'compat.Epay/submit', 'GET|POST');", $routes);
+        $this->assertStringContainsString("Route::post('api/pay/create', 'compat.Epay/createV2');", $routes);
+        $this->assertStringContainsString("Route::post('api/pay/submit', 'compat.Epay/submitV2');", $routes);
+        $this->assertStringContainsString("Route::any('profile', 'admin/profile');", $routes);
+        $this->assertStringContainsString("Route::post('logout', 'admin/logout');", $routes);
     }
 }

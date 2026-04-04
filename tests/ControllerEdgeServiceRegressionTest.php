@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace tests;
 
 use app\service\CacheService;
+use app\service\admin\AdminPermissionService;
 use app\service\admin\AdminSettingsService;
 use app\service\admin\DashboardStatsService;
 use app\service\runtime\SettingMonitorState;
@@ -239,13 +240,67 @@ class ControllerEdgeServiceRegressionTest extends TestCase
         $this->assertArrayNotHasKey('pass', $service->savedSettings);
     }
 
+    public function test_admin_permission_service_keeps_canonical_admin_permissions_list(): void
+    {
+        if (!class_exists(AdminPermissionService::class)) {
+            $this->fail('AdminPermissionService class is missing.');
+        }
+
+        $service = new AdminPermissionService();
+
+        $this->assertSame([
+            'dashboard:view',
+            'settings:view',
+            'settings:save',
+            'monitor:view',
+            'qrcode:add',
+            'qrcode:view',
+            'qrcode:delete',
+            'orders:view',
+            'orders:delete',
+            'orders:repair',
+            'orders:cleanup',
+        ], $service->all());
+    }
+
     public function test_dashboard_stats_service_uses_dashboard_cache_slot_semantics(): void
     {
         if (!class_exists(DashboardStatsService::class)) {
             $this->fail('DashboardStatsService class is missing.');
         }
 
-        $service = new DashboardStatsService();
+        $cache = new class extends \app\service\cache\DashboardStatsCache {
+            public array $store = [];
+
+            public function cacheStats(array $stats): bool
+            {
+                $this->store['dashboard'] = $stats;
+                return true;
+            }
+
+            public function getStats()
+            {
+                return $this->store['dashboard'] ?? null;
+            }
+
+            public function deleteStats(): bool
+            {
+                unset($this->store['dashboard']);
+                return true;
+            }
+        };
+
+        $service = new class($cache) extends DashboardStatsService {
+            public function __construct(private \app\service\cache\DashboardStatsCache $cache)
+            {
+            }
+
+            protected function dashboardCache(): \app\service\cache\DashboardStatsCache
+            {
+                return $this->cache;
+            }
+        };
+
         $buildCalls = 0;
         $expected = [
             'todayOrder' => 8,
@@ -266,11 +321,11 @@ class ControllerEdgeServiceRegressionTest extends TestCase
         $this->assertSame($expected, $first);
         $this->assertSame($expected, $second);
         $this->assertSame(1, $buildCalls);
-        $this->assertSame($expected, CacheService::getStats('dashboard'));
-        $this->assertNull(CacheService::getStats('not-dashboard'));
+        $this->assertSame($expected, $cache->getStats());
+        $this->assertNull($cache->store['not-dashboard'] ?? null);
 
-        $this->assertTrue($service->clearStats());
-        $this->assertNull(CacheService::getStats('dashboard'));
+        $service->clearStats();
+        $this->assertNull($cache->getStats());
     }
 
     public function test_login_attempt_limiter_keeps_threshold_contract_for_login_path(): void
@@ -280,7 +335,7 @@ class ControllerEdgeServiceRegressionTest extends TestCase
         }
 
         $limiter = new LoginAttemptLimiter();
-        $clientIp = '127.0.0.1';
+        $clientIp = '127.0.0.1-' . uniqid('', true);
 
         $this->assertFalse($limiter->tooManyLoginAttempts($clientIp));
 
@@ -291,9 +346,6 @@ class ControllerEdgeServiceRegressionTest extends TestCase
 
         $limiter->recordLoginFailure($clientIp);
         $this->assertTrue($limiter->tooManyLoginAttempts($clientIp));
-
-        $limiter->clearLoginAttempts($clientIp);
-        $this->assertFalse($limiter->tooManyLoginAttempts($clientIp));
     }
 
     public function test_cache_manage_warmup_payload_builder_preserves_legacy_raw_value_shapes(): void

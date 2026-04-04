@@ -7,6 +7,9 @@ use think\Model;
 
 /**
  * 系统设置模型
+ *
+ * This remains the low-level persistence/cache helper. Application-specific
+ * separation between config and runtime state now lives in repository classes.
  */
 class Setting extends Model
 {

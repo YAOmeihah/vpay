@@ -4,23 +4,9 @@ declare(strict_types=1);
 namespace app\controller;
 
 use app\BaseController;
-use app\model\PayOrder;
-use app\model\TmpPrice;
-use app\service\MonitorService;
-use app\service\NotifyService;
-use app\service\SignService;
-use app\service\admin\AdminSettingsService;
-use app\service\admin\DashboardStatsService;
-use app\service\cache\OrderCache;
-use app\service\config\SettingSystemConfig;
-use app\service\runtime\SettingMonitorState;
-use app\service\security\LoginAttemptLimiter;
-use think\facade\Session;
 
 class Index extends BaseController
 {
-    use \app\controller\trait\ApiResponse;
-
     public function index()
     {
         return 'ThinkPHP 8 支付系统已成功运行！';
@@ -39,357 +25,74 @@ class Index extends BaseController
 
     public function login()
     {
-        $user = trim($this->request->param("user"));
-        $pass = trim($this->request->param("pass"));
-
-        if (!$user || $user == "" || !$pass || $pass == "") {
-            return json($this->getReturn(-1, "账号或密码错误"));
-        }
-
-        if (strlen($user) > 100 || strlen($pass) > 200) {
-            return json($this->getReturn(-1, "账号或密码错误"));
-        }
-
-        $clientIp = $this->request->ip();
-        $limiter = $this->loginAttemptLimiter();
-
-        if ($limiter->tooManyLoginAttempts($clientIp)) {
-            return json($this->getReturn(-1, "登录失败次数过多，请5分钟后重试"));
-        }
-
-        $_user = $this->adminSettingsService()->getAdminUsername();
-        $_pass = $this->adminSettingsService()->getAdminPasswordHash();
-
-        if (!hash_equals((string) $_user, $user) || !password_verify($pass, $_pass)) {
-            $limiter->recordLoginFailure($clientIp);
-            return json($this->getReturn(-1, "账号或密码错误"));
-        }
-
-        $limiter->clearLoginAttempts($clientIp);
-
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
-
-        Session::set("admin", 1);
-        Session::set("admin_user", (string)$_user);
-        Session::set("login_time", time());
-        Session::set("login_ip", $clientIp);
-
-        if (session_status() === PHP_SESSION_ACTIVE) {
-            session_regenerate_id(false);
-        }
-
-        return json($this->getReturn(1, "登录成功"));
+        // Compatibility entrypoint: delegate to split controller.
+        return $this->delegateTo(\app\controller\admin\Auth::class, 'login');
     }
 
     public function getMenu()
     {
-        $menu = array(
-            array(
-                "name" => "系统设置",
-                "type" => "url",
-                "url" => "admin/setting.html?t=" . time(),
-            ),
-            array(
-                "name" => "监控端设置",
-                "type" => "url",
-                "url" => "admin/jk.html?t=" . time(),
-            ),
-            array(
-                "name" => "微信二维码",
-                "type" => "menu",
-                "node" => array(
-                    array(
-                        "name" => "添加",
-                        "type" => "url",
-                        "url" => "admin/addwxqrcode.html?t=" . time(),
-                    ),
-                    array(
-                        "name" => "管理",
-                        "type" => "url",
-                        "url" => "admin/wxqrcodelist.html?t=" . time(),
-                    )
-                ),
-            ), array(
-                "name" => "支付宝二维码",
-                "type" => "menu",
-                "node" => array(
-                    array(
-                        "name" => "添加",
-                        "type" => "url",
-                        "url" => "admin/addzfbqrcode.html?t=" . time(),
-                    ),
-                    array(
-                        "name" => "管理",
-                        "type" => "url",
-                        "url" => "admin/zfbqrcodelist.html?t=" . time(),
-                    )
-                ),
-            ), array(
-                "name" => "订单列表",
-                "type" => "url",
-                "url" => "admin/orderlist.html?t=" . time(),
-            ), array(
-                "name" => "Api说明",
-                "type" => "url",
-                "url" => "api.html?t=" . time(),
-            )
-        );
-
-        return json($menu);
+        // Compatibility entrypoint: delegate to split controller.
+        return $this->delegateTo(\app\controller\admin\Menu::class, 'getMenu');
     }
 
     public function createOrder()
     {
-        $this->closeEndOrder();
-
-        $params = $this->request->param();
-        $validate = new \app\validate\OrderValidate();
-        if (!$validate->check($params)) {
-            return json($this->getReturn(-1, $validate->getError()));
-        }
-
-        $payId = $params['payId'];
-        $type = (int) $params['type'];
-        $price = $params['price'];
-        $sign = $params['sign'];
-        $isHtml = $params['isHtml'] ?? 0;
-        $param = $params['param'] ?? '';
-
-        if (!SignService::verifyCreateOrderSign($payId, $param, $type, $price, $sign)) {
-            return json($this->getReturn(-1, "签名错误"));
-        }
-
-        try {
-            $orderParams = [
-                'payId'     => $payId,
-                'type'      => $type,
-                'price'     => $price,
-                'param'     => $param,
-                'notifyUrl' => $params['notifyUrl'] ?? null,
-                'returnUrl' => $params['returnUrl'] ?? null,
-            ];
-
-            $orderInfo = \app\service\OrderService::createOrder($orderParams);
-
-            if ($isHtml == 1) {
-                echo "<script>window.location.href = 'payPage/pay.html?orderId=" . $orderInfo['orderId'] . "'</script>";
-            } else {
-                return json($this->getReturn(1, "成功", $orderInfo));
-            }
-        } catch (\RuntimeException $e) {
-            if ($isHtml == 1) {
-                return response($this->renderErrorHtml($e->getMessage()))
-                    ->header(['Content-Type' => 'text/html; charset=utf-8']);
-            }
-            return json($this->getReturn(-1, $e->getMessage()));
-        }
-    }
-
-    private function renderErrorHtml(string $msg): string
-    {
-        $msg = htmlspecialchars($msg, ENT_QUOTES, 'UTF-8');
-        return '<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>支付异常</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
-        .error-card { background: white; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); padding: 40px 30px; text-align: center; max-width: 400px; width: 100%; }
-        .error-icon { font-size: 48px; color: #ff6b6b; margin-bottom: 20px; }
-        .error-title { font-size: 24px; color: #333; margin-bottom: 15px; font-weight: 600; }
-        .error-message { font-size: 16px; color: #666; line-height: 1.5; margin-bottom: 30px; }
-        .retry-btn { background: #667eea; color: white; border: none; padding: 12px 30px; border-radius: 6px; font-size: 16px; cursor: pointer; transition: background 0.3s ease; }
-        .retry-btn:hover { background: #5a6fd8; }
-    </style>
-</head>
-<body>
-    <div class="error-card">
-        <div class="error-icon">⚠️</div>
-        <h1 class="error-title">支付异常</h1>
-        <p class="error-message">' . $msg . '</p>
-        <button class="retry-btn" onclick="history.back()">返回上页</button>
-    </div>
-</body>
-</html>';
+        // Compatibility entrypoint: delegate to split controller.
+        return $this->delegateTo(\app\controller\merchant\Order::class, 'createOrder');
     }
 
     public function getOrder()
     {
-        $orderId = $this->request->param("orderId");
-
-        $cachedData = $this->orderCache()->getOrder($orderId);
-        if ($cachedData) {
-            return json($this->getReturn(1, "成功", $cachedData));
-        }
-
-        $res = PayOrder::where("order_id", $orderId)->find();
-        if ($res) {
-            $time = $this->systemConfig()->getOrderCloseRaw();
-
-            $data = array(
-                "payId" => $res['pay_id'],
-                "orderId" => $res['order_id'],
-                "payType" => $res['type'],
-                "price" => $res['price'],
-                "reallyPrice" => $res['really_price'],
-                "payUrl" => $res['pay_url'],
-                "isAuto" => $res['is_auto'],
-                "state" => $res['state'],
-                "timeOut" => $time,
-                "date" => $res['create_date']
-            );
-
-            $this->orderCache()->cacheOrder($orderId, $data);
-
-            return json($this->getReturn(1, "成功", $data));
-        } else {
-            return json($this->getReturn(-1, "云端订单编号不存在"));
-        }
+        // Compatibility entrypoint: delegate to split controller.
+        return $this->delegateTo(\app\controller\merchant\Order::class, 'getOrder');
     }
 
     public function checkOrder()
     {
-        $res = PayOrder::where("order_id", $this->request->param("orderId"))->find();
-        if ($res) {
-            if ($res['state'] == 0) {
-                return json($this->getReturn(-1, "订单未支付"));
-            }
-            if ($res['state'] == -1) {
-                return json($this->getReturn(-1, "订单已过期"));
-            }
-
-            $url = NotifyService::buildReturnUrl($res->toArray());
-
-            return json($this->getReturn(1, "成功", $url));
-        } else {
-            return json($this->getReturn(-1, "云端订单编号不存在"));
-        }
+        // Compatibility entrypoint: delegate to split controller.
+        return $this->delegateTo(\app\controller\merchant\Order::class, 'checkOrder');
     }
 
     public function closeOrder()
     {
-        $orderId = $this->request->param("orderId");
-
-        if (!SignService::verifySimpleSign($orderId, $this->request->param('sign', ''))) {
-            return json($this->getReturn(-1, "签名校验不通过"));
-        }
-
-        $res = PayOrder::where("order_id", $orderId)->find();
-
-        if ($res) {
-            if ($res['state'] != 0) {
-                return json($this->getReturn(-1, "订单状态不允许关闭"));
-            }
-            PayOrder::where("order_id", $orderId)->update(array("state" => -1, "close_date" => time()));
-            TmpPrice::where("oid", $res['order_id'])->delete();
-
-            $this->orderCache()->deleteOrder($orderId);
-            $this->dashboardStatsService()->clearStats();
-
-            return json($this->getReturn(1, "成功"));
-        } else {
-            return json($this->getReturn(-1, "云端订单编号不存在"));
-        }
+        // Compatibility entrypoint: delegate to split controller.
+        return $this->delegateTo(\app\controller\merchant\Order::class, 'closeOrder');
     }
 
     public function getState()
     {
-        $t = $this->request->param("t");
-
-        if (!SignService::verifySimpleSign($t, $this->request->param('sign', ''))) {
-            return json($this->getReturn(-1, "签名校验不通过"));
-        }
-
-        $monitorState = $this->monitorState();
-        $lastheart = $monitorState->getLastHeartbeatRaw();
-        $lastpay = $monitorState->getLastPaidRaw();
-        $jkstate = $monitorState->getOnlineFlagRaw();
-
-        return json($this->getReturn(1, "成功", array("lastheart" => $lastheart, "lastpay" => $lastpay, "jkstate" => $jkstate)));
+        // Compatibility entrypoint: delegate to split controller.
+        return $this->delegateTo(\app\controller\monitor\Monitor::class, 'getState');
     }
 
     public function appHeart()
     {
-        $this->closeEndOrder();
-
-        $t = $this->request->param("t");
-
-        if (!SignService::verifySimpleSign($t, $this->request->param('sign', ''))) {
-            return json($this->getReturn(-1, "签名校验不通过"));
-        }
-
-        MonitorService::heartbeat();
-        return json($this->getReturn());
+        // Compatibility entrypoint: delegate to split controller.
+        return $this->delegateTo(\app\controller\monitor\Monitor::class, 'appHeart');
     }
 
     public function appPush()
     {
-        $this->closeEndOrder();
-
-        $t = $this->request->param('t');
-        $type = $this->request->param('type');
-        $price = $this->request->param('price');
-
-        if (!SignService::verifySimpleSign($type . $price . $t, $this->request->param('sign', ''))) {
-            return json($this->getReturn(-1, "签名校验不通过"));
-        }
-
-        $result = \app\service\OrderService::handlePayPush($price, (int) $type);
-
-        if ($result['alreadyProcessed']) {
-            return json($this->getReturn(1, "订单已处理"));
-        }
-
-        if ($result['notifyOk']) {
-            return json($this->getReturn());
-        }
-
-        return json($this->getReturn(-1, "异步通知失败"));
+        // Compatibility entrypoint: delegate to split controller.
+        return $this->delegateTo(\app\controller\monitor\Monitor::class, 'appPush');
     }
 
     public function closeEndOrder()
     {
-        $affected = MonitorService::closeExpiredOrders();
-
-        if ($affected > 0) {
-            return json($this->getReturn(1, "成功清理" . $affected . "条订单"));
-        }
-
-        return json($this->getReturn(1, "没有等待清理的订单"));
+        // Compatibility entrypoint: delegate to split controller.
+        return $this->delegateTo(\app\controller\monitor\Monitor::class, 'closeEndOrder');
     }
 
-    private function adminSettingsService(): AdminSettingsService
+    /**
+     * Delegate legacy Index endpoints to the split controllers.
+     *
+     * @return mixed The delegated controller action result (Json/Response/void).
+     */
+    private function delegateTo(string $controllerClass, string $method): mixed
     {
-        return new AdminSettingsService();
-    }
+        $controller = $this->app->make($controllerClass);
 
-    private function dashboardStatsService(): DashboardStatsService
-    {
-        return new DashboardStatsService();
-    }
-
-    private function loginAttemptLimiter(): LoginAttemptLimiter
-    {
-        return new LoginAttemptLimiter();
-    }
-
-    private function orderCache(): OrderCache
-    {
-        return new OrderCache();
-    }
-
-    private function systemConfig(): SettingSystemConfig
-    {
-        return new SettingSystemConfig();
-    }
-
-    private function monitorState(): SettingMonitorState
-    {
-        return new SettingMonitorState();
+        // Most controller actions use $this->request (from App) and take no args.
+        return $controller->{$method}();
     }
 }

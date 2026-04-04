@@ -78,11 +78,11 @@ class MonitorService
 
     protected static function monitorState(): MonitorState
     {
-        return new SettingMonitorState();
+        return app()->make(SettingMonitorState::class);
     }
 
     protected static function systemConfig(): SystemConfig
     {
-        return new SettingSystemConfig();
+        return app()->make(SettingSystemConfig::class);
     }
 }

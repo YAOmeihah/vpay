@@ -8,6 +8,7 @@ use app\model\PayOrder;
 use app\model\PayQrcode;
 use app\model\TmpPrice;
 use app\service\NotifyService;
+use app\service\admin\AdminPermissionService;
 use app\service\admin\AdminSettingsService;
 use app\service\admin\DashboardStatsService;
 use think\facade\Db;
@@ -103,19 +104,7 @@ class Admin extends BaseController
                 'username' => (string) $username,
                 'nickname' => '管理员',
                 'roles' => ['admin'],
-                'permissions' => [
-                    'dashboard:view',
-                    'settings:view',
-                    'settings:save',
-                    'monitor:view',
-                    'qrcode:add',
-                    'qrcode:view',
-                    'qrcode:delete',
-                    'orders:view',
-                    'orders:delete',
-                    'orders:repair',
-                    'orders:cleanup',
-                ],
+                'permissions' => $this->adminPermissionService()->all(),
             ],
         ]);
     }
@@ -238,12 +227,17 @@ class Admin extends BaseController
 
     private function adminSettingsService(): AdminSettingsService
     {
-        return new AdminSettingsService();
+        return $this->app->make(AdminSettingsService::class);
     }
 
     private function dashboardStatsService(): DashboardStatsService
     {
-        return new DashboardStatsService();
+        return $this->app->make(DashboardStatsService::class);
+    }
+
+    private function adminPermissionService(): AdminPermissionService
+    {
+        return $this->app->make(AdminPermissionService::class);
     }
 
     /**

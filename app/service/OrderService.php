@@ -131,11 +131,11 @@ class OrderService
 
     protected static function systemConfig(): SystemConfig
     {
-        return new SettingSystemConfig();
+        return app()->make(SettingSystemConfig::class);
     }
 
     protected static function monitorState(): MonitorState
     {
-        return new SettingMonitorState();
+        return app()->make(SettingMonitorState::class);
     }
 }

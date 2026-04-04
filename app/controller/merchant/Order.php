@@ -5,11 +5,11 @@ namespace app\controller\merchant;
 
 use app\BaseController;
 use app\model\PayOrder;
-use app\model\Setting;
 use app\model\TmpPrice;
 use app\service\MonitorService;
 use app\service\NotifyService;
 use app\service\SignService;
+use app\service\config\SettingSystemConfig;
 
 class Order extends BaseController
 {
@@ -104,7 +104,7 @@ class Order extends BaseController
 
         $res = PayOrder::where("order_id", $orderId)->find();
         if ($res) {
-            $time = Setting::getConfigValue("close");
+            $time = $this->systemConfig()->getOrderCloseRaw();
 
             $data = array(
                 "payId" => $res['pay_id'],
@@ -170,5 +170,10 @@ class Order extends BaseController
         } else {
             return json($this->getReturn(-1, "云端订单编号不存在"));
         }
+    }
+
+    private function systemConfig(): SettingSystemConfig
+    {
+        return $this->app->make(SettingSystemConfig::class);
     }
 }

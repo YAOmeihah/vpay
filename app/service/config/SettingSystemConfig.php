@@ -3,64 +3,67 @@ declare(strict_types=1);
 
 namespace app\service\config;
 
-use app\model\Setting;
-
 class SettingSystemConfig implements SystemConfig
 {
     public function getNotifyUrl(): string
     {
-        return Setting::getConfigValue('notifyUrl');
+        return $this->getConfigValue('notifyUrl');
     }
 
     public function getReturnUrl(): string
     {
-        return Setting::getConfigValue('returnUrl');
+        return $this->getConfigValue('returnUrl');
     }
 
     public function getSignKey(): string
     {
-        return Setting::getConfigValue('key');
+        return $this->getConfigValue('key');
     }
 
     public function getOrderCloseMinutes(): int
     {
-        return (int) Setting::getConfigValue('close');
+        return (int) $this->getConfigValue('close');
     }
 
     public function getOrderCloseRaw(): string
     {
-        return Setting::getConfigValue('close');
+        return $this->getConfigValue('close');
     }
 
     public function getPayQfMode(): string
     {
-        return Setting::getConfigValue('payQf');
+        return $this->getConfigValue('payQf');
     }
 
     public function getWeChatPayUrl(): string
     {
-        return Setting::getConfigValue('wxpay');
+        return $this->getConfigValue('wxpay');
     }
 
     public function getAlipayPayUrl(): string
     {
-        return Setting::getConfigValue('zfbpay');
+        return $this->getConfigValue('zfbpay');
     }
 
     public function getNotifySslVerifyEnabled(): bool
     {
-        return Setting::getConfigValue('notify_ssl_verify', '1') === '1';
+        return $this->getConfigValue('notify_ssl_verify', '1') === '1';
     }
 
     public function getEpayConfig(): array
     {
         return [
-            'enabled' => Setting::getConfigValue('epay_enabled', '0') === '1',
-            'pid' => trim(Setting::getConfigValue('epay_pid')),
-            'key' => trim(Setting::getConfigValue('epay_key')),
-            'name' => trim(Setting::getConfigValue('epay_name', '订单支付')),
-            'private_key' => trim(Setting::getConfigValue('epay_private_key')),
-            'public_key' => trim(Setting::getConfigValue('epay_public_key')),
+            'enabled' => $this->getConfigValue('epay_enabled', '0') === '1',
+            'pid' => trim($this->getConfigValue('epay_pid')),
+            'key' => trim($this->getConfigValue('epay_key')),
+            'name' => trim($this->getConfigValue('epay_name', '订单支付')),
+            'private_key' => trim($this->getConfigValue('epay_private_key')),
+            'public_key' => trim($this->getConfigValue('epay_public_key')),
         ];
+    }
+
+    protected function getConfigValue(string $key, string $default = ''): string
+    {
+        return (new SettingConfigRepository())->get($key, $default);
     }
 }

@@ -4,10 +4,10 @@ declare(strict_types=1);
 namespace app\controller\monitor;
 
 use app\BaseController;
-use app\model\Setting;
 use app\service\MonitorService;
 use app\service\OrderService;
 use app\service\SignService;
+use app\service\runtime\SettingMonitorState;
 
 class Monitor extends BaseController
 {
@@ -21,9 +21,10 @@ class Monitor extends BaseController
             return json($this->getReturn(-1, "签名校验不通过"));
         }
 
-        $lastheart = Setting::getConfigValue("lastheart");
-        $lastpay = Setting::getConfigValue("lastpay");
-        $jkstate = Setting::getConfigValue("jkstate");
+        $state = $this->monitorState();
+        $lastheart = $state->getLastHeartbeatRaw();
+        $lastpay = $state->getLastPaidRaw();
+        $jkstate = $state->getOnlineFlagRaw();
 
         return json($this->getReturn(1, "成功", array("lastheart" => $lastheart, "lastpay" => $lastpay, "jkstate" => $jkstate)));
     }
@@ -76,5 +77,10 @@ class Monitor extends BaseController
         }
 
         return json($this->getReturn(1, "没有等待清理的订单"));
+    }
+
+    private function monitorState(): SettingMonitorState
+    {
+        return $this->app->make(SettingMonitorState::class);
     }
 }

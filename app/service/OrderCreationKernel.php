@@ -123,16 +123,16 @@ class OrderCreationKernel
 
     protected static function systemConfig(): SystemConfig
     {
-        return new SettingSystemConfig();
+        return app()->make(SettingSystemConfig::class);
     }
 
     protected static function orderCache(): OrderCache
     {
-        return new OrderCache();
+        return app()->make(OrderCache::class);
     }
 
     protected static function payloadFactory(): OrderPayloadFactory
     {
-        return new OrderPayloadFactory();
+        return app()->make(OrderPayloadFactory::class);
     }
 }

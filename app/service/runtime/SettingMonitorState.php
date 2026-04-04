@@ -3,8 +3,6 @@ declare(strict_types=1);
 
 namespace app\service\runtime;
 
-use app\model\Setting;
-
 class SettingMonitorState implements MonitorState
 {
     public function getLastHeartbeatAt(): int
@@ -59,11 +57,11 @@ class SettingMonitorState implements MonitorState
 
     protected function getConfigValue(string $key, string $default = ''): string
     {
-        return Setting::getConfigValue($key, $default);
+        return (new SettingStateRepository())->get($key, $default);
     }
 
     protected function setConfigValue(string $key, string $value): bool
     {
-        return Setting::setConfigValue($key, $value);
+        return (new SettingStateRepository())->set($key, $value);
     }
 }

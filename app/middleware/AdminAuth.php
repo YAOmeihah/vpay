@@ -10,18 +10,25 @@ use think\facade\Session;
 
 class AdminAuth
 {
+    private const SESSION_TTL = 86400;
+
     public function handle(Request $request, Closure $next): Response
     {
         if (!Session::has('admin')) {
-            return json(['code' => -1, 'msg' => '没有登录', 'data' => null]);
+            return $this->unauthorizedResponse();
         }
 
         $loginTime = Session::get('login_time');
-        if ($loginTime && (time() - $loginTime) > 86400) {
+        if ($loginTime && (time() - $loginTime) > self::SESSION_TTL) {
             Session::clear();
-            return json(['code' => -1, 'msg' => '没有登录', 'data' => null]);
+            return $this->unauthorizedResponse();
         }
 
         return $next($request);
+    }
+
+    private function unauthorizedResponse(): Response
+    {
+        return json(['code' => -1, 'msg' => '没有登录', 'data' => null]);
     }
 }

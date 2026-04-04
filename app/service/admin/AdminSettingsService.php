@@ -3,8 +3,9 @@ declare(strict_types=1);
 
 namespace app\service\admin;
 
-use app\model\Setting;
 use app\service\CacheService;
+use app\service\config\SettingConfigRepository;
+use app\service\runtime\SettingStateRepository;
 
 class AdminSettingsService
 {
@@ -98,16 +99,11 @@ class AdminSettingsService
 
     public function warmSettingsCache(): int
     {
-        $settings = $this->allSettings();
+        $settings = $this->configRepository()->all();
         $count = 0;
 
-        foreach ($settings as $setting) {
-            $key = (string) ($setting['vkey'] ?? '');
-            if ($key === '') {
-                continue;
-            }
-
-            if ($this->cacheSetting($key, (string) ($setting['vvalue'] ?? ''))) {
+        foreach ($settings as $key => $value) {
+            if ($this->cacheSetting((string) $key, (string) $value)) {
                 $count++;
             }
         }
@@ -115,27 +111,27 @@ class AdminSettingsService
         return $count;
     }
 
+    protected function cacheSetting(string $key, string $value): bool
+    {
+        return CacheService::cacheSetting($key, $value);
+    }
+
     protected function getConfigValue(string $key, string $default = ''): string
     {
-        return Setting::getConfigValue($key, $default);
+        if ($this->isStateKey($key)) {
+            return $this->stateRepository()->get($key, $default);
+        }
+
+        return $this->configRepository()->get($key, $default);
     }
 
     protected function setConfigValue(string $key, string $value): bool
     {
-        return Setting::setConfigValue($key, $value);
-    }
+        if ($this->isStateKey($key)) {
+            return $this->stateRepository()->set($key, $value);
+        }
 
-    /**
-     * @return array<int, array<string, mixed>>
-     */
-    protected function allSettings(): array
-    {
-        return Setting::select()->toArray();
-    }
-
-    protected function cacheSetting(string $key, string $value): bool
-    {
-        return CacheService::cacheSetting($key, $value);
+        return $this->configRepository()->set($key, $value);
     }
 
     protected function generateKey(): string
@@ -146,5 +142,20 @@ class AdminSettingsService
     protected function dashboardStatsService(): DashboardStatsService
     {
         return new DashboardStatsService();
+    }
+
+    protected function configRepository(): SettingConfigRepository
+    {
+        return new SettingConfigRepository();
+    }
+
+    protected function stateRepository(): SettingStateRepository
+    {
+        return new SettingStateRepository();
+    }
+
+    private function isStateKey(string $key): bool
+    {
+        return in_array($key, $this->stateRepository()->keys(), true);
     }
 }

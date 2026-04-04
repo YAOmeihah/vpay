@@ -108,6 +108,6 @@ class NotifyService
 
     protected static function systemConfig(): SystemConfig
     {
-        return new SettingSystemConfig();
+        return app()->make(SettingSystemConfig::class);
     }
 }

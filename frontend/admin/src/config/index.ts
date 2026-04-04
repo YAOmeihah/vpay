@@ -1,7 +1,9 @@
 import axios from "axios";
 import type { App } from "vue";
 
-let config: object = {};
+let config: PlatformConfigs = {
+  Title: "VPay 管理后台"
+};
 const { VITE_PUBLIC_PATH } = import.meta.env;
 
 const setConfig = (cfg?: unknown) => {

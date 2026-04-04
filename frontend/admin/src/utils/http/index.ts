@@ -10,12 +10,13 @@ import type {
   PureHttpRequestConfig
 } from "./types.d";
 import { stringify } from "qs";
-import { getToken, formatToken } from "@/utils/auth";
+import { useUserStoreHook } from "@/store/modules/user";
 
 // 相关配置请参考：www.axios-js.com/zh-cn/docs/#axios-request-config-1
 const defaultConfig: AxiosRequestConfig = {
   // 请求超时时间
   timeout: 10000,
+  withCredentials: true,
   headers: {
     Accept: "application/json, text/plain, */*",
     "Content-Type": "application/json",
@@ -52,16 +53,6 @@ class PureHttp {
           PureHttp.initConfig.beforeRequestCallback(config);
           return config;
         }
-        /** 请求白名单，放置一些不需要`token`的接口（通过设置请求白名单，防止`token`过期后再请求造成的死循环问题） */
-        const whiteList = ["/refresh-token", "/login"];
-        const requestUrl = config.url ?? "";
-        if (whiteList.some(url => requestUrl.endsWith(url))) return config;
-        const data = getToken();
-        if (!data) return Promise.reject(new Error("Missing token"));
-        const now = new Date().getTime();
-        const expired = parseInt(data.expires) - now <= 0;
-        if (expired) return Promise.reject(new Error("Token expired"));
-        config.headers["Authorization"] = formatToken(data.accessToken);
         return config;
       },
       error => {
@@ -84,6 +75,11 @@ class PureHttp {
         if (PureHttp.initConfig.beforeResponseCallback) {
           PureHttp.initConfig.beforeResponseCallback(response);
           return response.data;
+        }
+        // 处理未认证响应
+        if ((response.data as any)?.code === -1) {
+          useUserStoreHook().logOut();
+          return Promise.reject(response.data);
         }
         return response.data;
       },

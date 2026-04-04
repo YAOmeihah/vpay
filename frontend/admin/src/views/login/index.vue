@@ -37,8 +37,8 @@ dataThemeChange(overallStyle.value);
 const { title } = useNav();
 
 const ruleForm = reactive({
-  username: "admin",
-  password: "admin123"
+  user: "admin",
+  pass: "admin123"
 });
 
 const onLogin = async (formEl: FormInstance | undefined) => {
@@ -48,8 +48,8 @@ const onLogin = async (formEl: FormInstance | undefined) => {
       loading.value = true;
       useUserStoreHook()
         .loginByUsername({
-          username: ruleForm.username,
-          password: ruleForm.password
+          user: ruleForm.user,
+          pass: ruleForm.pass
         })
         .then(res => {
           if (res.success) {
@@ -127,10 +127,10 @@ useEventListener(document, "keydown", ({ code }) => {
                     trigger: 'blur'
                   }
                 ]"
-                prop="username"
+                prop="user"
               >
                 <el-input
-                  v-model="ruleForm.username"
+                  v-model="ruleForm.user"
                   clearable
                   placeholder="账号"
                   :prefix-icon="useRenderIcon(User)"
@@ -139,9 +139,9 @@ useEventListener(document, "keydown", ({ code }) => {
             </Motion>
 
             <Motion :delay="150">
-              <el-form-item prop="password">
+              <el-form-item prop="pass">
                 <el-input
-                  v-model="ruleForm.password"
+                  v-model="ruleForm.pass"
                   clearable
                   show-password
                   placeholder="密码"

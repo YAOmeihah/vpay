@@ -1,0 +1,24 @@
+<?php
+
+use think\facade\Route;
+
+Route::any('login', 'admin.Auth/login');
+Route::any('getMenu', 'admin.Menu/getMenu')->middleware(\app\middleware\AdminAuth::class);
+
+Route::group('admin/index', function () {
+    Route::any('getMain', 'admin/getMain');
+    Route::any('checkUpdate', 'admin/checkUpdate');
+    Route::any('getSettings', 'admin/getSettings');
+    Route::any('saveSetting', 'admin/saveSetting');
+    Route::any('generateRsaKeys', 'admin/generateRsaKeys');
+    Route::any('addPayQrcode', 'admin/addPayQrcode');
+    Route::any('getPayQrcodes', 'admin/getPayQrcodes');
+    Route::any('delPayQrcode', 'admin/delPayQrcode');
+    Route::any('getOrders', 'admin/getOrders');
+    Route::any('delOrder', 'admin/delOrder');
+    Route::any('setBd', 'admin/setBd');
+    Route::any('delGqOrder', 'admin/delGqOrder');
+    Route::any('delLastOrder', 'admin/delLastOrder');
+})->middleware(\app\middleware\AdminAuth::class);
+
+Route::any('enQrcode', 'admin/enQrcode');

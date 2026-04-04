@@ -11,7 +11,6 @@ use think\console\Output;
 use app\service\CacheService;
 use app\service\cache\OrderCache;
 use app\service\config\SettingSystemConfig;
-use app\service\order\OrderPayloadFactory;
 
 /**
  * 缓存管理命令
@@ -101,24 +100,12 @@ class CacheManage extends Command
             $orders = PayOrder::order('id', 'desc')->limit(100)->select()->toArray();
             $orderCount = 0;
             $timeOut = $this->systemConfig()->getOrderCloseRaw();
-            $payloadFactory = $this->orderPayloadFactory();
             $orderCache = $this->orderCache();
 
             foreach ($orders as $order) {
-                $data = $payloadFactory->create(
-                    (string) $order['pay_id'],
-                    (string) $order['order_id'],
-                    (int) $order['type'],
-                    $order['price'],
-                    $order['really_price'],
-                    (string) $order['pay_url'],
-                    (int) $order['is_auto'],
-                    (int) $order['state'],
-                    $timeOut,
-                    (int) $order['create_date']
-                );
+                $data = $this->buildWarmOrderPayload($order, $timeOut);
 
-                if ($orderCache->cacheOrder((string) $order['order_id'], $data)) {
+                if ($orderCache->cacheOrder($order['order_id'], $data)) {
                     $orderCount++;
                 }
             }
@@ -140,9 +127,24 @@ class CacheManage extends Command
         return new OrderCache();
     }
 
-    private function orderPayloadFactory(): OrderPayloadFactory
+    /**
+     * @param array<string, mixed> $order
+     * @return array<string, mixed>
+     */
+    protected function buildWarmOrderPayload(array $order, string $timeOut): array
     {
-        return new OrderPayloadFactory();
+        return [
+            'payId' => $order['pay_id'],
+            'orderId' => $order['order_id'],
+            'payType' => $order['type'],
+            'price' => $order['price'],
+            'reallyPrice' => $order['really_price'],
+            'payUrl' => $order['pay_url'],
+            'isAuto' => $order['is_auto'],
+            'state' => $order['state'],
+            'timeOut' => $timeOut,
+            'date' => $order['create_date'],
+        ];
     }
 
     private function systemConfig(): SettingSystemConfig

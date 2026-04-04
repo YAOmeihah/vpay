@@ -318,9 +318,9 @@ class Index extends BaseController
         }
 
         $monitorState = $this->monitorState();
-        $lastheart = (string) $monitorState->getLastHeartbeatAt();
-        $lastpay = (string) $monitorState->getLastPaidAt();
-        $jkstate = $monitorState->isOnline() ? '1' : '0';
+        $lastheart = $monitorState->getLastHeartbeatRaw();
+        $lastpay = $monitorState->getLastPaidRaw();
+        $jkstate = $monitorState->getOnlineFlagRaw();
 
         return json($this->getReturn(1, "成功", array("lastheart" => $lastheart, "lastpay" => $lastpay, "jkstate" => $jkstate)));
     }

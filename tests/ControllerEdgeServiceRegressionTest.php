@@ -6,6 +6,7 @@ namespace tests;
 use app\service\CacheService;
 use app\service\admin\AdminSettingsService;
 use app\service\admin\DashboardStatsService;
+use app\service\runtime\SettingMonitorState;
 use app\service\security\LoginAttemptLimiter;
 use app\command\CacheManage;
 use PHPUnit\Framework\TestCase;
@@ -333,6 +334,39 @@ class ControllerEdgeServiceRegressionTest extends TestCase
             'timeOut' => '05',
             'date' => '1700000000',
         ], $payload);
+    }
+
+    public function test_monitor_state_raw_accessors_preserve_empty_string_values(): void
+    {
+        $state = new class extends SettingMonitorState {
+            /**
+             * @var array<string, string>
+             */
+            private array $values = [
+                'lastheart' => '',
+                'lastpay' => '',
+                'jkstate' => '',
+            ];
+
+            protected function getConfigValue(string $key, string $default = ''): string
+            {
+                return $this->values[$key] ?? $default;
+            }
+
+            protected function setConfigValue(string $key, string $value): bool
+            {
+                $this->values[$key] = $value;
+
+                return true;
+            }
+        };
+
+        $this->assertSame('', $state->getLastHeartbeatRaw());
+        $this->assertSame('', $state->getLastPaidRaw());
+        $this->assertSame('', $state->getOnlineFlagRaw());
+        $this->assertSame(0, $state->getLastHeartbeatAt());
+        $this->assertSame(0, $state->getLastPaidAt());
+        $this->assertFalse($state->isOnline());
     }
 
     private static function configureCache(): void

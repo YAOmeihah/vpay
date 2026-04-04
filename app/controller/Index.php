@@ -29,12 +29,6 @@ class Index extends BaseController
         return $this->delegateTo(\app\controller\admin\Auth::class, 'login');
     }
 
-    public function getMenu()
-    {
-        // Compatibility entrypoint: delegate to split controller.
-        return $this->delegateTo(\app\controller\admin\Menu::class, 'getMenu');
-    }
-
     public function createOrder()
     {
         // Compatibility entrypoint: delegate to split controller.

@@ -554,6 +554,10 @@ class ControllerEdgeServiceRegressionTest extends TestCase
     {
         $schema = strtolower((string) file_get_contents(self::$rootPath . 'vmq.sql'));
 
+        $this->assertStringContainsString('`notify_url` varchar(1000)', $schema);
+        $this->assertStringContainsString('`pay_url` varchar(1000)', $schema);
+        $this->assertStringContainsString('`return_url` varchar(1000)', $schema);
+        $this->assertStringContainsString('`vvalue` text', $schema);
         $this->assertStringContainsString('`price` decimal(10,2) not null', $schema);
         $this->assertStringContainsString('`really_price` decimal(10,2) not null', $schema);
         $this->assertStringContainsString('add unique key `uniq_pay_id` (`pay_id`)', $schema);

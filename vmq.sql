@@ -25,15 +25,15 @@ CREATE TABLE `pay_order` (
   `close_date` bigint(20) NOT NULL,
   `create_date` bigint(20) NOT NULL,
   `is_auto` int(11) NOT NULL,
-  `notify_url` varchar(255) DEFAULT NULL,
+  `notify_url` varchar(1000) DEFAULT NULL,
   `order_id` varchar(255) DEFAULT NULL,
   `param` varchar(255) DEFAULT NULL,
   `pay_date` bigint(20) NOT NULL,
   `pay_id` varchar(255) DEFAULT NULL,
-  `pay_url` varchar(255) DEFAULT NULL,
+  `pay_url` varchar(1000) DEFAULT NULL,
   `price` decimal(10,2) NOT NULL,
   `really_price` decimal(10,2) NOT NULL,
-  `return_url` varchar(255) DEFAULT NULL,
+  `return_url` varchar(1000) DEFAULT NULL,
   `state` int(11) NOT NULL,
   `type` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
@@ -46,7 +46,7 @@ CREATE TABLE `pay_order` (
 
 CREATE TABLE `pay_qrcode` (
   `id` bigint(20) NOT NULL,
-  `pay_url` varchar(255) DEFAULT NULL,
+  `pay_url` varchar(1000) DEFAULT NULL,
   `price` decimal(10,2) NOT NULL,
   `type` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
@@ -59,7 +59,7 @@ CREATE TABLE `pay_qrcode` (
 
 CREATE TABLE `setting` (
   `vkey` varchar(255) NOT NULL,
-  `vvalue` varchar(255) DEFAULT NULL
+  `vvalue` text DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 --

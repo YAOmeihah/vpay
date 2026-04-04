@@ -99,4 +99,29 @@ class OrderCreationServicesTest extends TestCase
         $this->assertSame('epayv2:from-v2', $order->getAttr('param'));
         $this->assertSame((float) '23.45', (float) $order->getAttr('price'));
     }
+
+    public function test_handle_pay_push_can_record_multiple_unmatched_transfers_under_unique_indexes(): void
+    {
+        $first = OrderService::handlePayPush('66.66', PayOrder::TYPE_WECHAT);
+        $second = OrderService::handlePayPush('77.77', PayOrder::TYPE_WECHAT);
+
+        $this->assertSame([
+            'matched' => false,
+            'alreadyProcessed' => false,
+            'notifyOk' => true,
+        ], $first);
+        $this->assertSame([
+            'matched' => false,
+            'alreadyProcessed' => false,
+            'notifyOk' => true,
+        ], $second);
+
+        $firstRow = PayOrder::where('price', '66.66')->findOrFail();
+        $secondRow = PayOrder::where('price', '77.77')->findOrFail();
+
+        $this->assertSame('无订单转账', $firstRow->getAttr('param'));
+        $this->assertSame('无订单转账', $secondRow->getAttr('param'));
+        $this->assertNotSame($firstRow->getAttr('order_id'), $secondRow->getAttr('order_id'));
+        $this->assertNotSame($firstRow->getAttr('pay_id'), $secondRow->getAttr('pay_id'));
+    }
 }

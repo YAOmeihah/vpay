@@ -17,7 +17,7 @@ class EpayOrderService
 
         $type = static::mapType((string)$params['type']);
         $price = static::normalizeMoney((string)$params['money']);
-        $orderId = date('YmdHis') . random_int(1000, 9999);
+        $orderId = OrderCreationKernel::generatePlatformOrderId();
         $merchantOrderId = trim((string)$params['out_trade_no']);
 
         OrderCreationKernel::assertMerchantOrderNotExists($merchantOrderId);
@@ -76,7 +76,7 @@ class EpayOrderService
 
         $type = static::mapType((string)$params['type']);
         $price = static::normalizeMoney((string)$params['money']);
-        $orderId = date('YmdHis') . random_int(1000, 9999);
+        $orderId = OrderCreationKernel::generatePlatformOrderId();
         $merchantOrderId = trim((string)$params['out_trade_no']);
 
         OrderCreationKernel::assertMerchantOrderNotExists($merchantOrderId);

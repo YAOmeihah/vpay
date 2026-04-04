@@ -142,7 +142,11 @@ abstract class TestCase extends BaseTestCase
                 `return_url` VARCHAR(1000) NOT NULL DEFAULT \'\',
                 `state` INT NOT NULL DEFAULT 0,
                 `type` INT NOT NULL DEFAULT 0,
-                PRIMARY KEY (`id`)
+                PRIMARY KEY (`id`),
+                UNIQUE KEY `uniq_pay_id` (`pay_id`),
+                UNIQUE KEY `uniq_order_id` (`order_id`),
+                KEY `idx_create_date_state` (`create_date`, `state`),
+                KEY `idx_really_price_state_type` (`really_price`, `state`, `type`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
         );
 
@@ -152,7 +156,8 @@ abstract class TestCase extends BaseTestCase
                 `pay_url` VARCHAR(1000) NOT NULL DEFAULT \'\',
                 `price` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
                 `type` INT NOT NULL DEFAULT 0,
-                PRIMARY KEY (`id`)
+                PRIMARY KEY (`id`),
+                UNIQUE KEY `uniq_type_price` (`type`, `price`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
         );
 

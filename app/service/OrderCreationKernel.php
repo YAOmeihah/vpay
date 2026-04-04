@@ -13,6 +13,11 @@ use app\service\order\OrderPayloadFactory;
 
 class OrderCreationKernel
 {
+    public static function generatePlatformOrderId(): string
+    {
+        return date('YmdHis') . random_int(1000, 9999);
+    }
+
     public static function assertMerchantOrderNotExists(string $merchantOrderId): void
     {
         $exists = PayOrder::where('pay_id', $merchantOrderId)->find();
@@ -72,7 +77,15 @@ class OrderCreationKernel
 
     public static function createOrderRecord(array $data): void
     {
-        PayOrder::create($data);
+        try {
+            PayOrder::create($data);
+        } catch (\Throwable $e) {
+            if (str_contains(strtolower($e->getMessage()), 'duplicate')) {
+                throw new \RuntimeException('订单重复，请重试', 0, $e);
+            }
+
+            throw $e;
+        }
     }
 
     public static function rollbackReservedPrice(string $orderId): void

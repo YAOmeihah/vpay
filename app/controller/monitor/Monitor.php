@@ -70,7 +70,7 @@ class Monitor extends BaseController
 
     public function closeEndOrder()
     {
-        $affected = MonitorService::closeExpiredOrders();
+        $affected = MonitorService::closeExpiredOrders(true);
 
         if ($affected > 0) {
             return json($this->getReturn(1, "成功清理" . $affected . "条订单"));

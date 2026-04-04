@@ -114,6 +114,66 @@ class ControllerEdgeServiceRegressionTest extends TestCase
         $this->assertSame(['key' => 'generated-sign-key'], $service->savedSettings);
     }
 
+    public function test_admin_settings_service_regenerates_zero_key(): void
+    {
+        $service = new class([
+            'key' => '0',
+        ]) extends AdminSettingsService {
+            public array $savedSettings = [];
+
+            public function __construct(private array $settings)
+            {
+            }
+
+            protected function getConfigValue(string $key, string $default = ''): string
+            {
+                return array_key_exists($key, $this->settings) ? (string) $this->settings[$key] : $default;
+            }
+
+            protected function setConfigValue(string $key, string $value): bool
+            {
+                $this->savedSettings[$key] = $value;
+                $this->settings[$key] = $value;
+
+                return true;
+            }
+
+            protected function generateKey(): string
+            {
+                return 'generated-sign-key';
+            }
+        };
+
+        $settings = $service->getSettings();
+        $this->assertSame('generated-sign-key', $settings['key']);
+        $this->assertSame(['key' => 'generated-sign-key'], $service->savedSettings);
+    }
+
+    public function test_admin_settings_service_ignores_zero_password(): void
+    {
+        $service = new class([]) extends AdminSettingsService {
+            public array $savedSettings = [];
+
+            protected function getConfigValue(string $key, string $default = ''): string
+            {
+                return $default;
+            }
+
+            protected function setConfigValue(string $key, string $value): bool
+            {
+                $this->savedSettings[$key] = $value;
+                return true;
+            }
+        };
+
+        $service->saveSettings([
+            'user' => 'admin',
+            'pass' => '0',
+        ]);
+
+        $this->assertArrayNotHasKey('pass', $service->savedSettings);
+    }
+
     public function test_admin_settings_service_regenerates_key_when_legacy_empty_semantics_consider_it_empty(): void
     {
         $service = new class(['key' => '0']) extends AdminSettingsService {

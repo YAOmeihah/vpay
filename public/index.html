@@ -93,7 +93,7 @@
 			$.post("login","user="+$("#user").val()+"&pass="+$("#pass").val(),function (data) {
 				layer.msg(data.msg);
 				if (data.code==1){
-					window.location.href = "aaa.html";
+					window.location.href = "console/";
 				}
 			});
 		}catch (e) {

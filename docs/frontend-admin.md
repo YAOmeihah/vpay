@@ -1,5 +1,7 @@
 # VPay Admin Frontend
 
+新后台现在是唯一管理端入口，访问地址统一为 `/console/`。旧的 `public/admin/*.html`、`/getMenu` 和配套 Layui 静态页已经移除。
+
 ## Development
 
 1. `php think run`
@@ -31,3 +33,9 @@
 - `/admin/index/delGqOrder`
 - `/admin/index/delLastOrder`
 - `/enQrcode`
+
+## Notes
+
+- 开发代理不再转发 `/getMenu`，菜单由 Vue 路由静态定义。
+- `public/console/` 是本地构建产物目录，不纳入 Git 跟踪。
+- 旧 `api.html` 已由 [payment-api.md](./payment-api.md) 取代。

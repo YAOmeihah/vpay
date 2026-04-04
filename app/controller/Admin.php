@@ -306,7 +306,7 @@ class Admin extends BaseController
             ->toArray();
 
         return json([
-            "code" => 0,
+            "code" => 1,
             "msg" => "获取成功",
             "data" => $array,
             "count" => $count
@@ -345,7 +345,7 @@ class Admin extends BaseController
         $array = $query->page($page, $size)->select()->toArray();
 
         return json([
-            "code" => 0,
+            "code" => 1,
             "msg" => "获取成功",
             "data" => $array,
             "count" => $count

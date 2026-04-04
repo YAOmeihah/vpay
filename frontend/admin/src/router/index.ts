@@ -214,7 +214,13 @@ router.beforeEach((to: ToRouteType, _from, next) => {
           .then(profile => {
             if (profile.code === 1) {
               storageLocal().setItem(userKey, profile.data);
-              next();
+              if (usePermissionStoreHook().wholeMenus.length === 0) {
+                initRouter().then(() => {
+                  next();
+                });
+              } else {
+                next();
+              }
             } else {
               next({ path: "/login" });
             }

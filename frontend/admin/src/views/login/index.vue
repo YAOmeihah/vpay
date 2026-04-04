@@ -1,5 +1,10 @@
 <script setup lang="ts">
 import Motion from "./utils/motion";
+import {
+  createLoginFormState,
+  loginPasswordInputProps,
+  loginUsernameInputProps
+} from "./formState";
 import { useRouter } from "vue-router";
 import { message } from "@/utils/message";
 import { loginRules } from "./utils/rule";
@@ -36,10 +41,7 @@ const { dataTheme, overallStyle, dataThemeChange } = useDataThemeChange();
 dataThemeChange(overallStyle.value);
 const { title } = useNav();
 
-const ruleForm = reactive({
-  user: "",
-  pass: ""
-});
+const ruleForm = reactive(createLoginFormState());
 
 const onLogin = async (formEl: FormInstance | undefined) => {
   if (!formEl) return;
@@ -135,6 +137,8 @@ useEventListener(document, "keydown", ({ code }) => {
                   clearable
                   placeholder="账号"
                   :prefix-icon="useRenderIcon(User)"
+                  :autocomplete="loginUsernameInputProps.autocomplete"
+                  :name="loginUsernameInputProps.name"
                 />
               </el-form-item>
             </Motion>
@@ -147,6 +151,8 @@ useEventListener(document, "keydown", ({ code }) => {
                   show-password
                   placeholder="密码"
                   :prefix-icon="useRenderIcon(Lock)"
+                  :autocomplete="loginPasswordInputProps.autocomplete"
+                  :name="loginPasswordInputProps.name"
                 />
               </el-form-item>
             </Motion>

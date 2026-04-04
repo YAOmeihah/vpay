@@ -3,20 +3,14 @@ declare(strict_types=1);
 
 namespace app\service\epay;
 
-use app\model\Setting;
+use app\service\config\SettingSystemConfig;
+use app\service\config\SystemConfig;
 
 class EpayConfigService
 {
     public static function getConfig(): array
     {
-        return [
-            'enabled' => Setting::getConfigValue('epay_enabled', '0') === '1',
-            'pid' => trim(Setting::getConfigValue('epay_pid')),
-            'key' => trim(Setting::getConfigValue('epay_key')),
-            'name' => trim(Setting::getConfigValue('epay_name', '订单支付')),
-            'private_key' => trim(Setting::getConfigValue('epay_private_key')),
-            'public_key' => trim(Setting::getConfigValue('epay_public_key')),
-        ];
+        return static::systemConfig()->getEpayConfig();
     }
 
     public static function requireEnabledConfig(): array
@@ -51,5 +45,10 @@ class EpayConfigService
         }
 
         return $config;
+    }
+
+    protected static function systemConfig(): SystemConfig
+    {
+        return new SettingSystemConfig();
     }
 }

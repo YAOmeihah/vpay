@@ -10,6 +10,7 @@ use app\service\MonitorService;
 use app\service\NotifyService;
 use app\service\SignService;
 use app\service\config\SettingSystemConfig;
+use app\service\order\OrderStateManager;
 
 class Order extends BaseController
 {
@@ -163,8 +164,7 @@ class Order extends BaseController
             PayOrder::where("order_id", $orderId)->update(array("state" => -1, "close_date" => time()));
             TmpPrice::where("oid", $res['order_id'])->delete();
 
-            \app\service\CacheService::deleteOrder($orderId);
-            \app\service\CacheService::deleteStats('dashboard');
+            $this->orderStateManager()->invalidateOrderView($orderId);
 
             return json($this->getReturn(1, "成功"));
         } else {
@@ -175,5 +175,10 @@ class Order extends BaseController
     private function systemConfig(): SettingSystemConfig
     {
         return $this->app->make(SettingSystemConfig::class);
+    }
+
+    private function orderStateManager(): OrderStateManager
+    {
+        return $this->app->make(OrderStateManager::class);
     }
 }

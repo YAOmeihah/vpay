@@ -7,6 +7,8 @@ use app\service\CacheService;
 use app\service\admin\AdminPermissionService;
 use app\service\admin\AdminSettingsService;
 use app\service\admin\DashboardStatsService;
+use app\service\order\ExpiredOrderCleanupGate;
+use app\service\order\OrderStateManager;
 use app\service\runtime\SettingMonitorState;
 use app\service\security\LoginAttemptLimiter;
 use app\command\CacheManage;
@@ -512,6 +514,52 @@ class ControllerEdgeServiceRegressionTest extends TestCase
         $state->markOffline();
 
         $this->assertSame(['lastheart', 'lastpay', 'jkstate'], array_values(array_unique($state->setKeys)));
+    }
+
+    public function test_order_state_manager_invalidates_order_and_dashboard_cache_together(): void
+    {
+        if (!class_exists(OrderStateManager::class)) {
+            $this->fail('OrderStateManager class is missing.');
+        }
+
+        CacheService::cacheOrder('order-cache-001', [
+            'orderId' => 'order-cache-001',
+            'state' => 0,
+        ]);
+        CacheService::cacheStats('dashboard', [
+            'todayOrder' => 1,
+        ]);
+
+        $manager = new OrderStateManager();
+        $manager->invalidateOrderView('order-cache-001');
+
+        $this->assertNull(CacheService::getOrder('order-cache-001'));
+        $this->assertNull(CacheService::getStats('dashboard'));
+    }
+
+    public function test_expired_order_cleanup_gate_throttles_hot_path_runs_but_allows_forced_execution(): void
+    {
+        if (!class_exists(ExpiredOrderCleanupGate::class)) {
+            $this->fail('ExpiredOrderCleanupGate class is missing.');
+        }
+
+        $gate = new ExpiredOrderCleanupGate(30);
+
+        $this->assertTrue($gate->shouldRun());
+        $this->assertFalse($gate->shouldRun());
+        $this->assertTrue($gate->shouldRun(true));
+    }
+
+    public function test_schema_dump_uses_decimal_money_columns_and_unique_order_constraints(): void
+    {
+        $schema = strtolower((string) file_get_contents(self::$rootPath . 'vmq.sql'));
+
+        $this->assertStringContainsString('`price` decimal(10,2) not null', $schema);
+        $this->assertStringContainsString('`really_price` decimal(10,2) not null', $schema);
+        $this->assertStringContainsString('add unique key `uniq_pay_id` (`pay_id`)', $schema);
+        $this->assertStringContainsString('add unique key `uniq_order_id` (`order_id`)', $schema);
+        $this->assertStringContainsString('add unique key `uniq_type_price` (`type`,`price`)', $schema);
+        $this->assertStringContainsString('add index `idx_really_price_state_type` (`really_price`,`state`,`type`)', $schema);
     }
 
     private static function configureCache(): void

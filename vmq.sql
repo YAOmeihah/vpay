@@ -31,8 +31,8 @@ CREATE TABLE `pay_order` (
   `pay_date` bigint(20) NOT NULL,
   `pay_id` varchar(255) DEFAULT NULL,
   `pay_url` varchar(255) DEFAULT NULL,
-  `price` double NOT NULL,
-  `really_price` double NOT NULL,
+  `price` decimal(10,2) NOT NULL,
+  `really_price` decimal(10,2) NOT NULL,
   `return_url` varchar(255) DEFAULT NULL,
   `state` int(11) NOT NULL,
   `type` int(11) NOT NULL
@@ -47,7 +47,7 @@ CREATE TABLE `pay_order` (
 CREATE TABLE `pay_qrcode` (
   `id` bigint(20) NOT NULL,
   `pay_url` varchar(255) DEFAULT NULL,
-  `price` double NOT NULL,
+  `price` decimal(10,2) NOT NULL,
   `type` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
@@ -100,10 +100,11 @@ CREATE TABLE `tmp_price` (
 --
 ALTER TABLE `pay_order`
   ADD PRIMARY KEY (`id`),
-  ADD INDEX `idx_create_date` (`create_date`),
-  ADD INDEX `idx_pay_id` (`pay_id`),
+  ADD UNIQUE KEY `uniq_pay_id` (`pay_id`),
+  ADD UNIQUE KEY `uniq_order_id` (`order_id`),
+  ADD INDEX `idx_create_date_state` (`create_date`,`state`),
+  ADD INDEX `idx_really_price_state_type` (`really_price`,`state`,`type`),
   ADD INDEX `idx_state` (`state`),
-  ADD INDEX `idx_order_id` (`order_id`),
   ADD INDEX `idx_type` (`type`);
 
 --
@@ -111,8 +112,8 @@ ALTER TABLE `pay_order`
 --
 ALTER TABLE `pay_qrcode`
   ADD PRIMARY KEY (`id`),
-  ADD INDEX `idx_type` (`type`),
-  ADD INDEX `idx_price` (`price`);
+  ADD UNIQUE KEY `uniq_type_price` (`type`,`price`),
+  ADD INDEX `idx_type` (`type`);
 
 --
 -- 表的索引 `setting`

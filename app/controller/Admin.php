@@ -11,6 +11,7 @@ use app\service\NotifyService;
 use app\service\admin\AdminPermissionService;
 use app\service\admin\AdminSettingsService;
 use app\service\admin\DashboardStatsService;
+use app\service\order\OrderStateManager;
 use think\facade\Db;
 use think\facade\Session;
 use think\App;
@@ -400,6 +401,12 @@ class Admin extends BaseController
             TmpPrice::where("oid", $res['order_id'])->delete();
         }
 
+        if ($res) {
+            $this->orderStateManager()->invalidateOrderView((string) $res['order_id']);
+        } else {
+            $this->dashboardStatsService()->clearStats();
+        }
+
         return json($this->getReturn());
     }
 
@@ -422,6 +429,7 @@ class Admin extends BaseController
                 }
 
                 PayOrder::where("id", $res['id'])->update(array("state" => 1));
+                $this->orderStateManager()->invalidateOrderView((string) $res['order_id']);
                 return json($this->getReturn());
             } else {
                 return json($this->getReturn(-2, "补单失败，异步通知返回错误"));
@@ -436,7 +444,9 @@ class Admin extends BaseController
      */
     public function delGqOrder()
     {
+        $orderIds = PayOrder::where("state", "-1")->column('order_id');
         PayOrder::where("state", "-1")->delete();
+        $this->orderStateManager()->invalidateOrderViews($orderIds);
         return json($this->getReturn());
     }
 
@@ -445,7 +455,9 @@ class Admin extends BaseController
      */
     public function delLastOrder()
     {
+        $orderIds = PayOrder::where("create_date", "<", (time() - 604800))->column('order_id');
         PayOrder::where("create_date", "<", (time() - 604800))->delete();
+        $this->orderStateManager()->invalidateOrderViews($orderIds);
         return json($this->getReturn());
     }
 
@@ -482,6 +494,11 @@ class Admin extends BaseController
         } catch (\Exception $e) {
             return json($this->getReturn(-1, "二维码生成失败: " . $e->getMessage()));
         }
+    }
+
+    private function orderStateManager(): OrderStateManager
+    {
+        return $this->app->make(OrderStateManager::class);
     }
 
 }

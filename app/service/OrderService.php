@@ -7,6 +7,7 @@ use app\model\PayOrder;
 use app\model\TmpPrice;
 use app\service\config\SettingSystemConfig;
 use app\service\config\SystemConfig;
+use app\service\order\OrderStateManager;
 use app\service\runtime\MonitorState;
 use app\service\runtime\SettingMonitorState;
 
@@ -31,7 +32,7 @@ class OrderService
             throw new \RuntimeException('监控端状态异常，请检查');
         }
 
-        $orderId = date('YmdHms') . rand(1, 9) . rand(1, 9) . rand(1, 9) . rand(1, 9);
+        $orderId = OrderCreationKernel::generatePlatformOrderId();
         $reallyPrice = OrderCreationKernel::reserveUniquePrice($price, $type, $orderId);
 
         try {
@@ -119,11 +120,13 @@ class OrderService
         }
 
         TmpPrice::where('oid', $res['order_id'])->delete();
+        static::orderStateManager()->invalidateOrderView((string) $res['order_id']);
 
         $notifyOk = NotifyService::sendNotify($res->toArray());
 
         if (!$notifyOk) {
             PayOrder::where('id', $res['id'])->update(['state' => PayOrder::STATE_NOTIFY_FAILED]);
+            static::orderStateManager()->invalidateOrderView((string) $res['order_id']);
         }
 
         return ['matched' => true, 'alreadyProcessed' => false, 'notifyOk' => $notifyOk];
@@ -137,5 +140,10 @@ class OrderService
     protected static function monitorState(): MonitorState
     {
         return app()->make(SettingMonitorState::class);
+    }
+
+    protected static function orderStateManager(): OrderStateManager
+    {
+        return app()->make(OrderStateManager::class);
     }
 }

@@ -85,7 +85,8 @@ function isOneOfArray(a: Array<string>, b: Array<string>) {
 function filterNoPermissionTree(data: RouteComponent[]) {
   const currentRoles =
     storageLocal().getItem<DataInfo<number>>(userKey)?.roles ?? [];
-  const newTree = cloneDeep(data).filter((v: any) =>
+  const showLinkTree = filterTree(cloneDeep(data));
+  const newTree = showLinkTree.filter((v: any) =>
     isOneOfArray(v.meta?.roles, currentRoles)
   );
   newTree.forEach(
@@ -332,6 +333,11 @@ function addAsyncRoutes(arrRoutes: Array<RouteRecordRaw>) {
     }
   });
   return arrRoutes;
+}
+
+/** 过滤菜单中不需要展示的路由 */
+function filterShowLinkTree(data: RouteComponent[]) {
+  return filterTree(cloneDeep(data));
 }
 
 /** 获取路由历史模式 https://next.router.vuejs.org/zh/guide/essentials/history-mode.html */

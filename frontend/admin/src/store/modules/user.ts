@@ -60,23 +60,18 @@ export const useUserStore = defineStore("pure-user", {
     },
     /** 登入 */
     async loginByUsername(data) {
-      return new Promise<UserResult>((resolve, reject) => {
-        getLogin(data)
-          .then(result => {
-            if (result?.success) {
-              this.SET_AVATAR(result.data.avatar);
-              this.SET_USERNAME(result.data.username);
-              this.SET_NICKNAME(result.data.nickname);
-              this.SET_ROLES(result.data.roles);
-              this.SET_PERMS(result.data.permissions);
-              storageLocal().setItem(userKey, result.data);
-            }
-            resolve(result);
-          })
-          .catch(error => {
-            reject(error);
-          });
-      });
+      const result = await getLogin(data);
+
+      if (result?.success) {
+        this.SET_AVATAR(result.data.avatar);
+        this.SET_USERNAME(result.data.username);
+        this.SET_NICKNAME(result.data.nickname);
+        this.SET_ROLES(result.data.roles);
+        this.SET_PERMS(result.data.permissions);
+        await storageLocal().setItem(userKey, result.data);
+      }
+
+      return result;
     },
     /** 登出 */
     async logOut() {

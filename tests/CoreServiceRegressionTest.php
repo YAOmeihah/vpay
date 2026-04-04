@@ -241,10 +241,13 @@ namespace app\model {
 
             private static int $nextId = 1;
 
+            public static bool $throwOnDelete = false;
+
             public static function reset(): void
             {
                 self::$rows = [];
                 self::$nextId = 1;
+                self::$throwOnDelete = false;
             }
 
             public static function seed(string $oid, string $price = ''): int
@@ -299,6 +302,10 @@ namespace app\model {
 
             public function delete(): int
             {
+                if (TmpPrice::$throwOnDelete) {
+                    throw new \RuntimeException('tmp price delete failed');
+                }
+
                 $rows = TmpPrice::allRows();
                 $affected = 0;
 
@@ -525,6 +532,53 @@ namespace tests {
             ], $result);
         }
 
+        public function test_order_service_handle_pay_push_rolls_back_state_when_tmp_price_cleanup_fails(): void
+        {
+            NotifyHttpProbe::enable(
+                hostMap: ['merchant.example' => '93.184.216.34'],
+                result: 'success'
+            );
+            $this->seedSettings(['key' => 'test-sign-key']);
+
+            PayOrder::reset();
+            \app\model\TmpPrice::reset();
+
+            PayOrder::seed([
+                'close_date' => 0,
+                'create_date' => 1700000000,
+                'is_auto' => 0,
+                'notify_url' => 'https://merchant.example/notify',
+                'order_id' => 'order-rollback-1001',
+                'param' => 'attach',
+                'pay_date' => 0,
+                'pay_id' => 'merchant-rollback-1001',
+                'pay_url' => 'weixin://pay-url',
+                'price' => '45.67',
+                'really_price' => '45.67',
+                'return_url' => 'https://merchant.example/return',
+                'state' => PayOrder::STATE_UNPAID,
+                'type' => PayOrder::TYPE_WECHAT,
+            ]);
+            \app\model\TmpPrice::seed('order-rollback-1001', '4567-1');
+            \app\model\TmpPrice::$throwOnDelete = true;
+
+            OrderServiceAdapterProbe::$state = new RecordingMonitorState();
+
+            try {
+                OrderServiceAdapterProbe::handlePayPush('45.67', PayOrder::TYPE_WECHAT);
+                $this->fail('Expected tmp_price cleanup failure to bubble up.');
+            } catch (\RuntimeException $e) {
+                $this->assertSame('tmp price delete failed', $e->getMessage());
+            } finally {
+                \app\model\TmpPrice::$throwOnDelete = false;
+            }
+
+            $order = PayOrder::where('order_id', 'order-rollback-1001')->findOrFail();
+            $this->assertSame(PayOrder::STATE_UNPAID, $order['state']);
+            $this->assertSame(0, $order['pay_date']);
+            $this->assertCount(1, \app\model\TmpPrice::allRows());
+        }
+
         private function seedSettings(array $settings): void
         {
             foreach ($settings as $key => $value) {
@@ -617,6 +671,20 @@ namespace tests {
             }
 
             return self::$state;
+        }
+
+        protected static function runTransaction(callable $callback): mixed
+        {
+            $rows = PayOrder::allRows();
+            $tmpRows = \app\model\TmpPrice::allRows();
+
+            try {
+                return $callback();
+            } catch (\Throwable $e) {
+                PayOrder::replaceRows($rows);
+                \app\model\TmpPrice::replaceRows($tmpRows);
+                throw $e;
+            }
         }
     }
 

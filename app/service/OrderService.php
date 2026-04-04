@@ -10,6 +10,7 @@ use app\service\config\SystemConfig;
 use app\service\order\OrderStateManager;
 use app\service\runtime\MonitorState;
 use app\service\runtime\SettingMonitorState;
+use think\facade\Db;
 
 class OrderService
 {
@@ -89,37 +90,49 @@ class OrderService
             ->find();
 
         if (!$res) {
-            // 无订单转账，记录入库
-            PayOrder::create([
-                'close_date'   => 0,
-                'create_date'  => time(),
-                'is_auto'      => 0,
-                'notify_url'   => '',
-                'order_id'     => '无订单转账',
-                'param'        => '无订单转账',
-                'pay_date'     => 0,
-                'pay_id'       => '无订单转账',
-                'pay_url'      => '',
-                'price'        => $price,
-                'really_price' => $price,
-                'return_url'   => '',
-                'state'        => PayOrder::STATE_PAID,
-                'type'         => $type,
-            ]);
+            static::runTransaction(function () use ($price, $type): void {
+                $suffix = OrderCreationKernel::generatePlatformOrderId();
+
+                PayOrder::create([
+                    'close_date'   => 0,
+                    'create_date'  => time(),
+                    'is_auto'      => 0,
+                    'notify_url'   => '',
+                    'order_id'     => '无订单转账-' . $suffix,
+                    'param'        => '无订单转账',
+                    'pay_date'     => 0,
+                    'pay_id'       => '无订单转账-pay-' . $suffix,
+                    'pay_url'      => '',
+                    'price'        => $price,
+                    'really_price' => $price,
+                    'return_url'   => '',
+                    'state'        => PayOrder::STATE_PAID,
+                    'type'         => $type,
+                ]);
+            });
 
             return ['matched' => false, 'alreadyProcessed' => false, 'notifyOk' => true];
         }
 
-        // 乐观锁更新，防止并发重复处理
-        $affected = PayOrder::where('id', $res['id'])
-            ->where('state', PayOrder::STATE_UNPAID)
-            ->update(['state' => PayOrder::STATE_PAID, 'pay_date' => time(), 'close_date' => time()]);
+        $affected = static::runTransaction(function () use ($res): int {
+            // 乐观锁更新，防止并发重复处理
+            $affected = PayOrder::where('id', $res['id'])
+                ->where('state', PayOrder::STATE_UNPAID)
+                ->update(['state' => PayOrder::STATE_PAID, 'pay_date' => time(), 'close_date' => time()]);
+
+            if ($affected === 0) {
+                return 0;
+            }
+
+            TmpPrice::where('oid', $res['order_id'])->delete();
+
+            return $affected;
+        });
 
         if ($affected === 0) {
             return ['matched' => true, 'alreadyProcessed' => true, 'notifyOk' => true];
         }
 
-        TmpPrice::where('oid', $res['order_id'])->delete();
         static::orderStateManager()->invalidateOrderView((string) $res['order_id']);
 
         $notifyOk = NotifyService::sendNotify($res->toArray());
@@ -145,5 +158,10 @@ class OrderService
     protected static function orderStateManager(): OrderStateManager
     {
         return app()->make(OrderStateManager::class);
+    }
+
+    protected static function runTransaction(callable $callback): mixed
+    {
+        return Db::transaction($callback);
     }
 }

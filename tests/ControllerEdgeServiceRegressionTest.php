@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace tests;
 
+use app\controller\Admin;
 use app\service\CacheService;
 use app\service\admin\AdminPermissionService;
 use app\service\admin\AdminSettingsService;
@@ -564,6 +565,34 @@ class ControllerEdgeServiceRegressionTest extends TestCase
         $this->assertStringContainsString('add unique key `uniq_order_id` (`order_id`)', $schema);
         $this->assertStringContainsString('add unique key `uniq_type_price` (`type`,`price`)', $schema);
         $this->assertStringContainsString('add index `idx_really_price_state_type` (`really_price`,`state`,`type`)', $schema);
+    }
+
+    public function test_admin_sys_uptime_degrades_gracefully_when_proc_probe_is_blocked(): void
+    {
+        $controller = new class(self::$app) extends Admin {
+            public bool $osProbeUsed = false;
+            public bool $procProbeUsed = false;
+
+            protected function currentOsFamily(): string
+            {
+                $this->osProbeUsed = true;
+                return 'Linux';
+            }
+
+            protected function readLinuxUptimeRaw(): string|false
+            {
+                $this->procProbeUsed = true;
+                return false;
+            }
+        };
+
+        $method = new \ReflectionMethod(Admin::class, 'sys_uptime');
+        $method->setAccessible(true);
+        $result = $method->invoke($controller);
+
+        $this->assertTrue($controller->osProbeUsed);
+        $this->assertTrue($controller->procProbeUsed);
+        $this->assertSame('无法获取', $result);
     }
 
     public function test_legacy_qr_code_library_files_are_php8_compatible(): void

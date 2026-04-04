@@ -138,10 +138,10 @@ class Admin extends BaseController
         $output = '';
 
         // Linux/Unix系统
-        if (PHP_OS_FAMILY === 'Linux' && file_exists('/proc/uptime')) {
-            $str = @file("/proc/uptime");
-            if ($str !== false) {
-                $str = explode(" ", implode("", $str));
+        if ($this->currentOsFamily() === 'Linux') {
+            $rawUptime = $this->readLinuxUptimeRaw();
+            if ($rawUptime !== false && $rawUptime !== '') {
+                $str = explode(" ", trim($rawUptime));
                 $str = trim($str[0]);
                 $min = $str / 60;
                 $hours = $min / 60;
@@ -156,9 +156,9 @@ class Admin extends BaseController
         }
 
         // Windows系统或其他系统
-        if (PHP_OS_FAMILY === 'Windows') {
+        if ($this->currentOsFamily() === 'Windows') {
             // Windows下获取系统启动时间
-            $uptime = shell_exec('wmic os get lastbootuptime /value 2>nul');
+            $uptime = $this->executeShellCommand('wmic os get lastbootuptime /value 2>nul');
             if ($uptime) {
                 preg_match('/LastBootUpTime=(\d{14})/', $uptime, $matches);
                 if (isset($matches[1])) {
@@ -176,6 +176,51 @@ class Admin extends BaseController
         }
 
         return "无法获取";
+    }
+
+    protected function currentOsFamily(): string
+    {
+        return PHP_OS_FAMILY;
+    }
+
+    protected function readLinuxUptimeRaw(): string|false
+    {
+        $path = '/proc/uptime';
+
+        if (!$this->isPathAllowedByOpenBaseDir($path)) {
+            return false;
+        }
+
+        $content = @file_get_contents($path);
+        return $content === false ? false : $content;
+    }
+
+    protected function executeShellCommand(string $command): string|false|null
+    {
+        return shell_exec($command);
+    }
+
+    protected function isPathAllowedByOpenBaseDir(string $path): bool
+    {
+        $openBaseDir = trim((string) ini_get('open_basedir'));
+        if ($openBaseDir === '') {
+            return true;
+        }
+
+        $normalizedPath = str_replace('\\', '/', $path);
+        foreach (explode(PATH_SEPARATOR, $openBaseDir) as $allowedPath) {
+            $allowedPath = trim($allowedPath);
+            if ($allowedPath === '') {
+                continue;
+            }
+
+            $normalizedAllowedPath = rtrim(str_replace('\\', '/', $allowedPath), '/') . '/';
+            if (str_starts_with($normalizedPath . '/', $normalizedAllowedPath)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

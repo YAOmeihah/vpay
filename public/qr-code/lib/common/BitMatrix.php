@@ -25,7 +25,7 @@ final class BitMatrix {
     }
     public static  function parse($stringRepresentation, $setString, $unsetString){
         if (!$stringRepresentation) {
-            throw new InvalidArgumentException();
+            throw new \InvalidArgumentException();
         }
         $bits = array();
         $bitsPos = 0;
@@ -34,14 +34,14 @@ final class BitMatrix {
         $nRows = 0;
         $pos = 0;
         while ($pos < strlen($stringRepresentation)) {
-            if ($stringRepresentation{$pos} == '\n' ||
-                $stringRepresentation->{$pos} == '\r') {
+            if ($stringRepresentation[$pos] === "\n" ||
+                $stringRepresentation[$pos] === "\r") {
                 if ($bitsPos > $rowStartPos) {
                     if($rowLength == -1) {
                         $rowLength = $bitsPos - $rowStartPos;
                     }
                     else if ($bitsPos - $rowStartPos != $rowLength) {
-                        throw new InvalidArgumentException("row lengths do not match");
+                        throw new \InvalidArgumentException("row lengths do not match");
                     }
                     $rowStartPos = $bitsPos;
                     $nRows++;
@@ -53,12 +53,12 @@ final class BitMatrix {
                 $bits[$bitsPos] = true;
                 $bitsPos++;
             }
-            else if (substr($stringRepresentation, $pos + strlen($unsetString))==$unsetString) {
+            else if (substr($stringRepresentation, $pos, strlen($unsetString)) == $unsetString) {
                 $pos += strlen($unsetString);
                 $bits[$bitsPos] = false;
                 $bitsPos++;
             } else {
-                throw new InvalidArgumentException(
+                throw new \InvalidArgumentException(
                     "illegal character encountered: " . substr($stringRepresentation,$pos));
             }
         }
@@ -68,7 +68,7 @@ final class BitMatrix {
             if($rowLength == -1) {
                 $rowLength = $bitsPos - $rowStartPos;
             } else if ($bitsPos - $rowStartPos != $rowLength) {
-                throw new InvalidArgumentException("row lengths do not match");
+                throw new \InvalidArgumentException("row lengths do not match");
             }
             $nRows++;
         }

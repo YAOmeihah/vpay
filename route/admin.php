@@ -19,6 +19,8 @@ Route::group('admin/index', function () {
     Route::any('setBd', 'admin/setBd');
     Route::any('delGqOrder', 'admin/delGqOrder');
     Route::any('delLastOrder', 'admin/delLastOrder');
+    Route::any('profile', 'admin/profile');
+    Route::post('logout', 'admin/logout');
 })->middleware(\app\middleware\AdminAuth::class);
 
 Route::any('enQrcode', 'admin/enQrcode');

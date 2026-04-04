@@ -4,8 +4,11 @@ declare(strict_types=1);
 namespace app\service;
 
 use app\model\PayOrder;
-use app\model\Setting;
 use app\model\TmpPrice;
+use app\service\config\SettingSystemConfig;
+use app\service\config\SystemConfig;
+use app\service\runtime\MonitorState;
+use app\service\runtime\SettingMonitorState;
 
 class MonitorService
 {
@@ -14,8 +17,9 @@ class MonitorService
      */
     public static function heartbeat(): void
     {
-        Setting::setConfigValue('lastheart', (string)time());
-        Setting::setConfigValue('jkstate', '1');
+        $state = static::monitorState();
+        $state->markHeartbeatAt(time());
+        $state->markOnline();
     }
 
     /**
@@ -23,9 +27,8 @@ class MonitorService
      */
     public static function checkMonitorTimeout(): void
     {
-        $lastheart = Setting::getConfigValue('lastheart');
-        if ((time() - intval($lastheart)) > 90) {
-            Setting::setConfigValue('jkstate', '0');
+        if ((time() - static::monitorState()->getLastHeartbeatAt()) > 90) {
+            static::monitorState()->markOffline();
         }
     }
 
@@ -37,8 +40,7 @@ class MonitorService
     {
         static::checkMonitorTimeout();
 
-        $time = Setting::getConfigValue('close');
-        $closeTime = time() - 60 * intval($time);
+        $closeTime = time() - 60 * static::systemConfig()->getOrderCloseMinutes();
         $closeDate = time();
 
         $affected = PayOrder::where('create_date', '<=', $closeTime)
@@ -72,5 +74,15 @@ class MonitorService
                 TmpPrice::where('oid', $row['oid'])->delete();
             }
         }
+    }
+
+    protected static function monitorState(): MonitorState
+    {
+        return new SettingMonitorState();
+    }
+
+    protected static function systemConfig(): SystemConfig
+    {
+        return new SettingSystemConfig();
     }
 }

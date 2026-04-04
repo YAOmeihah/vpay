@@ -3,7 +3,8 @@ declare(strict_types=1);
 
 namespace app\service;
 
-use app\model\Setting;
+use app\service\config\SettingSystemConfig;
+use app\service\config\SystemConfig;
 
 class SignService
 {
@@ -18,7 +19,7 @@ class SignService
         string $price,
         string $reallyPrice
     ): string {
-        $key = Setting::getConfigValue('key');
+        $key = static::systemConfig()->getSignKey();
         return md5($payId . $param . $type . $price . $reallyPrice . $key);
     }
 
@@ -82,7 +83,7 @@ class SignService
         string $price,
         string $sign
     ): bool {
-        $key = Setting::getConfigValue('key');
+        $key = static::systemConfig()->getSignKey();
         $expected = md5($payId . $param . $type . $price . $key);
         return hash_equals($expected, $sign);
     }
@@ -92,7 +93,12 @@ class SignService
      */
     public static function verifySimpleSign(string $data, string $sign): bool
     {
-        $key = Setting::getConfigValue('key');
+        $key = static::systemConfig()->getSignKey();
         return hash_equals(md5($data . $key), $sign);
+    }
+
+    protected static function systemConfig(): SystemConfig
+    {
+        return new SettingSystemConfig();
     }
 }

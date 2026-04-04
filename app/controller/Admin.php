@@ -5,10 +5,11 @@ namespace app\controller;
 
 use app\BaseController;
 use app\model\PayOrder;
-use app\model\Setting;
 use app\model\PayQrcode;
 use app\model\TmpPrice;
 use app\service\NotifyService;
+use app\service\admin\AdminSettingsService;
+use app\service\admin\DashboardStatsService;
 use think\facade\Db;
 use think\facade\Session;
 use think\App;
@@ -26,75 +27,58 @@ class Admin extends BaseController
      */
     public function getMain()
     {
-        // 先从缓存获取统计数据
-        $statsData = \app\service\CacheService::getStats('dashboard');
-        if ($statsData) {
-            return json($this->getReturn(1, "成功", $statsData));
-        }
+        $statsData = $this->dashboardStatsService()->getStats(function (): array {
+            $today = strtotime(date("Y-m-d"), time());
 
-        $today = strtotime(date("Y-m-d"), time());
+            $todayOrder = PayOrder::where("create_date", ">=", $today)
+                ->where("create_date", "<=", ($today + 86400))
+                ->count();
 
-        // 今日总订单
-        $todayOrder = PayOrder::where("create_date", ">=", $today)
-            ->where("create_date", "<=", ($today + 86400))
-            ->count();
+            $todaySuccessOrder = PayOrder::where("state", ">=", 1)
+                ->where("create_date", ">=", $today)
+                ->where("create_date", "<=", ($today + 86400))
+                ->count();
 
-        // 今日成功订单
-        $todaySuccessOrder = PayOrder::where("state", ">=", 1)
-            ->where("create_date", ">=", $today)
-            ->where("create_date", "<=", ($today + 86400))
-            ->count();
+            $todayCloseOrder = PayOrder::where("state", -1)
+                ->where("create_date", ">=", $today)
+                ->where("create_date", "<=", ($today + 86400))
+                ->count();
 
-        // 今日失败订单
-        $todayCloseOrder = PayOrder::where("state", -1)
-            ->where("create_date", ">=", $today)
-            ->where("create_date", "<=", ($today + 86400))
-            ->count();
+            $todayMoney = PayOrder::where("state", ">=", 1)
+                ->where("create_date", ">=", $today)
+                ->where("create_date", "<=", ($today + 86400))
+                ->sum("price");
 
-        // 今日收入
-        $todayMoney = PayOrder::where("state", ">=", 1)
-            ->where("create_date", ">=", $today)
-            ->where("create_date", "<=", ($today + 86400))
-            ->sum("price");
+            $countOrder = PayOrder::count();
+            $countMoney = PayOrder::where("state", ">=", 1)->sum("price");
 
-        // 总订单数
-        $countOrder = PayOrder::count();
-        
-        // 总收入
-        $countMoney = PayOrder::where("state", ">=", 1)->sum("price");
+            $version = Db::query("SELECT VERSION()");
+            $mysqlVersion = $version[0]['VERSION()'];
 
-        // 获取MySQL版本
-        $v = Db::query("SELECT VERSION()");
-        $v = $v[0]['VERSION()'];
+            if (function_exists("gd_info")) {
+                $gdInfo = @gd_info();
+                $gdVersion = $gdInfo["GD Version"];
+            } else {
+                $gdVersion = '<font color="red">GD库未开启！</font>';
+            }
 
-        // 获取GD库信息
-        if (function_exists("gd_info")) {
-            $gd_info = @gd_info();
-            $gd = $gd_info["GD Version"];
-        } else {
-            $gd = '<font color="red">GD库未开启！</font>';
-        }
-
-        $statsData = array(
-            "todayOrder" => $todayOrder,
-            "todaySuccessOrder" => $todaySuccessOrder,
-            "todayCloseOrder" => $todayCloseOrder,
-            "todayMoney" => round((float)$todayMoney, 2),
-            "countOrder" => $countOrder,
-            "countMoney" => round((float)$countMoney),
-
-            "PHP_VERSION" => PHP_VERSION,
-            "PHP_OS" => PHP_OS,
-            "SERVER" => $_SERVER['SERVER_SOFTWARE'],
-            "MySql" => $v,
-            "Thinkphp" => "v" . App::VERSION,
-            "RunTime" => $this->sys_uptime(),
-            "ver" => "v" . config('app.ver'), // 版本号
-            "gd" => $gd,
-        );
-
-        // 缓存统计数据（5分钟）
-        \app\service\CacheService::cacheStats('dashboard', $statsData);
+            return $this->dashboardStatsService()->buildPayload([
+                "todayOrder" => $todayOrder,
+                "todaySuccessOrder" => $todaySuccessOrder,
+                "todayCloseOrder" => $todayCloseOrder,
+                "todayMoney" => round((float)$todayMoney, 2),
+                "countOrder" => $countOrder,
+                "countMoney" => round((float)$countMoney),
+            ], [
+                "PHP_VERSION" => PHP_VERSION,
+                "PHP_OS" => PHP_OS,
+                "SERVER" => $_SERVER['SERVER_SOFTWARE'],
+                "MySql" => $mysqlVersion,
+                "Thinkphp" => "v" . App::VERSION,
+                "RunTime" => $this->sys_uptime(),
+                "gd" => $gdVersion,
+            ]);
+        });
 
         return json($this->getReturn(1, "成功", $statsData));
     }
@@ -224,32 +208,7 @@ class Admin extends BaseController
      */
     public function getSettings()
     {
-        $settings = [
-            'user' => Setting::getConfigValue('user'),
-            'pass' => '', // 密码字段不显示实际值，显示为空
-            'notifyUrl' => Setting::getConfigValue('notifyUrl'),
-            'returnUrl' => Setting::getConfigValue('returnUrl'),
-            'key' => Setting::getConfigValue('key'),
-            'lastheart' => Setting::getConfigValue('lastheart'),
-            'lastpay' => Setting::getConfigValue('lastpay'),
-            'jkstate' => Setting::getConfigValue('jkstate'),
-            'close' => Setting::getConfigValue('close'),
-            'payQf' => Setting::getConfigValue('payQf'),
-            'wxpay' => Setting::getConfigValue('wxpay'),
-            'zfbpay' => Setting::getConfigValue('zfbpay'),
-            'epay_enabled' => Setting::getConfigValue('epay_enabled', '0'),
-            'epay_pid' => Setting::getConfigValue('epay_pid'),
-            'epay_key' => '',
-            'epay_name' => Setting::getConfigValue('epay_name', '订单支付'),
-            'epay_private_key' => '',
-            'epay_public_key' => Setting::getConfigValue('epay_public_key'),
-        ];
-
-        // 如果key为空，生成一个新的
-        if (empty($settings['key'])) {
-            $settings['key'] = md5((string)time());
-            Setting::setConfigValue('key', $settings['key']);
-        }
+        $settings = $this->adminSettingsService()->getSettings();
 
         return json($this->getReturn(1, "成功", $settings));
     }
@@ -259,48 +218,19 @@ class Admin extends BaseController
      */
     public function saveSetting()
     {
-        $params = [
-            'user', 'pass', 'notifyUrl', 'returnUrl', 'key',
-            'close', 'payQf', 'wxpay', 'zfbpay',
-            'epay_enabled', 'epay_pid', 'epay_key', 'epay_name',
-            'epay_private_key', 'epay_public_key'
-        ];
-
-        foreach ($params as $param) {
-            $value = $this->request->param($param, '');
-
-            // 密码字段特殊处理
-            if ($param === 'pass') {
-                // 如果密码为空，跳过不保存（保持原密码不变）
-                if (empty($value)) {
-                    continue;
-                }
-                // 对新密码进行哈希处理
-                $value = password_hash($value, PASSWORD_DEFAULT);
-            }
-
-            if (in_array($param, ['epay_key', 'epay_private_key', 'epay_public_key'], true)) {
-                $value = trim((string)$value);
-                if ($value === '') {
-                    continue;
-                }
-            }
-
-            if ($param === 'epay_enabled') {
-                $value = $value === '1' ? '1' : '0';
-            }
-
-            if (in_array($param, ['epay_pid', 'epay_name'], true)) {
-                $value = trim((string)$value);
-            }
-
-            Setting::setConfigValue($param, (string)$value);
-        }
-
-        // 清除统计缓存（配置变更可能影响统计）
-        \app\service\CacheService::deleteStats('dashboard');
+        $this->adminSettingsService()->saveSettings($this->request->param());
 
         return json($this->getReturn());
+    }
+
+    private function adminSettingsService(): AdminSettingsService
+    {
+        return new AdminSettingsService();
+    }
+
+    private function dashboardStatsService(): DashboardStatsService
+    {
+        return new DashboardStatsService();
     }
 
     /**

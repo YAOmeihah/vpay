@@ -33,9 +33,9 @@ import {
 import {
   type DataInfo,
   userKey,
-  removeToken,
   multipleTabsKey
 } from "@/utils/auth";
+import { getAdminProfile } from "@/api/admin/auth";
 
 /** 自动导入全部静态路由，无需再手动引入！匹配 src/router/modules 目录（任何嵌套级别）中具有 .ts 扩展名的所有文件，除了 remaining.ts 文件
  * 如何匹配所有文件请看：https://github.com/mrmlnc/fast-glob#basic-syntax
@@ -209,8 +209,19 @@ router.beforeEach((to: ToRouteType, _from, next) => {
       if (whiteList.indexOf(to.path) !== -1) {
         next();
       } else {
-        removeToken();
-        next({ path: "/login" });
+        // 尝试从服务器加载 profile
+        getAdminProfile()
+          .then(profile => {
+            if (profile.code === 1) {
+              storageLocal().setItem(userKey, profile.data);
+              next();
+            } else {
+              next({ path: "/login" });
+            }
+          })
+          .catch(() => {
+            next({ path: "/login" });
+          });
       }
     } else {
       next();

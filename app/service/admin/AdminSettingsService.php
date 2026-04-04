@@ -34,7 +34,7 @@ class AdminSettingsService
             'epay_public_key' => $this->getConfigValue('epay_public_key'),
         ];
 
-        if ($settings['key'] === '') {
+        if (empty($settings['key'])) {
             $settings['key'] = $this->generateKey();
             $this->setConfigValue('key', $settings['key']);
         }
@@ -58,7 +58,7 @@ class AdminSettingsService
             $value = $input[$param] ?? '';
 
             if ($param === 'pass') {
-                if ($value === '' || $value === null) {
+                if (empty($value)) {
                     continue;
                 }
 

@@ -7,6 +7,7 @@ use app\service\CacheService;
 use app\service\admin\AdminSettingsService;
 use app\service\admin\DashboardStatsService;
 use app\service\security\LoginAttemptLimiter;
+use app\command\CacheManage;
 use PHPUnit\Framework\TestCase;
 use think\App;
 
@@ -113,6 +114,70 @@ class ControllerEdgeServiceRegressionTest extends TestCase
         $this->assertSame(['key' => 'generated-sign-key'], $service->savedSettings);
     }
 
+    public function test_admin_settings_service_regenerates_key_when_legacy_empty_semantics_consider_it_empty(): void
+    {
+        $service = new class(['key' => '0']) extends AdminSettingsService {
+            public array $savedSettings = [];
+
+            public function __construct(private array $settings)
+            {
+            }
+
+            protected function getConfigValue(string $key, string $default = ''): string
+            {
+                return array_key_exists($key, $this->settings) ? (string) $this->settings[$key] : $default;
+            }
+
+            protected function setConfigValue(string $key, string $value): bool
+            {
+                $this->savedSettings[$key] = $value;
+                $this->settings[$key] = $value;
+                return true;
+            }
+
+            protected function generateKey(): string
+            {
+                return 'legacy-empty-regenerated-key';
+            }
+        };
+
+        $settings = $service->getSettings();
+
+        $this->assertSame('legacy-empty-regenerated-key', $settings['key']);
+        $this->assertSame(['key' => 'legacy-empty-regenerated-key'], $service->savedSettings);
+    }
+
+    public function test_admin_settings_service_ignores_password_value_zero_to_match_legacy_empty_semantics(): void
+    {
+        $service = new class extends AdminSettingsService {
+            public array $savedSettings = [];
+
+            protected function setConfigValue(string $key, string $value): bool
+            {
+                $this->savedSettings[$key] = $value;
+                return true;
+            }
+
+            protected function dashboardStatsService(): DashboardStatsService
+            {
+                return new class extends DashboardStatsService {
+                    public function clearStats(): bool
+                    {
+                        return true;
+                    }
+                };
+            }
+        };
+
+        $service->saveSettings([
+            'user' => 'next-admin',
+            'pass' => '0',
+        ]);
+
+        $this->assertSame('next-admin', $service->savedSettings['user'] ?? null);
+        $this->assertArrayNotHasKey('pass', $service->savedSettings);
+    }
+
     public function test_dashboard_stats_service_uses_dashboard_cache_slot_semantics(): void
     {
         if (!class_exists(DashboardStatsService::class)) {
@@ -168,6 +233,46 @@ class ControllerEdgeServiceRegressionTest extends TestCase
 
         $limiter->clearLoginAttempts($clientIp);
         $this->assertFalse($limiter->tooManyLoginAttempts($clientIp));
+    }
+
+    public function test_cache_manage_warmup_payload_builder_preserves_legacy_raw_value_shapes(): void
+    {
+        $command = new class extends CacheManage {
+            public function buildPayloadProbe(array $order, string $timeOut): array
+            {
+                $method = new \ReflectionMethod(CacheManage::class, 'buildWarmOrderPayload');
+                $method->setAccessible(true);
+
+                /** @var array<string, mixed> $payload */
+                $payload = $method->invoke($this, $order, $timeOut);
+                return $payload;
+            }
+        };
+
+        $payload = $command->buildPayloadProbe([
+            'pay_id' => 'merchant-raw',
+            'order_id' => 'order-raw',
+            'type' => '2',
+            'price' => '12.34',
+            'really_price' => '12.35',
+            'pay_url' => 'alipays://raw-pay-url',
+            'is_auto' => '0',
+            'state' => '-1',
+            'create_date' => '1700000000',
+        ], '05');
+
+        $this->assertSame([
+            'payId' => 'merchant-raw',
+            'orderId' => 'order-raw',
+            'payType' => '2',
+            'price' => '12.34',
+            'reallyPrice' => '12.35',
+            'payUrl' => 'alipays://raw-pay-url',
+            'isAuto' => '0',
+            'state' => '-1',
+            'timeOut' => '05',
+            'date' => '1700000000',
+        ], $payload);
     }
 
     private static function configureCache(): void

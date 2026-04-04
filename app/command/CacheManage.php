@@ -5,10 +5,10 @@ namespace app\command;
 
 use app\model\PayOrder;
 use app\service\admin\AdminSettingsService;
+use app\service\cache\CacheMaintenanceService;
 use think\console\Command;
 use think\console\Input;
 use think\console\Output;
-use app\service\CacheService;
 use app\service\cache\OrderCache;
 use app\service\config\SettingSystemConfig;
 
@@ -58,7 +58,7 @@ class CacheManage extends Command
     {
         $output->writeln('正在清除所有缓存...');
         
-        if (CacheService::clearAll()) {
+        if ($this->cacheMaintenanceService()->clearAll()) {
             $output->writeln('✅ 缓存清除成功');
         } else {
             $output->writeln('❌ 缓存清除失败');
@@ -70,7 +70,7 @@ class CacheManage extends Command
      */
     private function showStats(Output $output)
     {
-        $stats = CacheService::getCacheStats();
+        $stats = $this->cacheMaintenanceService()->getStats();
         
         $output->writeln('=== Redis缓存统计信息 ===');
         
@@ -125,6 +125,11 @@ class CacheManage extends Command
     private function orderCache(): OrderCache
     {
         return new OrderCache();
+    }
+
+    private function cacheMaintenanceService(): CacheMaintenanceService
+    {
+        return new CacheMaintenanceService();
     }
 
     /**

@@ -1,4 +1,39 @@
-export function createSettingsSections() {
+export type SecuritySection = {
+  user: string;
+  newPassword: string;
+  confirmPassword: string;
+};
+
+export type PaymentSection = {
+  notifyUrl: string;
+  returnUrl: string;
+  key: string;
+  close: string;
+  payQf: string;
+};
+
+export type QrcodeSection = {
+  wxpay: string;
+  zfbpay: string;
+};
+
+export type EpaySection = {
+  epay_enabled: string;
+  epay_pid: string;
+  epay_name: string;
+  epay_key: string;
+  epay_private_key: string;
+  epay_public_key: string;
+};
+
+export type SettingsSections = {
+  security: SecuritySection;
+  payment: PaymentSection;
+  qrcode: QrcodeSection;
+  epay: EpaySection;
+};
+
+export function createSettingsSections(): SettingsSections {
   return {
     security: {
       user: "",
@@ -28,7 +63,7 @@ export function createSettingsSections() {
 }
 
 export function hydrateSettingsSections(
-  sections: ReturnType<typeof createSettingsSections>,
+  sections: SettingsSections,
   payload: Record<string, any>
 ) {
   sections.security.user = String(payload.user ?? "");
@@ -53,7 +88,7 @@ export function hydrateSettingsSections(
 }
 
 export function buildSecurityPayload(
-  section: ReturnType<typeof createSettingsSections>["security"]
+  section: SecuritySection
 ) {
   const payload: Record<string, string> = {
     user: section.user
@@ -67,7 +102,7 @@ export function buildSecurityPayload(
 }
 
 export function buildPaymentPayload(
-  section: ReturnType<typeof createSettingsSections>["payment"]
+  section: PaymentSection
 ) {
   return {
     notifyUrl: section.notifyUrl,
@@ -79,7 +114,7 @@ export function buildPaymentPayload(
 }
 
 export function buildQrcodePayload(
-  section: ReturnType<typeof createSettingsSections>["qrcode"]
+  section: QrcodeSection
 ) {
   return {
     wxpay: section.wxpay,
@@ -88,7 +123,7 @@ export function buildQrcodePayload(
 }
 
 export function buildEpayPayload(
-  section: ReturnType<typeof createSettingsSections>["epay"]
+  section: EpaySection
 ) {
   const payload: Record<string, string> = {
     epay_enabled: section.epay_enabled,

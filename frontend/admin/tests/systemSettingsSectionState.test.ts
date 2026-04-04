@@ -61,3 +61,24 @@ test("settings sections hydrate backend payload and emit independent save payloa
     epay_public_key: "PUBLIC-KEY"
   });
 });
+
+test("hydrateSettingsSections resets password and private secrets after reload", () => {
+  const sections = createSettingsSections();
+
+  sections.security.newPassword = "stale-pass";
+  sections.security.confirmPassword = "stale-pass";
+  sections.epay.epay_key = "stale-key";
+  sections.epay.epay_private_key = "stale-private";
+
+  hydrateSettingsSections(sections, {
+    user: "admin-next",
+    epay_public_key: "PUBLIC-KEY-NEXT"
+  });
+
+  assert.equal(sections.security.user, "admin-next");
+  assert.equal(sections.security.newPassword, "");
+  assert.equal(sections.security.confirmPassword, "");
+  assert.equal(sections.epay.epay_key, "");
+  assert.equal(sections.epay.epay_private_key, "");
+  assert.equal(sections.epay.epay_public_key, "PUBLIC-KEY-NEXT");
+});

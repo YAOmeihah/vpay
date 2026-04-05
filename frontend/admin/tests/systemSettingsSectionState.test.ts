@@ -17,6 +17,7 @@ test("settings sections hydrate backend payload and emit independent save payloa
     notifyUrl: "https://merchant.example/notify",
     returnUrl: "https://merchant.example/return",
     key: "sign-key",
+    monitorKey: "monitor-sign-key",
     notify_ssl_verify: "0",
     close: "15",
     payQf: "1",
@@ -27,6 +28,7 @@ test("settings sections hydrate backend payload and emit independent save payloa
   assert.equal(sections.security.user, "admin");
   assert.equal(sections.security.newPassword, "");
   assert.equal(sections.payment.notifyUrl, "https://merchant.example/notify");
+  assert.equal(sections.payment.monitorKey, "monitor-sign-key");
   assert.equal(sections.payment.notifySslVerify, "0");
   assert.equal(sections.qrcode.wxpay, "weixin://pay");
 
@@ -41,6 +43,7 @@ test("settings sections hydrate backend payload and emit independent save payloa
     notifyUrl: "https://merchant.example/notify",
     returnUrl: "https://merchant.example/return",
     key: "sign-key",
+    monitorKey: "monitor-sign-key",
     notify_ssl_verify: "0",
     close: "15",
     payQf: "1"

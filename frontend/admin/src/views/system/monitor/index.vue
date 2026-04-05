@@ -17,7 +17,7 @@ const settings = ref<any>({});
 const status = computed(() => getMonitorStatus(settings.value.jkstate));
 
 const configUrl = computed(() =>
-  buildMonitorConfigUrl(location.host, settings.value.key)
+  buildMonitorConfigUrl(location.host, settings.value.monitorKey)
 );
 
 const qrcodeUrl = computed(() =>
@@ -81,7 +81,12 @@ onMounted(loadSettings);
           <template #prepend>配置地址</template>
         </el-input>
       </template>
-      <el-alert v-else title="请先在系统设置中配置通讯密钥" type="warning" :closable="false" />
+      <el-alert
+        v-else
+        title="请先在系统设置中配置监控密钥"
+        type="warning"
+        :closable="false"
+      />
 
       <div class="mt-4 flex gap-3 justify-end">
         <el-button @click="openLocalAppDownload">下载监控端</el-button>

@@ -28,6 +28,7 @@ const rules: FormRules<PaymentSection> = {
   notifyUrl: [{ required: true, message: "请输入异步回调地址", trigger: "blur" }],
   returnUrl: [{ required: true, message: "请输入同步回调地址", trigger: "blur" }],
   key: [{ required: true, message: "请输入通讯密钥", trigger: "blur" }],
+  monitorKey: [{ required: true, message: "请输入监控签名密钥", trigger: "blur" }],
   close: [{ validator: validatePositiveInteger, trigger: "blur" }],
   payQf: [{ required: true, message: "请选择区分方式", trigger: "change" }]
 };
@@ -86,6 +87,18 @@ const handleSave = async () => {
 
       <el-form-item label="通讯密钥" prop="key">
         <el-input v-model="model.key" placeholder="请输入通讯密钥" />
+      </el-form-item>
+
+      <el-form-item label="监控密钥" prop="monitorKey">
+        <div class="w-full space-y-2">
+          <el-input
+            v-model="model.monitorKey"
+            placeholder="请输入监控端签名密钥"
+          />
+          <div class="text-xs leading-5 text-gray-500">
+            监控端回调签名专用，和商户通讯密钥分开管理。
+          </div>
+        </div>
       </el-form-item>
 
       <el-form-item label="区分方式" prop="payQf">

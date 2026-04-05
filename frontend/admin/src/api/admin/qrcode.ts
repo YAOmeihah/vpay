@@ -33,5 +33,8 @@ export const decodeQrcodeImage = (data: { base64: string }) =>
   http.request<{ code: number; msg: string; data: string | null }>(
     "post",
     "/admin/index/decodeQrcode",
-    { data }
+    { data },
+    {
+      skipUnauthorizedLogout: true
+    }
   );

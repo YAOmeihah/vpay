@@ -69,11 +69,14 @@ export function getMonitorStatus(jkstate?: string | number | null): {
 }
 
 export function buildMonitorConfigUrl(base: string, key?: string | null): string {
-  const normalizedBase = String(base ?? "").replace(/\/+$/, "");
+  const normalizedBase = String(base ?? "")
+    .trim()
+    .replace(/^https?:\/\//i, "")
+    .replace(/\/+$/, "");
   const normalizedKey = String(key ?? "").trim();
 
   if (!normalizedBase || !normalizedKey) return "";
-  return `${normalizedBase}/${normalizedKey}`;
+  return `https://${normalizedBase}/${normalizedKey}`;
 }
 
 export function buildQrcodePreviewUrl(url?: string | null): string {

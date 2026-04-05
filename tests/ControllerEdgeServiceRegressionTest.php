@@ -483,6 +483,22 @@ class ControllerEdgeServiceRegressionTest extends TestCase
         $this->assertSame(['lastheart', 'lastpay', 'jkstate'], array_values(array_unique($state->setKeys)));
     }
 
+    public function test_monitor_controller_uses_monitor_signature_verifier_for_heartbeat_and_state(): void
+    {
+        $source = (string) file_get_contents(self::$rootPath . 'app/controller/monitor/Monitor.php');
+
+        $this->assertStringContainsString(
+            'verifyMonitorSimpleSignature',
+            $source,
+            'Monitor controller should route heartbeat/state checks through the monitor-only signer.'
+        );
+        $this->assertStringNotContainsString(
+            'verifySimpleSign($t, $this->request->param(\'sign\', \'\'))',
+            $source,
+            'Heartbeat/state endpoints should no longer verify against the merchant key.'
+        );
+    }
+
     public function test_order_state_manager_invalidates_order_and_dashboard_cache_together(): void
     {
         if (!class_exists(OrderStateManager::class)) {

@@ -97,6 +97,12 @@ class SignService
         return hash_equals(md5($data . $key), $sign);
     }
 
+    public static function verifyMonitorSimpleSign(string $data, string $sign): bool
+    {
+        $key = static::systemConfig()->getMonitorSignKey();
+        return hash_equals(md5($data . $key), $sign);
+    }
+
     public static function verifyMonitorPushSign(
         int $type,
         int $amountCents,

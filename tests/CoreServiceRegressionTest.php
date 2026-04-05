@@ -455,6 +455,35 @@ namespace tests {
             );
         }
 
+        public function test_monitor_simple_signature_uses_dedicated_monitor_key(): void
+        {
+            $this->assertTrue(
+                method_exists(SignServiceAdapterProbe::class, 'verifyMonitorSimpleSign'),
+                'Monitor heartbeat/state endpoints must verify with a dedicated monitor-key helper.'
+            );
+
+            SignServiceAdapterProbe::$config = new FakeSystemConfig(
+                signKey: 'merchant-sign-key',
+                monitorSignKey: 'monitor-sign-key'
+            );
+
+            $data = '1775395079917';
+
+            $this->assertTrue(
+                SignServiceAdapterProbe::verifyMonitorSimpleSign(
+                    $data,
+                    md5($data . 'monitor-sign-key')
+                )
+            );
+
+            $this->assertFalse(
+                SignServiceAdapterProbe::verifyMonitorSimpleSign(
+                    $data,
+                    md5($data . 'merchant-sign-key')
+                )
+            );
+        }
+
         public function test_monitor_service_writes_runtime_state_through_monitor_state_adapter(): void
         {
             $state = new RecordingMonitorState(lastHeartbeatAt: time() - 300, online: true);

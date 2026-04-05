@@ -8,6 +8,7 @@ export type PaymentSection = {
   notifyUrl: string;
   returnUrl: string;
   key: string;
+  notifySslVerify: string;
   close: string;
   payQf: string;
 };
@@ -34,6 +35,7 @@ export function createSettingsSections(): SettingsSections {
       notifyUrl: "",
       returnUrl: "",
       key: "",
+      notifySslVerify: "1",
       close: "",
       payQf: "1"
     },
@@ -55,6 +57,7 @@ export function hydrateSettingsSections(
   sections.payment.notifyUrl = String(payload.notifyUrl ?? "");
   sections.payment.returnUrl = String(payload.returnUrl ?? "");
   sections.payment.key = String(payload.key ?? "");
+  sections.payment.notifySslVerify = String(payload.notify_ssl_verify ?? "1");
   sections.payment.close = String(payload.close ?? "");
   sections.payment.payQf = String(payload.payQf ?? "1");
 
@@ -83,6 +86,7 @@ export function buildPaymentPayload(
     notifyUrl: section.notifyUrl,
     returnUrl: section.returnUrl,
     key: section.key,
+    notify_ssl_verify: section.notifySslVerify,
     close: section.close,
     payQf: section.payQf
   };

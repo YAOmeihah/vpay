@@ -53,30 +53,6 @@ class Index extends BaseController
         return $this->delegateTo(\app\controller\merchant\Order::class, 'closeOrder');
     }
 
-    public function getState()
-    {
-        // Compatibility entrypoint: delegate to split controller.
-        return $this->delegateTo(\app\controller\monitor\Monitor::class, 'getState');
-    }
-
-    public function appHeart()
-    {
-        // Compatibility entrypoint: delegate to split controller.
-        return $this->delegateTo(\app\controller\monitor\Monitor::class, 'appHeart');
-    }
-
-    public function appPush()
-    {
-        // Compatibility entrypoint: delegate to split controller.
-        return $this->delegateTo(\app\controller\monitor\Monitor::class, 'appPush');
-    }
-
-    public function closeEndOrder()
-    {
-        // Compatibility entrypoint: delegate to split controller.
-        return $this->delegateTo(\app\controller\monitor\Monitor::class, 'closeEndOrder');
-    }
-
     /**
      * Delegate legacy Index endpoints to the split controllers.
      *

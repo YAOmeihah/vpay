@@ -10,17 +10,17 @@ class MonitorReplayGuardTest extends TestCase
 {
     public function test_accepts_first_event_once(): void
     {
-        $guard = new MonitorReplayGuardProbe(1712300000);
+        $guard = new MonitorReplayGuardProbe(1712300000000);
 
-        $result = $guard->assertValid('evt-accept-1', 'nonce-accept-1', 1712300000);
+        $result = $guard->assertValid('evt-accept-1', 'nonce-accept-1', 1712300000000);
 
         $this->assertSame('accepted', $result);
     }
 
-    public function test_returns_duplicate_for_same_event_id(): void
+    public function test_accepts_millisecond_timestamp_within_skew_window(): void
     {
-        $guard = new MonitorReplayGuardProbe(1712300000);
-        $timestamp = 1712300000;
+        $guard = new MonitorReplayGuardProbe(1712300000000);
+        $timestamp = 1712300000000;
 
         $guard->assertValid('evt-duplicate-1', 'nonce-duplicate-1', $timestamp);
         $result = $guard->assertValid('evt-duplicate-1', 'nonce-duplicate-2', $timestamp);
@@ -30,8 +30,8 @@ class MonitorReplayGuardTest extends TestCase
 
     public function test_rejects_reused_nonce_for_different_event(): void
     {
-        $guard = new MonitorReplayGuardProbe(1712300000);
-        $timestamp = 1712300000;
+        $guard = new MonitorReplayGuardProbe(1712300000000);
+        $timestamp = 1712300000000;
 
         $guard->assertValid('evt-replay-1', 'nonce-replay-1', $timestamp);
 
@@ -43,12 +43,22 @@ class MonitorReplayGuardTest extends TestCase
 
     public function test_rejects_expired_timestamp(): void
     {
-        $guard = new MonitorReplayGuardProbe(1712300000);
+        $guard = new MonitorReplayGuardProbe(1712300000000);
 
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('监控回调时间戳已失效');
 
-        $guard->assertValid('evt-expired-1', 'nonce-expired-1', 1712290000);
+        $guard->assertValid('evt-expired-1', 'nonce-expired-1', 1712290000000);
+    }
+
+    public function test_rejects_second_precision_timestamp(): void
+    {
+        $guard = new MonitorReplayGuardProbe(1712300000000);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('监控回调时间戳已失效');
+
+        $guard->assertValid('evt-seconds-1', 'nonce-seconds-1', 1712300000);
     }
 }
 

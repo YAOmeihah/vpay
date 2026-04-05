@@ -499,6 +499,17 @@ class ControllerEdgeServiceRegressionTest extends TestCase
         );
     }
 
+    public function test_index_controller_no_longer_exposes_legacy_monitor_compat_entrypoints(): void
+    {
+        $source = (string) file_get_contents(self::$rootPath . 'app/controller/Index.php');
+
+        $this->assertStringNotContainsString('public function getState()', $source);
+        $this->assertStringNotContainsString('public function appHeart()', $source);
+        $this->assertStringNotContainsString('public function appPush()', $source);
+        $this->assertStringNotContainsString('public function closeEndOrder()', $source);
+        $this->assertStringNotContainsString("\\app\\controller\\monitor\\Monitor::class", $source);
+    }
+
     public function test_order_state_manager_invalidates_order_and_dashboard_cache_together(): void
     {
         if (!class_exists(OrderStateManager::class)) {

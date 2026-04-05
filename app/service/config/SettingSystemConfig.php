@@ -20,6 +20,11 @@ class SettingSystemConfig implements SystemConfig
         return $this->getConfigValue('key');
     }
 
+    public function getMonitorSignKey(): string
+    {
+        return $this->getConfigValue('monitorKey');
+    }
+
     public function getOrderCloseMinutes(): int
     {
         return (int) $this->getConfigValue('close');

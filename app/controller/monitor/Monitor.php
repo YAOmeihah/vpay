@@ -8,6 +8,7 @@ use app\service\MonitorService;
 use app\service\OrderService;
 use app\service\SignService;
 use app\service\runtime\SettingMonitorState;
+use app\service\security\MonitorReplayGuard;
 
 class Monitor extends BaseController
 {
@@ -45,17 +46,34 @@ class Monitor extends BaseController
 
     public function appPush()
     {
-        MonitorService::closeExpiredOrders();
+        $this->closeExpiredOrders();
 
-        $t = $this->request->param('t');
-        $type = $this->request->param('type');
-        $price = $this->request->param('price');
+        $type = (int) $this->request->param('type');
+        $amountCents = (int) $this->request->param('amountCents');
+        $ts = (int) $this->request->param('ts');
+        $nonce = trim((string) $this->request->param('nonce', ''));
+        $eventId = trim((string) $this->request->param('eventId', ''));
+        $sign = (string) $this->request->param('sign', '');
 
-        if (!SignService::verifySimpleSign($type . $price . $t, $this->request->param('sign', ''))) {
+        if ($amountCents <= 0 || $ts <= 0 || $nonce === '' || $eventId === '') {
+            return json($this->getReturn(-1, "监控回调参数不完整"));
+        }
+
+        if (!$this->verifyMonitorPushSignature($type, $amountCents, $ts, $nonce, $eventId, $sign)) {
             return json($this->getReturn(-1, "签名校验不通过"));
         }
 
-        $result = OrderService::handlePayPush($price, (int)$type);
+        try {
+            $guardResult = $this->validateMonitorReplay($eventId, $nonce, $ts);
+        } catch (\RuntimeException $e) {
+            return json($this->getReturn(-1, $e->getMessage()));
+        }
+
+        if ($guardResult === 'duplicate') {
+            return json($this->getReturn(1, "监控事件已处理"));
+        }
+
+        $result = $this->handlePayPush($this->formatAmountCents($amountCents), $type);
 
         if ($result['alreadyProcessed']) {
             return json($this->getReturn(1, "订单已处理"));
@@ -82,5 +100,41 @@ class Monitor extends BaseController
     private function monitorState(): SettingMonitorState
     {
         return $this->app->make(SettingMonitorState::class);
+    }
+
+    protected function monitorReplayGuard(): MonitorReplayGuard
+    {
+        return $this->app->make(MonitorReplayGuard::class);
+    }
+
+    protected function closeExpiredOrders(): void
+    {
+        MonitorService::closeExpiredOrders();
+    }
+
+    protected function verifyMonitorPushSignature(
+        int $type,
+        int $amountCents,
+        int $ts,
+        string $nonce,
+        string $eventId,
+        string $sign
+    ): bool {
+        return SignService::verifyMonitorPushSign($type, $amountCents, $ts, $nonce, $eventId, $sign);
+    }
+
+    protected function validateMonitorReplay(string $eventId, string $nonce, int $timestamp): string
+    {
+        return $this->monitorReplayGuard()->assertValid($eventId, $nonce, $timestamp);
+    }
+
+    protected function handlePayPush(string $price, int $type): array
+    {
+        return OrderService::handlePayPush($price, $type);
+    }
+
+    protected function formatAmountCents(int $amountCents): string
+    {
+        return number_format($amountCents / 100, 2, '.', '');
     }
 }

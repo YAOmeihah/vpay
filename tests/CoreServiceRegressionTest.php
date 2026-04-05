@@ -422,6 +422,39 @@ namespace tests {
             );
         }
 
+        public function test_monitor_push_signature_uses_dedicated_monitor_key_and_amount_cents_payload(): void
+        {
+            SignServiceAdapterProbe::$config = new FakeSystemConfig(
+                signKey: 'merchant-sign-key',
+                monitorSignKey: 'monitor-sign-key'
+            );
+
+            $payload = implode('|', [1, 1234, 1712300000, 'nonce-1', 'evt-1']);
+            $sign = hash_hmac('sha256', $payload, 'monitor-sign-key');
+
+            $this->assertTrue(
+                SignServiceAdapterProbe::verifyMonitorPushSign(
+                    1,
+                    1234,
+                    1712300000,
+                    'nonce-1',
+                    'evt-1',
+                    $sign
+                )
+            );
+
+            $this->assertFalse(
+                SignServiceAdapterProbe::verifyMonitorPushSign(
+                    1,
+                    1234,
+                    1712300000,
+                    'nonce-1',
+                    'evt-1',
+                    hash_hmac('sha256', $payload, 'merchant-sign-key')
+                )
+            );
+        }
+
         public function test_monitor_service_writes_runtime_state_through_monitor_state_adapter(): void
         {
             $state = new RecordingMonitorState(lastHeartbeatAt: time() - 300, online: true);
@@ -745,6 +778,7 @@ namespace tests {
             private readonly string $notifyUrl = '',
             private readonly string $returnUrl = '',
             private readonly string $signKey = '',
+            private readonly string $monitorSignKey = '',
             private readonly int $orderCloseMinutes = 15,
             private readonly string $orderCloseRaw = '15',
             private readonly string $payQfMode = '0',
@@ -767,6 +801,11 @@ namespace tests {
         public function getSignKey(): string
         {
             return $this->signKey;
+        }
+
+        public function getMonitorSignKey(): string
+        {
+            return $this->monitorSignKey;
         }
 
         public function getOrderCloseMinutes(): int

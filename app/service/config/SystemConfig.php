@@ -11,6 +11,8 @@ interface SystemConfig
 
     public function getSignKey(): string;
 
+    public function getMonitorSignKey(): string;
+
     public function getOrderCloseMinutes(): int;
 
     public function getOrderCloseRaw(): string;

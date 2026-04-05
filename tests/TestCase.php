@@ -89,9 +89,13 @@ abstract class TestCase extends BaseTestCase
 
     private function configureCache(): void
     {
-        $cachePath = self::$rootPath . 'runtime' . DIRECTORY_SEPARATOR . 'phpunit-cache' . DIRECTORY_SEPARATOR;
-        if (!is_dir($cachePath)) {
-            mkdir($cachePath, 0777, true);
+        $cachePath = sys_get_temp_dir()
+            . DIRECTORY_SEPARATOR
+            . 'vpay-phpunit-cache-'
+            . substr(sha1(self::$rootPath), 0, 12)
+            . DIRECTORY_SEPARATOR;
+        if (!is_dir($cachePath) && !@mkdir($cachePath, 0777, true) && !is_dir($cachePath)) {
+            throw new \RuntimeException('Failed to create PHPUnit cache directory: ' . $cachePath);
         }
 
         $cacheConfig = $this->app->config->get('cache');
@@ -177,6 +181,7 @@ abstract class TestCase extends BaseTestCase
             'wxpay' => 'weixin://default-pay-url',
             'zfbpay' => 'alipays://default-pay-url',
             'key' => 'native-key',
+            'monitorKey' => 'native-monitor-key',
         ]);
     }
 

@@ -31,7 +31,8 @@ final class RouteStructureRegressionTest extends TestCase
         $this->assertRouteMapping($output, 'closeOrder', 'merchant.Order/closeOrder', '\*');
         $this->assertRouteMapping($output, 'getState', 'monitor.Monitor/getState', '\*');
         $this->assertRouteMapping($output, 'appHeart', 'monitor.Monitor/appHeart', '\*');
-        $this->assertRouteMapping($output, 'appPush', 'monitor.Monitor/appPush', '\*');
+        $monitorRoutes = (string) file_get_contents(dirname(__DIR__) . DIRECTORY_SEPARATOR . 'route' . DIRECTORY_SEPARATOR . 'monitor.php');
+        $this->assertStringContainsString("Route::post('appPush', 'monitor.Monitor/appPush');", $monitorRoutes);
         $this->assertRouteMapping($output, 'closeEndOrder', 'monitor.Monitor/closeEndOrder', '\*');
         $this->assertRouteMapping($output, 'admin/index/profile', 'admin/profile', '\*');
         $this->assertRouteMapping($output, 'admin/index/logout', 'admin/logout', 'post');

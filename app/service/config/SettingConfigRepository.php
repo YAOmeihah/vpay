@@ -16,6 +16,7 @@ class SettingConfigRepository
         'notifyUrl',
         'returnUrl',
         'key',
+        'monitorKey',
         'close',
         'payQf',
         'wxpay',

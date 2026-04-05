@@ -13,6 +13,12 @@ use app\service\order\OrderStateManager;
 use app\service\runtime\SettingMonitorState;
 use app\service\security\LoginAttemptLimiter;
 use app\command\CacheManage;
+use chillerlan\QRCode\QRCode;
+use chillerlan\QRCode\QROptions;
+use Endroid\QrCode\Color\Color;
+use Endroid\QrCode\Encoding\Encoding;
+use Endroid\QrCode\RoundBlockSizeMode;
+use Endroid\QrCode\Writer\PngWriter;
 use PHPUnit\Framework\TestCase;
 use think\App;
 
@@ -56,10 +62,6 @@ class ControllerEdgeServiceRegressionTest extends TestCase
             'payQf' => '0',
             'wxpay' => 'weixin://default-pay-url',
             'zfbpay' => 'alipays://default-pay-url',
-            'epay_enabled' => '1',
-            'epay_pid' => '10001',
-            'epay_name' => '订单支付',
-            'epay_public_key' => 'PUBLIC-KEY',
         ]) extends AdminSettingsService {
             public array $savedSettings = [];
 
@@ -105,18 +107,9 @@ class ControllerEdgeServiceRegressionTest extends TestCase
             'payQf',
             'wxpay',
             'zfbpay',
-            'epay_enabled',
-            'epay_pid',
-            'epay_key',
-            'epay_name',
-            'epay_private_key',
-            'epay_public_key',
         ], array_keys($settings));
         $this->assertSame('admin', $settings['user']);
         $this->assertSame('', $settings['pass']);
-        $this->assertSame('', $settings['epay_key']);
-        $this->assertSame('', $settings['epay_private_key']);
-        $this->assertSame('PUBLIC-KEY', $settings['epay_public_key']);
         $this->assertSame('generated-sign-key', $settings['key']);
         $this->assertSame(['key' => 'generated-sign-key'], $service->savedSettings);
     }
@@ -282,45 +275,6 @@ class ControllerEdgeServiceRegressionTest extends TestCase
             'close' => '30',
             'payQf' => '2',
         ], $service->savedSettings);
-    }
-
-    public function test_admin_settings_service_skips_blank_sensitive_values_during_partial_epay_save(): void
-    {
-        $service = new class extends AdminSettingsService {
-            public array $savedSettings = [];
-
-            protected function setConfigValue(string $key, string $value): bool
-            {
-                $this->savedSettings[$key] = $value;
-                return true;
-            }
-
-            protected function dashboardStatsService(): DashboardStatsService
-            {
-                return new class extends DashboardStatsService {
-                    public function clearStats(): bool
-                    {
-                        return true;
-                    }
-                };
-            }
-        };
-
-        $service->saveSettings([
-            'epay_enabled' => '1',
-            'epay_pid' => '10002',
-            'epay_name' => '收银台',
-            'epay_key' => '',
-            'epay_private_key' => '',
-            'epay_public_key' => 'PUBLIC-KEY-NEXT',
-        ]);
-
-        $this->assertSame('1', $service->savedSettings['epay_enabled'] ?? null);
-        $this->assertSame('10002', $service->savedSettings['epay_pid'] ?? null);
-        $this->assertSame('收银台', $service->savedSettings['epay_name'] ?? null);
-        $this->assertSame('PUBLIC-KEY-NEXT', $service->savedSettings['epay_public_key'] ?? null);
-        $this->assertArrayNotHasKey('epay_key', $service->savedSettings);
-        $this->assertArrayNotHasKey('epay_private_key', $service->savedSettings);
     }
 
     public function test_admin_permission_service_keeps_canonical_admin_permissions_list(): void
@@ -616,6 +570,49 @@ class ControllerEdgeServiceRegressionTest extends TestCase
         }
 
         $this->assertSame([], $lintFailures, 'Legacy QR code library must stay PHP 8 compatible.');
+    }
+
+    public function test_admin_decode_qrcode_uses_business_error_code_for_decode_failures(): void
+    {
+        $source = (string) file_get_contents(self::$rootPath . 'app/controller/Admin.php');
+
+        $this->assertStringContainsString(
+            'getReturn(-2, "二维码识别失败")',
+            $source,
+            'QR decode failure should not reuse the -1 unauthorized code path.'
+        );
+        $this->assertStringContainsString(
+            'readFromBlob($imageBlob)',
+            $source,
+            'Admin QR decode should use the maintained Composer decoder blob API.'
+        );
+        $this->assertStringNotContainsString(
+            'QrReader',
+            $source,
+            'Admin QR decode should no longer depend on the legacy bundled QrReader.'
+        );
+    }
+
+    public function test_chillerlan_decoder_can_read_a_generated_payment_qr_blob(): void
+    {
+        $payload = 'weixin://wxpay/mock-merchant-pay-code';
+        $qrCode = new \Endroid\QrCode\QrCode(
+            data: $payload,
+            encoding: new Encoding('UTF-8'),
+            errorCorrectionLevel: \Endroid\QrCode\ErrorCorrectionLevel::Low,
+            size: 240,
+            margin: 12,
+            roundBlockSizeMode: RoundBlockSizeMode::Margin,
+            foregroundColor: new Color(0, 0, 0),
+            backgroundColor: new Color(255, 255, 255)
+        );
+        $blob = (new PngWriter())->write($qrCode)->getString();
+
+        $result = (new QRCode(new QROptions([
+            'readerUseImagickIfAvailable' => true,
+        ])))->readFromBlob($blob);
+
+        $this->assertSame($payload, trim((string) $result));
     }
 
     private static function configureCache(): void

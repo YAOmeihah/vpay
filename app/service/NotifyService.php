@@ -3,60 +3,64 @@ declare(strict_types=1);
 
 namespace app\service;
 
-use app\service\epay\EpayConfigService;
-use app\service\epay\EpayNotifyService;
 use app\service\config\SettingSystemConfig;
 use app\service\config\SystemConfig;
 
 class NotifyService
 {
     /**
-     * 发送商户异步通知，自动区分 epay/原生订单
+     * 发送商户异步通知
      */
     public static function sendNotify(array $order): bool
     {
-        if (EpayNotifyService::isEpayOrder($order)) {
-            return static::sendEpayNotify($order);
-        }
-
-        return static::sendNativeNotify($order);
+        return static::sendNotifyDetailed($order)['ok'];
     }
 
     /**
-     * 构建同步跳转 URL，自动区分 epay/原生订单
-     * 原生订单场景：checkOrder 调用，需要 formatPrice=true 与原代码一致
+     * 发送商户异步通知并返回失败详情，便于补单页面排障。
+     *
+     * @return array{ok: bool, detail: string, response: string}
+     */
+    public static function sendNotifyDetailed(array $order): array
+    {
+        return static::sendNativeNotifyDetailed($order);
+    }
+
+    /**
+     * 构建同步跳转 URL，checkOrder 调用时保持原格式
      */
     public static function buildReturnUrl(array $order): string
     {
-        if (EpayNotifyService::isEpayOrder($order)) {
-            $epayConfig = EpayConfigService::getConfig();
-            $signingKey = EpayNotifyService::isEpayV2Order($order)
-                ? $epayConfig['private_key']
-                : $epayConfig['key'];
-            return EpayNotifyService::buildReturnUrl($order, $signingKey);
-        }
-
         return SignService::buildSignedUrl($order['return_url'], $order, true);
     }
 
-    private static function sendEpayNotify(array $order): bool
-    {
-        $epayConfig = EpayConfigService::getConfig();
-        $signingKey = EpayNotifyService::isEpayV2Order($order)
-            ? $epayConfig['private_key']
-            : $epayConfig['key'];
-        return EpayNotifyService::sendNotify($order, $signingKey);
-    }
-
-    private static function sendNativeNotify(array $order): bool
+    private static function sendNativeNotifyDetailed(array $order): array
     {
         $url = SignService::buildSignedUrl(
             trim((string)$order['notify_url']),
             $order
         );
 
-        $response = static::httpGet($url);
-        return trim($response) === 'success';
+        $httpResult = static::httpGetDetailed($url);
+        $response = trim($httpResult['response']);
+
+        if ($response === 'success') {
+            return [
+                'ok' => true,
+                'detail' => '',
+                'response' => $response,
+            ];
+        }
+
+        $detail = $httpResult['error'] !== ''
+            ? '通知请求失败: ' . $httpResult['error']
+            : ($response !== '' ? '通知接口返回: ' . $response : '通知接口未返回 success');
+
+        return [
+            'ok' => false,
+            'detail' => $detail,
+            'response' => $response,
+        ];
     }
 
     /**
@@ -67,11 +71,21 @@ class NotifyService
      */
     public static function httpGet(string $url): string
     {
+        return static::httpGetDetailed($url)['response'];
+    }
+
+    /**
+     * 安全的 HTTP GET 请求，并返回调试信息。
+     *
+     * @return array{response: string, error: string}
+     */
+    protected static function httpGetDetailed(string $url): array
+    {
         $parsed = parse_url($url);
         $scheme = strtolower($parsed['scheme'] ?? '');
 
         if (!in_array($scheme, ['http', 'https'], true)) {
-            return '';
+            return ['response' => '', 'error' => '通知地址协议不受支持'];
         }
 
         // 防止 SSRF：检查目标 IP 是否为内网地址
@@ -79,7 +93,7 @@ class NotifyService
         if ($host !== '') {
             $ip = gethostbyname($host);
             if ($ip !== $host && static::isPrivateIp($ip)) {
-                return '';
+                return ['response' => '', 'error' => '通知地址指向内网地址，已被安全策略拦截'];
             }
         }
 
@@ -96,9 +110,13 @@ class NotifyService
         curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, $sslVerify ? 2 : 0);
         curl_setopt($ch, CURLOPT_ENCODING, 'gzip');
         $result = curl_exec($ch);
+        $error = curl_error($ch);
         curl_close($ch);
 
-        return is_string($result) ? $result : '';
+        return [
+            'response' => is_string($result) ? $result : '',
+            'error' => trim($error),
+        ];
     }
 
     private static function isPrivateIp(string $ip): bool

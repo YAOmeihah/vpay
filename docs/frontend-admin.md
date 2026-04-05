@@ -23,7 +23,6 @@
 - `/admin/index/getMain`
 - `/admin/index/getSettings`
 - `/admin/index/saveSetting`
-- `/admin/index/generateRsaKeys`
 - `/admin/index/addPayQrcode`
 - `/admin/index/getPayQrcodes`
 - `/admin/index/delPayQrcode`

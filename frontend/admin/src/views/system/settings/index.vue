@@ -3,19 +3,14 @@ import { computed, onMounted, reactive, ref } from "vue";
 import type { UploadFile } from "element-plus";
 
 import { message } from "@/utils/message";
-import { getSettings, saveSettings, generateRsaKeys } from "@/api/admin/settings";
-import {
-  buildQrcodePreviewUrl,
-  generateMd5LikeKey
-} from "@/utils/adminLegacy";
+import { getSettings, saveSettings } from "@/api/admin/settings";
+import { buildQrcodePreviewUrl } from "@/utils/adminLegacy";
 import { decodeQrFromFile } from "@/utils/qrcode";
 
-import EpayCard from "./components/EpayCard.vue";
 import PaymentConfigCard from "./components/PaymentConfigCard.vue";
 import QrcodeCard from "./components/QrcodeCard.vue";
 import SecurityCard from "./components/SecurityCard.vue";
 import {
-  buildEpayPayload,
   buildPaymentPayload,
   buildQrcodePayload,
   buildSecurityPayload,
@@ -25,7 +20,7 @@ import {
 
 defineOptions({ name: "SystemSettings" });
 
-type SectionKey = "" | "security" | "payment" | "qrcode" | "epay";
+type SectionKey = "" | "security" | "payment" | "qrcode";
 
 const initialLoading = ref(false);
 const activeSection = ref<SectionKey>("");
@@ -81,33 +76,6 @@ const saveSection = async (
   }
 };
 
-const handleGenerateMd5Key = () => {
-  sections.epay.epay_key = generateMd5LikeKey();
-  message("MD5 密钥已生成，请点击保存易支付配置", { type: "success" });
-};
-
-const handleGenerateKeys = async () => {
-  try {
-    activeSection.value = "epay";
-    const res = await generateRsaKeys();
-    if (res.code === 1) {
-      sections.epay.epay_private_key = res.data.private_key;
-      sections.epay.epay_public_key = res.data.public_key;
-      message("RSA 密钥对已生成，请点击保存易支付配置", {
-        type: "success"
-      });
-    } else {
-      message(res.msg || "RSA 密钥对生成失败", { type: "error" });
-    }
-  } catch (error: any) {
-    message(error?.msg || error?.message || "RSA 密钥对生成失败", {
-      type: "error"
-    });
-  } finally {
-    activeSection.value = "";
-  }
-};
-
 const handleQrcodeChange = async (
   field: "wxpay" | "zfbpay",
   uploadFile: UploadFile
@@ -142,7 +110,7 @@ onMounted(loadSettings);
       <div class="space-y-1">
         <h2 class="text-lg font-medium">系统设置</h2>
         <p class="text-sm text-gray-500">
-          按功能分区维护后台安全、支付基础配置、默认收款码和易支付兼容参数。
+          按功能分区维护后台安全、支付基础配置和默认收款码。
         </p>
       </div>
     </el-card>
@@ -180,16 +148,6 @@ onMounted(loadSettings);
         saveSection('qrcode', '默认收款码', buildQrcodePayload(sections.qrcode))
       "
       @upload="handleQrcodeChange"
-    />
-
-    <EpayCard
-      :model="sections.epay"
-      :loading="activeSection === 'epay'"
-      @generate-md5="handleGenerateMd5Key"
-      @generate-rsa="handleGenerateKeys"
-      @save="
-        saveSection('epay', '易支付配置', buildEpayPayload(sections.epay))
-      "
     />
   </div>
 </template>

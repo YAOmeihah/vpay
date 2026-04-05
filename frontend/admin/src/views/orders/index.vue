@@ -11,6 +11,7 @@ import {
 } from "@/api/admin/orders";
 import OrderDetailDialog from "@/components/admin/OrderDetailDialog.vue";
 import { formatUnixTimestamp, normalizePagedList } from "@/utils/adminLegacy";
+import { resolveRepairAction } from "./orderActions";
 
 defineOptions({ name: "OrderList" });
 
@@ -85,15 +86,20 @@ const handleDelete = async (row: any) => {
 };
 
 const handleRepair = async (row: any) => {
-  await ElMessageBox.confirm("确认对该订单执行补单？", "提示", { type: "warning" });
+  const action = resolveRepairAction(Number(row.state));
+  if (!action) {
+    return;
+  }
+
+  await ElMessageBox.confirm(action.confirmMessage, "提示", { type: "warning" });
   const res = await repairOrder({ id: row.id });
   if (res.code === 1) {
-    message("补单成功", { type: "success" });
+    message(action.successMessage, { type: "success" });
     loadList();
   } else if (res.code === -2 && res.data) {
     try {
       await ElMessageBox.confirm(
-        "补单失败，异步通知返回错误，是否查看通知返回数据？",
+        action.notifyErrorMessage,
         "提示",
         {
           confirmButtonText: "查看",
@@ -106,7 +112,7 @@ const handleRepair = async (row: any) => {
       });
     } catch {}
   } else {
-    message(res.msg || "补单失败", { type: "error" });
+    message(res.msg || action.failureMessage, { type: "error" });
   }
 };
 
@@ -200,12 +206,14 @@ onMounted(loadList);
           <template #default="{ row }">
             <el-button size="small" text @click="openDetail(row)">详情</el-button>
             <el-button
-              v-if="row.state === 0"
+              v-if="resolveRepairAction(row.state)"
               size="small"
               text
-              type="warning"
+              :type="row.state === 0 ? 'warning' : 'primary'"
               @click="handleRepair(row)"
-            >补单</el-button>
+            >
+              {{ resolveRepairAction(row.state)?.label }}
+            </el-button>
             <el-button size="small" text type="danger" @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>

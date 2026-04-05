@@ -13,4 +13,3 @@ Route::any('test', 'index/test');
 require __DIR__ . '/admin.php';
 require __DIR__ . '/merchant.php';
 require __DIR__ . '/monitor.php';
-require __DIR__ . '/compat.php';

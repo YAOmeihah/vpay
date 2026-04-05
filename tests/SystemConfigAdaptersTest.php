@@ -21,12 +21,6 @@ class SystemConfigAdaptersTest extends TestCase
             'wxpay' => 'weixin://custom-pay-url',
             'zfbpay' => 'alipays://custom-pay-url',
             'notify_ssl_verify' => '0',
-            'epay_enabled' => '1',
-            'epay_pid' => ' 20002 ',
-            'epay_key' => '  custom-epay-key  ',
-            'epay_name' => ' 自定义订单支付 ',
-            'epay_private_key' => '  custom-private-key  ',
-            'epay_public_key' => '  custom-public-key  ',
         ]);
 
         $config = new SettingSystemConfig();
@@ -39,27 +33,13 @@ class SystemConfigAdaptersTest extends TestCase
         $this->assertSame('weixin://custom-pay-url', $config->getWeChatPayUrl());
         $this->assertSame('alipays://custom-pay-url', $config->getAlipayPayUrl());
         $this->assertFalse($config->getNotifySslVerifyEnabled());
-        $this->assertSame([
-            'enabled' => true,
-            'pid' => '20002',
-            'key' => 'custom-epay-key',
-            'name' => '自定义订单支付',
-            'private_key' => 'custom-private-key',
-            'public_key' => 'custom-public-key',
-        ], $config->getEpayConfig());
 
         Setting::where('vkey', 'notify_ssl_verify')->delete();
         CacheService::deleteSetting('notify_ssl_verify');
-        Setting::where('vkey', 'epay_enabled')->delete();
-        CacheService::deleteSetting('epay_enabled');
-        Setting::where('vkey', 'epay_name')->delete();
-        CacheService::deleteSetting('epay_name');
 
         $defaultConfig = new SettingSystemConfig();
 
         $this->assertTrue($defaultConfig->getNotifySslVerifyEnabled());
-        $this->assertFalse($defaultConfig->getEpayConfig()['enabled']);
-        $this->assertSame('订单支付', $defaultConfig->getEpayConfig()['name']);
     }
 
     public function test_setting_monitor_state_reads_and_updates_runtime_flags(): void

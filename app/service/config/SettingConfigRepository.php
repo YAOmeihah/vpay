@@ -21,12 +21,6 @@ class SettingConfigRepository
         'wxpay',
         'zfbpay',
         'notify_ssl_verify',
-        'epay_enabled',
-        'epay_pid',
-        'epay_key',
-        'epay_name',
-        'epay_private_key',
-        'epay_public_key',
     ];
 
     public function get(string $key, string $default = ''): string

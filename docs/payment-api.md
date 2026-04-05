@@ -106,7 +106,7 @@
 
 - `type`
 - `amountCents`：以分为单位的到账金额，例如 `10003` 表示 `100.03` 元。
-- `ts`：Unix 时间戳，超过允许时间窗会被拒绝。
+- `ts`：13 位毫秒时间戳；秒级时间戳会被直接拒绝，超过允许时间窗也会被拒绝。
 - `nonce`：防重放随机串，短时间内重复使用会被拒绝。
 - `eventId`：监控端事件唯一标识，用于幂等处理；同一 `eventId` 重投会返回“已处理”。
 - `sign`：算法为 `hash_hmac('sha256', "type|amountCents|ts|nonce|eventId", monitorKey)`。

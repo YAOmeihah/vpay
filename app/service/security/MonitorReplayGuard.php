@@ -5,13 +5,17 @@ namespace app\service\security;
 
 class MonitorReplayGuard
 {
-    private const ALLOWED_SKEW_SECONDS = 300;
+    private const ALLOWED_SKEW_MILLISECONDS = 300000;
     private const EVENT_TTL_SECONDS = 86400;
     private const NONCE_TTL_SECONDS = 600;
 
     public function assertValid(string $eventId, string $nonce, int $timestamp): string
     {
-        if (abs($this->currentTimestamp() - $timestamp) > self::ALLOWED_SKEW_SECONDS) {
+        if ($timestamp <= 9999999999) {
+            throw new \RuntimeException('监控回调时间戳已失效');
+        }
+
+        if (abs($this->currentTimestamp() - $timestamp) > self::ALLOWED_SKEW_MILLISECONDS) {
             throw new \RuntimeException('监控回调时间戳已失效');
         }
 
@@ -33,7 +37,7 @@ class MonitorReplayGuard
 
     protected function currentTimestamp(): int
     {
-        return time();
+        return (int) floor(microtime(true) * 1000);
     }
 
     protected function getValue(string $key): mixed

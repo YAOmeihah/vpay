@@ -27,12 +27,6 @@ class AdminSettingsService
             'payQf' => $this->getConfigValue('payQf'),
             'wxpay' => $this->getConfigValue('wxpay'),
             'zfbpay' => $this->getConfigValue('zfbpay'),
-            'epay_enabled' => $this->getConfigValue('epay_enabled', '0'),
-            'epay_pid' => $this->getConfigValue('epay_pid'),
-            'epay_key' => '',
-            'epay_name' => $this->getConfigValue('epay_name', '订单支付'),
-            'epay_private_key' => '',
-            'epay_public_key' => $this->getConfigValue('epay_public_key'),
         ];
 
         if (empty($settings['key'])) {
@@ -51,8 +45,6 @@ class AdminSettingsService
         $params = [
             'user', 'pass', 'notifyUrl', 'returnUrl', 'key',
             'close', 'payQf', 'wxpay', 'zfbpay',
-            'epay_enabled', 'epay_pid', 'epay_key', 'epay_name',
-            'epay_private_key', 'epay_public_key',
         ];
 
         foreach ($params as $param) {
@@ -71,23 +63,11 @@ class AdminSettingsService
                 $value = password_hash($value, PASSWORD_DEFAULT);
             }
 
-            if (in_array($param, ['epay_key', 'epay_private_key', 'epay_public_key'], true)) {
-                $value = trim((string) $value);
-                if ($value === '') {
-                    continue;
-                }
-            }
-
-            if ($param === 'epay_enabled') {
-                $value = (string) (($value === '1' || $value === 1) ? '1' : '0');
-            } else {
-                $value = (string) $value;
-            }
+            $value = (string) $value;
 
             if (in_array($param, [
                 'user', 'notifyUrl', 'returnUrl', 'key',
                 'close', 'payQf', 'wxpay', 'zfbpay',
-                'epay_pid', 'epay_name'
             ], true)) {
                 $value = trim($value);
             }

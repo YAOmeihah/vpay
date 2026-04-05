@@ -12,6 +12,8 @@ use app\service\admin\AdminPermissionService;
 use app\service\admin\AdminSettingsService;
 use app\service\admin\DashboardStatsService;
 use app\service\order\OrderStateManager;
+use chillerlan\QRCode\QRCode;
+use chillerlan\QRCode\QROptions;
 use think\facade\Db;
 use think\facade\Session;
 use think\App;
@@ -287,35 +289,6 @@ class Admin extends BaseController
     }
 
     /**
-     * 生成 RSA 密钥对
-     */
-    public function generateRsaKeys()
-    {
-        $config = [
-            'private_key_bits' => 2048,
-            'private_key_type' => OPENSSL_KEYTYPE_RSA,
-        ];
-
-        $res = openssl_pkey_new($config);
-        if ($res === false) {
-            return json($this->getReturn(-1, "RSA密钥生成失败"));
-        }
-
-        openssl_pkey_export($res, $privateKey);
-        $details = openssl_pkey_get_details($res);
-        $publicKey = $details['key'] ?? '';
-
-        if ($privateKey === '' || $publicKey === '') {
-            return json($this->getReturn(-1, "RSA密钥导出失败"));
-        }
-
-        return json($this->getReturn(1, "成功", [
-            'private_key' => $privateKey,
-            'public_key' => $publicKey,
-        ]));
-    }
-
-    /**
      * 添加支付二维码
      */
     public function addPayQrcode()
@@ -378,27 +351,18 @@ class Admin extends BaseController
         }
 
         try {
-            $libDir = $this->app->getRootPath() . "public/qr-code/lib/";
-            if (!class_exists("QrReader", false)) {
-                $originalIncludePath = get_include_path();
-                try {
-                    set_include_path($libDir . PATH_SEPARATOR . $originalIncludePath);
-                    require_once $libDir . "QrReader.php";
-                } finally {
-                    set_include_path($originalIncludePath);
-                }
-            }
-
-            $reader = new \QrReader($imageBlob, \QrReader::SOURCE_TYPE_BLOB);
-            $decoded = trim((string)$reader->text());
+            $options = new QROptions([
+                'readerUseImagickIfAvailable' => true,
+            ]);
+            $decoded = trim((string)(new QRCode($options))->readFromBlob($imageBlob));
 
             if ($decoded === "") {
-                return json($this->getReturn(-1, "二维码识别失败"));
+                return json($this->getReturn(-2, "二维码识别失败"));
             }
 
             return json($this->getReturn(1, "成功", $decoded));
         } catch (\Throwable $e) {
-            return json($this->getReturn(-1, "二维码识别失败"));
+            return json($this->getReturn(-2, "二维码识别失败"));
         }
     }
 
@@ -466,7 +430,8 @@ class Admin extends BaseController
         if ($res) {
             $orderData = $res->toArray();
 
-            $notifyOk = NotifyService::sendNotify($orderData);
+            $notifyResult = NotifyService::sendNotifyDetailed($orderData);
+            $notifyOk = $notifyResult['ok'];
 
             if ($notifyOk) {
                 if ($res['state'] == 0) {
@@ -477,7 +442,8 @@ class Admin extends BaseController
                 $this->orderStateManager()->invalidateOrderView((string) $res['order_id']);
                 return json($this->getReturn());
             } else {
-                return json($this->getReturn(-2, "补单失败，异步通知返回错误"));
+                $detail = trim((string)($notifyResult['detail'] ?? ''));
+                return json($this->getReturn(-2, "补单失败，异步通知返回错误", $detail !== '' ? $detail : null));
             }
         } else {
             return json($this->getReturn(-1, "订单不存在"));

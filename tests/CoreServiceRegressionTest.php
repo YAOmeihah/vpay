@@ -750,15 +750,7 @@ namespace tests {
             private readonly string $payQfMode = '0',
             private readonly string $weChatPayUrl = '',
             private readonly string $alipayPayUrl = '',
-            private readonly bool $notifySslVerifyEnabled = true,
-            private readonly array $epayConfig = [
-                'enabled' => false,
-                'pid' => '',
-                'key' => '',
-                'name' => '订单支付',
-                'private_key' => '',
-                'public_key' => '',
-            ]
+            private readonly bool $notifySslVerifyEnabled = true
         ) {
         }
 
@@ -805,11 +797,6 @@ namespace tests {
         public function getNotifySslVerifyEnabled(): bool
         {
             return $this->notifySslVerifyEnabled;
-        }
-
-        public function getEpayConfig(): array
-        {
-            return $this->epayConfig;
         }
     }
 

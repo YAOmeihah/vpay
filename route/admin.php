@@ -9,7 +9,6 @@ Route::group('admin/index', function () {
     Route::any('checkUpdate', 'admin/checkUpdate');
     Route::any('getSettings', 'admin/getSettings');
     Route::any('saveSetting', 'admin/saveSetting');
-    Route::any('generateRsaKeys', 'admin/generateRsaKeys');
     Route::any('addPayQrcode', 'admin/addPayQrcode');
     Route::any('getPayQrcodes', 'admin/getPayQrcodes');
     Route::any('delPayQrcode', 'admin/delPayQrcode');

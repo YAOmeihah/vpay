@@ -50,18 +50,6 @@ class SettingSystemConfig implements SystemConfig
         return $this->getConfigValue('notify_ssl_verify', '1') === '1';
     }
 
-    public function getEpayConfig(): array
-    {
-        return [
-            'enabled' => $this->getConfigValue('epay_enabled', '0') === '1',
-            'pid' => trim($this->getConfigValue('epay_pid')),
-            'key' => trim($this->getConfigValue('epay_key')),
-            'name' => trim($this->getConfigValue('epay_name', '订单支付')),
-            'private_key' => trim($this->getConfigValue('epay_private_key')),
-            'public_key' => trim($this->getConfigValue('epay_public_key')),
-        ];
-    }
-
     protected function getConfigValue(string $key, string $default = ''): string
     {
         return (new SettingConfigRepository())->get($key, $default);

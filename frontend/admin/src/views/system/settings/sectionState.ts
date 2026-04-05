@@ -17,20 +17,10 @@ export type QrcodeSection = {
   zfbpay: string;
 };
 
-export type EpaySection = {
-  epay_enabled: string;
-  epay_pid: string;
-  epay_name: string;
-  epay_key: string;
-  epay_private_key: string;
-  epay_public_key: string;
-};
-
 export type SettingsSections = {
   security: SecuritySection;
   payment: PaymentSection;
   qrcode: QrcodeSection;
-  epay: EpaySection;
 };
 
 export function createSettingsSections(): SettingsSections {
@@ -50,14 +40,6 @@ export function createSettingsSections(): SettingsSections {
     qrcode: {
       wxpay: "",
       zfbpay: ""
-    },
-    epay: {
-      epay_enabled: "0",
-      epay_pid: "",
-      epay_name: "",
-      epay_key: "",
-      epay_private_key: "",
-      epay_public_key: ""
     }
   };
 }
@@ -78,13 +60,6 @@ export function hydrateSettingsSections(
 
   sections.qrcode.wxpay = String(payload.wxpay ?? "");
   sections.qrcode.zfbpay = String(payload.zfbpay ?? "");
-
-  sections.epay.epay_enabled = String(payload.epay_enabled ?? "0");
-  sections.epay.epay_pid = String(payload.epay_pid ?? "");
-  sections.epay.epay_name = String(payload.epay_name ?? "");
-  sections.epay.epay_key = "";
-  sections.epay.epay_private_key = "";
-  sections.epay.epay_public_key = String(payload.epay_public_key ?? "");
 }
 
 export function buildSecurityPayload(
@@ -120,24 +95,4 @@ export function buildQrcodePayload(
     wxpay: section.wxpay,
     zfbpay: section.zfbpay
   };
-}
-
-export function buildEpayPayload(
-  section: EpaySection
-) {
-  const payload: Record<string, string> = {
-    epay_enabled: section.epay_enabled,
-    epay_pid: section.epay_pid,
-    epay_name: section.epay_name,
-    epay_public_key: section.epay_public_key
-  };
-
-  if (section.epay_key.trim() !== "") {
-    payload.epay_key = section.epay_key;
-  }
-  if (section.epay_private_key.trim() !== "") {
-    payload.epay_private_key = section.epay_private_key;
-  }
-
-  return payload;
 }

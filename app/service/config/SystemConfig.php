@@ -22,9 +22,4 @@ interface SystemConfig
     public function getAlipayPayUrl(): string;
 
     public function getNotifySslVerifyEnabled(): bool;
-
-    /**
-     * @return array{enabled: bool, pid: string, key: string, name: string, private_key: string, public_key: string}
-     */
-    public function getEpayConfig(): array;
 }

@@ -33,10 +33,6 @@ final class RouteStructureRegressionTest extends TestCase
         $this->assertRouteMapping($output, 'appHeart', 'monitor.Monitor/appHeart', '\*');
         $this->assertRouteMapping($output, 'appPush', 'monitor.Monitor/appPush', '\*');
         $this->assertRouteMapping($output, 'closeEndOrder', 'monitor.Monitor/closeEndOrder', '\*');
-        $this->assertRouteMapping($output, 'mapi.php', 'compat.Epay/mapi', 'post');
-        $this->assertRouteMapping($output, 'submit.php', 'compat.Epay/submit', 'get\|post');
-        $this->assertRouteMapping($output, 'api/pay/create', 'compat.Epay/createV2', 'post');
-        $this->assertRouteMapping($output, 'api/pay/submit', 'compat.Epay/submitV2', 'post');
         $this->assertRouteMapping($output, 'admin/index/profile', 'admin/profile', '\*');
         $this->assertRouteMapping($output, 'admin/index/logout', 'admin/logout', 'post');
     }

@@ -12,10 +12,3 @@ export const saveSettings = (data: Record<string, string>) =>
     "/admin/index/saveSetting",
     { data }
   );
-
-export const generateRsaKeys = () =>
-  http.request<{
-    code: number;
-    msg: string;
-    data: { private_key: string; public_key: string };
-  }>("post", "/admin/index/generateRsaKeys");

@@ -126,17 +126,8 @@
 - `reallyPrice`：实际支付金额。
 - `sign`：回调签名，算法为 `md5(payId + param + type + price + reallyPrice + key)`。
 
-## Compatibility endpoints
-
-以下兼容接口仍保留，供旧商户接入使用：
-
-- `POST /mapi.php`
-- `GET|POST /submit.php`
-- `POST /api/pay/create`
-- `POST /api/pay/submit`
-
 ## Verification source
 
-- 路由：`route/merchant.php`、`route/monitor.php`、`route/compat.php`
+- 路由：`route/merchant.php`、`route/monitor.php`
 - 控制器：`app/controller/merchant/Order.php`、`app/controller/monitor/Monitor.php`
 - 签名：`app/service/SignService.php`

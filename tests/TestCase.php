@@ -18,9 +18,6 @@ abstract class TestCase extends BaseTestCase
     protected static string $rootPath;
     protected static string $testDatabase;
     protected static array $envConfig;
-    protected static string $privateKeyPem;
-    protected static string $publicKeyPem;
-
     public static function setUpBeforeClass(): void
     {
         parent::setUpBeforeClass();
@@ -29,7 +26,6 @@ abstract class TestCase extends BaseTestCase
         self::$envConfig = self::loadTestEnv();
         self::$testDatabase = (self::$envConfig['DB_NAME'] ?? 'vmqphp8') . '_codex_test';
 
-        self::generateRsaKeys();
         self::recreateDatabase();
 
         self::$sharedApp = new App(self::$rootPath);
@@ -73,16 +69,6 @@ abstract class TestCase extends BaseTestCase
             'price' => $price,
             'pay_url' => $payUrl,
         ]);
-    }
-
-    protected function getPrivateKeyPem(): string
-    {
-        return self::$privateKeyPem;
-    }
-
-    protected function getPublicKeyPem(): string
-    {
-        return self::$publicKeyPem;
     }
 
     private function configureDatabase(): void
@@ -191,12 +177,6 @@ abstract class TestCase extends BaseTestCase
             'wxpay' => 'weixin://default-pay-url',
             'zfbpay' => 'alipays://default-pay-url',
             'key' => 'native-key',
-            'epay_enabled' => '1',
-            'epay_pid' => '10001',
-            'epay_key' => 'epay-md5-key',
-            'epay_name' => '订单支付',
-            'epay_private_key' => self::$privateKeyPem,
-            'epay_public_key' => self::$publicKeyPem,
         ]);
     }
 
@@ -252,31 +232,6 @@ abstract class TestCase extends BaseTestCase
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             ]
         );
-    }
-
-    private static function generateRsaKeys(): void
-    {
-        $config = [
-            'private_key_bits' => 2048,
-            'private_key_type' => OPENSSL_KEYTYPE_RSA,
-        ];
-
-        $opensslConfig = dirname(PHP_BINARY) . DIRECTORY_SEPARATOR . 'extras' . DIRECTORY_SEPARATOR . 'ssl' . DIRECTORY_SEPARATOR . 'openssl.cnf';
-        if (is_file($opensslConfig)) {
-            $config['config'] = $opensslConfig;
-        }
-
-        $resource = openssl_pkey_new($config);
-
-        if ($resource === false) {
-            throw new \RuntimeException('无法生成测试 RSA 密钥');
-        }
-
-        openssl_pkey_export($resource, $privateKeyPem, null, $config);
-        $publicKeyDetails = openssl_pkey_get_details($resource);
-
-        self::$privateKeyPem = $privateKeyPem;
-        self::$publicKeyPem = (string) ($publicKeyDetails['key'] ?? '');
     }
 
     private static function loadTestEnv(): array

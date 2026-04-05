@@ -68,7 +68,12 @@ onMounted(loadSettings);
       <el-divider content-position="left">配置二维码</el-divider>
 
       <template v-if="configUrl">
-        <el-alert title="使用监控端 App 扫描此二维码进行绑定" type="info" :closable="false" class="mb-4" />
+        <el-alert
+          title="使用监控端 App 扫描此二维码进行绑定，配置地址必须以 https:// 开头"
+          type="info"
+          :closable="false"
+          class="mb-4"
+        />
         <div class="flex justify-center p-4 bg-gray-50 rounded">
           <img
             :src="qrcodeUrl"

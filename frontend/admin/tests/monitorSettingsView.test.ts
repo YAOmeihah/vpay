@@ -11,4 +11,5 @@ test("monitor settings view builds config QR from monitorKey", () => {
 
   assert.match(source, /settings\.value\.monitorKey/);
   assert.doesNotMatch(source, /buildMonitorConfigUrl\(location\.host,\s*settings\.value\.key\)/);
+  assert.match(source, /必须以 https:\/\/ 开头/);
 });

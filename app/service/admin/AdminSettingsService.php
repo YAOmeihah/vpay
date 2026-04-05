@@ -20,6 +20,7 @@ class AdminSettingsService
             'notifyUrl' => $this->getConfigValue('notifyUrl'),
             'returnUrl' => $this->getConfigValue('returnUrl'),
             'key' => $this->getConfigValue('key'),
+            'notify_ssl_verify' => $this->getConfigValue('notify_ssl_verify', '1'),
             'lastheart' => $this->getConfigValue('lastheart'),
             'lastpay' => $this->getConfigValue('lastpay'),
             'jkstate' => $this->getConfigValue('jkstate'),
@@ -44,7 +45,7 @@ class AdminSettingsService
     {
         $params = [
             'user', 'pass', 'notifyUrl', 'returnUrl', 'key',
-            'close', 'payQf', 'wxpay', 'zfbpay',
+            'notify_ssl_verify', 'close', 'payQf', 'wxpay', 'zfbpay',
         ];
 
         foreach ($params as $param) {
@@ -67,7 +68,7 @@ class AdminSettingsService
 
             if (in_array($param, [
                 'user', 'notifyUrl', 'returnUrl', 'key',
-                'close', 'payQf', 'wxpay', 'zfbpay',
+                'notify_ssl_verify', 'close', 'payQf', 'wxpay', 'zfbpay',
             ], true)) {
                 $value = trim($value);
             }

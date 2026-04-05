@@ -66,6 +66,24 @@ const handleSave = async () => {
         <el-input v-model="model.returnUrl" placeholder="请输入支付完成跳转地址" />
       </el-form-item>
 
+      <el-form-item label="通知 SSL 校验">
+        <div class="w-full space-y-2">
+          <div class="flex min-h-8 items-center">
+            <el-switch
+              v-model="model.notifySslVerify"
+              active-value="1"
+              inactive-value="0"
+              inline-prompt
+              active-text="开"
+              inactive-text="关"
+            />
+          </div>
+          <div class="text-xs leading-5 text-gray-500">
+            生产环境建议开启；本地自签名 HTTPS 或证书链不完整时可临时关闭。
+          </div>
+        </div>
+      </el-form-item>
+
       <el-form-item label="通讯密钥" prop="key">
         <el-input v-model="model.key" placeholder="请输入通讯密钥" />
       </el-form-item>

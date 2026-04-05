@@ -55,6 +55,7 @@ class ControllerEdgeServiceRegressionTest extends TestCase
             'notifyUrl' => 'https://merchant.example/notify',
             'returnUrl' => 'https://merchant.example/return',
             'key' => '',
+            'notify_ssl_verify' => '0',
             'lastheart' => '1712200000',
             'lastpay' => '1712200300',
             'jkstate' => '1',
@@ -100,6 +101,7 @@ class ControllerEdgeServiceRegressionTest extends TestCase
             'notifyUrl',
             'returnUrl',
             'key',
+            'notify_ssl_verify',
             'lastheart',
             'lastpay',
             'jkstate',
@@ -264,6 +266,7 @@ class ControllerEdgeServiceRegressionTest extends TestCase
             'notifyUrl' => 'https://merchant.example/new-notify',
             'returnUrl' => 'https://merchant.example/new-return',
             'key' => 'next-sign-key',
+            'notify_ssl_verify' => '0',
             'close' => '30',
             'payQf' => '2',
         ]);
@@ -272,6 +275,7 @@ class ControllerEdgeServiceRegressionTest extends TestCase
             'notifyUrl' => 'https://merchant.example/new-notify',
             'returnUrl' => 'https://merchant.example/new-return',
             'key' => 'next-sign-key',
+            'notify_ssl_verify' => '0',
             'close' => '30',
             'payQf' => '2',
         ], $service->savedSettings);

@@ -18,7 +18,7 @@ class Monitor extends BaseController
     {
         $t = $this->request->param("t");
 
-        if (!SignService::verifySimpleSign($t, $this->request->param('sign', ''))) {
+        if (!$this->verifyMonitorSimpleSignature((string) $t, (string) $this->request->param('sign', ''))) {
             return json($this->getReturn(-1, "签名校验不通过"));
         }
 
@@ -36,7 +36,7 @@ class Monitor extends BaseController
 
         $t = $this->request->param("t");
 
-        if (!SignService::verifySimpleSign($t, $this->request->param('sign', ''))) {
+        if (!$this->verifyMonitorSimpleSignature((string) $t, (string) $this->request->param('sign', ''))) {
             return json($this->getReturn(-1, "签名校验不通过"));
         }
 
@@ -121,6 +121,11 @@ class Monitor extends BaseController
         string $sign
     ): bool {
         return SignService::verifyMonitorPushSign($type, $amountCents, $ts, $nonce, $eventId, $sign);
+    }
+
+    protected function verifyMonitorSimpleSignature(string $data, string $sign): bool
+    {
+        return SignService::verifyMonitorSimpleSign($data, $sign);
     }
 
     protected function validateMonitorReplay(string $eventId, string $nonce, int $timestamp): string

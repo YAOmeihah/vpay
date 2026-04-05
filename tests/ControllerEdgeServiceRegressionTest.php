@@ -55,6 +55,7 @@ class ControllerEdgeServiceRegressionTest extends TestCase
             'notifyUrl' => 'https://merchant.example/notify',
             'returnUrl' => 'https://merchant.example/return',
             'key' => '',
+            'monitorKey' => '',
             'notify_ssl_verify' => '0',
             'lastheart' => '1712200000',
             'lastpay' => '1712200300',
@@ -101,6 +102,7 @@ class ControllerEdgeServiceRegressionTest extends TestCase
             'notifyUrl',
             'returnUrl',
             'key',
+            'monitorKey',
             'notify_ssl_verify',
             'lastheart',
             'lastpay',
@@ -113,7 +115,11 @@ class ControllerEdgeServiceRegressionTest extends TestCase
         $this->assertSame('admin', $settings['user']);
         $this->assertSame('', $settings['pass']);
         $this->assertSame('generated-sign-key', $settings['key']);
-        $this->assertSame(['key' => 'generated-sign-key'], $service->savedSettings);
+        $this->assertSame('generated-sign-key', $settings['monitorKey']);
+        $this->assertSame([
+            'key' => 'generated-sign-key',
+            'monitorKey' => 'generated-sign-key',
+        ], $service->savedSettings);
     }
 
     public function test_admin_settings_service_regenerates_zero_key(): void
@@ -266,6 +272,7 @@ class ControllerEdgeServiceRegressionTest extends TestCase
             'notifyUrl' => 'https://merchant.example/new-notify',
             'returnUrl' => 'https://merchant.example/new-return',
             'key' => 'next-sign-key',
+            'monitorKey' => 'next-monitor-key',
             'notify_ssl_verify' => '0',
             'close' => '30',
             'payQf' => '2',
@@ -275,6 +282,7 @@ class ControllerEdgeServiceRegressionTest extends TestCase
             'notifyUrl' => 'https://merchant.example/new-notify',
             'returnUrl' => 'https://merchant.example/new-return',
             'key' => 'next-sign-key',
+            'monitorKey' => 'next-monitor-key',
             'notify_ssl_verify' => '0',
             'close' => '30',
             'payQf' => '2',

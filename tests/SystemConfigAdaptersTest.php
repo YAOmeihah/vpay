@@ -16,6 +16,7 @@ class SystemConfigAdaptersTest extends TestCase
             'notifyUrl' => 'https://merchant.example/custom-notify',
             'returnUrl' => 'https://merchant.example/custom-return',
             'key' => 'custom-sign-key',
+            'monitorKey' => 'custom-monitor-key',
             'close' => '30',
             'payQf' => '2',
             'wxpay' => 'weixin://custom-pay-url',
@@ -28,6 +29,7 @@ class SystemConfigAdaptersTest extends TestCase
         $this->assertSame('https://merchant.example/custom-notify', $config->getNotifyUrl());
         $this->assertSame('https://merchant.example/custom-return', $config->getReturnUrl());
         $this->assertSame('custom-sign-key', $config->getSignKey());
+        $this->assertSame('custom-monitor-key', $config->getMonitorSignKey());
         $this->assertSame(30, $config->getOrderCloseMinutes());
         $this->assertSame('2', $config->getPayQfMode());
         $this->assertSame('weixin://custom-pay-url', $config->getWeChatPayUrl());

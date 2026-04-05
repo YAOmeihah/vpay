@@ -20,6 +20,7 @@ class AdminSettingsService
             'notifyUrl' => $this->getConfigValue('notifyUrl'),
             'returnUrl' => $this->getConfigValue('returnUrl'),
             'key' => $this->getConfigValue('key'),
+            'monitorKey' => $this->getConfigValue('monitorKey'),
             'notify_ssl_verify' => $this->getConfigValue('notify_ssl_verify', '1'),
             'lastheart' => $this->getConfigValue('lastheart'),
             'lastpay' => $this->getConfigValue('lastpay'),
@@ -30,10 +31,8 @@ class AdminSettingsService
             'zfbpay' => $this->getConfigValue('zfbpay'),
         ];
 
-        if (empty($settings['key'])) {
-            $settings['key'] = $this->generateKey();
-            $this->setConfigValue('key', $settings['key']);
-        }
+        $settings['key'] = $this->ensureGeneratedKey('key', $settings['key']);
+        $settings['monitorKey'] = $this->ensureGeneratedKey('monitorKey', $settings['monitorKey']);
 
         return $settings;
     }
@@ -44,7 +43,7 @@ class AdminSettingsService
     public function saveSettings(array $input): void
     {
         $params = [
-            'user', 'pass', 'notifyUrl', 'returnUrl', 'key',
+            'user', 'pass', 'notifyUrl', 'returnUrl', 'key', 'monitorKey',
             'notify_ssl_verify', 'close', 'payQf', 'wxpay', 'zfbpay',
         ];
 
@@ -67,7 +66,7 @@ class AdminSettingsService
             $value = (string) $value;
 
             if (in_array($param, [
-                'user', 'notifyUrl', 'returnUrl', 'key',
+                'user', 'notifyUrl', 'returnUrl', 'key', 'monitorKey',
                 'notify_ssl_verify', 'close', 'payQf', 'wxpay', 'zfbpay',
             ], true)) {
                 $value = trim($value);
@@ -129,6 +128,18 @@ class AdminSettingsService
     protected function generateKey(): string
     {
         return md5((string) time());
+    }
+
+    private function ensureGeneratedKey(string $settingKey, string $currentValue): string
+    {
+        if (!empty($currentValue)) {
+            return $currentValue;
+        }
+
+        $generated = $this->generateKey();
+        $this->setConfigValue($settingKey, $generated);
+
+        return $generated;
     }
 
     protected function dashboardStatsService(): DashboardStatsService

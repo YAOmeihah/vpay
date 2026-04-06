@@ -11,7 +11,7 @@ return [
         // 锁定时间（秒）
         'lockout_time' => 1800, // 30分钟
         // Session超时时间（秒）
-        'session_timeout' => 7200, // 2小时
+        'session_timeout' => 28800, // 8小时
         // 是否检查登录IP
         'check_ip' => true,
     ],

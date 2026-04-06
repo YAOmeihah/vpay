@@ -56,6 +56,18 @@
             text-align: center;
         }
 
+        .payment-error-header {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 18px;
+            margin-bottom: 20px;
+        }
+
+        .payment-error-heading-group {
+            min-width: 0;
+        }
+
         .payment-error-kicker {
             display: inline-flex;
             align-items: center;
@@ -82,7 +94,7 @@
         .payment-error-icon {
             width: 92px;
             height: 92px;
-            margin: 0 auto 20px;
+            margin: 0;
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -149,6 +161,54 @@
             outline-offset: 3px;
         }
 
+        @media (min-width: 768px) {
+            .payment-error-card {
+                width: min(720px, 100%);
+                padding: 34px 40px 32px;
+                text-align: left;
+            }
+
+            .payment-error-header {
+                flex-direction: row;
+                align-items: center;
+                gap: 22px;
+                margin-bottom: 24px;
+            }
+
+            .payment-error-icon {
+                width: 84px;
+                height: 84px;
+                flex: 0 0 auto;
+            }
+
+            .payment-error-kicker {
+                margin-bottom: 12px;
+            }
+
+            .payment-error-title,
+            .payment-error-message,
+            .payment-error-help {
+                text-align: left;
+                margin-left: 0;
+                margin-right: 0;
+            }
+
+            .payment-error-title {
+                margin-bottom: 10px;
+                font-size: 36px;
+            }
+
+            .payment-error-message {
+                margin-bottom: 0;
+                font-size: 18px;
+            }
+
+            .payment-error-help {
+                max-width: none;
+                margin-bottom: 28px;
+            }
+        }
+
         @media (max-width: 640px) {
             .payment-error-shell {
                 padding: 18px 14px;
@@ -159,8 +219,13 @@
                 border-radius: var(--radius-lg);
             }
 
+            .payment-error-header {
+                margin-bottom: 18px;
+                gap: 16px;
+            }
+
             .payment-error-kicker {
-                margin-bottom: 16px;
+                margin-bottom: 0;
                 padding: 9px 12px;
                 font-size: 12px;
             }
@@ -168,7 +233,6 @@
             .payment-error-icon {
                 width: 82px;
                 height: 82px;
-                margin-bottom: 18px;
             }
 
             .payment-error-icon svg {
@@ -194,16 +258,20 @@
 <body>
     <div class="payment-error-shell">
         <main class="payment-error-card" role="alert" aria-live="polite">
-            <div class="payment-error-kicker">安全收银台</div>
-            <div class="payment-error-icon" aria-hidden="true">
-                <svg viewBox="0 0 48 48" focusable="false">
-                    <path d="M24 7 11 12v9c0 8.5 5.6 15.3 13 17.7C31.4 36.3 37 29.5 37 21v-9L24 7Z"></path>
-                    <path d="M24 17v8"></path>
-                    <path d="M24 30.5h.01"></path>
-                </svg>
+            <div class="payment-error-header">
+                <div class="payment-error-icon" aria-hidden="true">
+                    <svg viewBox="0 0 48 48" focusable="false">
+                        <path d="M24 7 11 12v9c0 8.5 5.6 15.3 13 17.7C31.4 36.3 37 29.5 37 21v-9L24 7Z"></path>
+                        <path d="M24 17v8"></path>
+                        <path d="M24 30.5h.01"></path>
+                    </svg>
+                </div>
+                <div class="payment-error-heading-group">
+                    <div class="payment-error-kicker">安全收银台</div>
+                    <h1 class="payment-error-title"><?= $title ?></h1>
+                    <p class="payment-error-message"><?= $message ?></p>
+                </div>
             </div>
-            <h1 class="payment-error-title"><?= $title ?></h1>
-            <p class="payment-error-message"><?= $message ?></p>
             <p class="payment-error-help"><?= $helpText ?></p>
             <button class="payment-error-button" type="button" onclick="history.back()"><?= $buttonText ?></button>
         </main>

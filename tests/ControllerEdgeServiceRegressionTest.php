@@ -48,6 +48,10 @@ class ControllerEdgeServiceRegressionTest extends TestCase
 
     public function test_merchant_order_html_error_page_uses_payment_style_shell(): void
     {
+        self::$app->request->setLayer('merchant');
+        self::$app->request->setController('Order');
+        self::$app->view->forgetDriver();
+
         $controller = new MerchantOrderController(self::$app);
         $method = new \ReflectionMethod($controller, 'renderErrorHtml');
         $method->setAccessible(true);
@@ -59,7 +63,11 @@ class ControllerEdgeServiceRegressionTest extends TestCase
         $this->assertStringContainsString('安全收银台', $html);
         $this->assertStringContainsString('监控端状态异常', $html);
         $this->assertStringContainsString('payment-error-icon', $html);
+        $this->assertStringContainsString('payment-error-header', $html);
         $this->assertStringContainsString('history.back()', $html);
+
+        self::$app->request->setLayer('');
+        self::$app->request->setController('');
     }
 
     public function test_default_view_configuration_can_render_merchant_error_template(): void
@@ -76,6 +84,46 @@ class ControllerEdgeServiceRegressionTest extends TestCase
         $this->assertStringContainsString('<title>监控端状态异常</title>', $html);
         $this->assertStringContainsString('payment-error-shell', $html);
         $this->assertStringContainsString('返回上页', $html);
+    }
+
+    public function test_merchant_order_html_error_page_maps_duplicate_order_message(): void
+    {
+        self::$app->request->setLayer('merchant');
+        self::$app->request->setController('Order');
+        self::$app->view->forgetDriver();
+
+        $controller = new MerchantOrderController(self::$app);
+        $method = new \ReflectionMethod($controller, 'renderErrorHtml');
+        $method->setAccessible(true);
+
+        $html = $method->invoke($controller, '商户订单号已存在');
+
+        $this->assertStringContainsString('<title>商户订单重复</title>', $html);
+        $this->assertStringContainsString('商户订单号已存在', $html);
+        $this->assertStringContainsString('请更换商户订单号后，再重新发起支付。', $html);
+
+        self::$app->request->setLayer('');
+        self::$app->request->setController('');
+    }
+
+    public function test_merchant_order_html_error_page_maps_capacity_message(): void
+    {
+        self::$app->request->setLayer('merchant');
+        self::$app->request->setController('Order');
+        self::$app->view->forgetDriver();
+
+        $controller = new MerchantOrderController(self::$app);
+        $method = new \ReflectionMethod($controller, 'renderErrorHtml');
+        $method->setAccessible(true);
+
+        $html = $method->invoke($controller, '订单超出负荷，请稍后重试');
+
+        $this->assertStringContainsString('<title>当前下单繁忙</title>', $html);
+        $this->assertStringContainsString('订单超出负荷，请稍后重试', $html);
+        $this->assertStringContainsString('系统正在处理较多订单，请稍后重试。', $html);
+
+        self::$app->request->setLayer('');
+        self::$app->request->setController('');
     }
 
     public function test_admin_settings_service_keeps_existing_field_list_and_masks_sensitive_values(): void

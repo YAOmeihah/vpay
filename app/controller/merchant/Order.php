@@ -66,12 +66,47 @@ class Order extends BaseController
 
     private function renderErrorHtml(string $msg): string
     {
-        return View::fetch('merchant/error', [
-            'title' => '监控端状态异常',
+        $meta = $this->resolveErrorPageMeta($msg);
+
+        return View::fetch('/error', [
+            'title' => $meta['title'],
             'message' => htmlspecialchars($msg, ENT_QUOTES, 'UTF-8'),
-            'helpText' => '请确认监控端恢复在线后，再重新发起支付。',
+            'helpText' => $meta['helpText'],
             'buttonText' => '返回上页',
         ]);
+    }
+
+    /**
+     * @return array{title: string, helpText: string}
+     */
+    private function resolveErrorPageMeta(string $message): array
+    {
+        return match ($message) {
+            '监控端状态异常，请检查' => [
+                'title' => '监控端状态异常',
+                'helpText' => '请确认监控端恢复在线后，再重新发起支付。',
+            ],
+            '商户订单号已存在' => [
+                'title' => '商户订单重复',
+                'helpText' => '请更换商户订单号后，再重新发起支付。',
+            ],
+            '订单超出负荷，请稍后重试' => [
+                'title' => '当前下单繁忙',
+                'helpText' => '系统正在处理较多订单，请稍后重试。',
+            ],
+            '请您先进入后台配置程序' => [
+                'title' => '支付配置未完成',
+                'helpText' => '请先在后台完成支付配置后，再重新发起支付。',
+            ],
+            '订单重复，请重试' => [
+                'title' => '订单重复，请重试',
+                'helpText' => '请返回商户页面刷新后，再重新发起支付。',
+            ],
+            default => [
+                'title' => '支付异常',
+                'helpText' => '请稍后重试，或返回商户页面重新发起支付。',
+            ],
+        };
     }
 
     public function getOrder()

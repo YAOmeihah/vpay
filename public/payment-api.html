@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="VPay 支付接口、监控回调与商户通知字段说明。" />
+  <title>VPay | Payment API</title>
+  <link rel="stylesheet" href="/assets/css/root-portal.css" />
+</head>
+<body>
+  <div class="portal-shell">
+    <header class="portal-nav">
+      <a class="portal-brand" href="/index.html">VPay</a>
+      <nav class="portal-nav-links" aria-label="主导航">
+        <a href="/index.html">返回首页</a>
+        <a class="nav-cta" href="/console/">管理后台</a>
+      </nav>
+    </header>
+
+    <main class="portal-main">
+      <section class="hero-section">
+        <div class="hero-copy">
+          <p class="hero-eyebrow">Merchant Integration Reference</p>
+          <h1>支付接口与回调说明</h1>
+          <p class="hero-description">
+            这份页面用于快速查看商户下单、订单查询、监控回调与异步通知字段。详细实现以当前路由和控制器为准。
+          </p>
+          <div class="hero-actions">
+            <a class="button-primary" href="/console/">进入管理后台</a>
+            <a class="button-secondary" href="/index.html">返回系统门户</a>
+          </div>
+        </div>
+
+        <div class="hero-cards">
+          <article class="portal-card">
+            <h2>支付接口</h2>
+            <p>创建订单、查询订单、检查支付状态与关闭未支付订单。</p>
+            <a href="#native-endpoints">查看接口</a>
+          </article>
+          <article class="portal-card">
+            <h2>监控回调</h2>
+            <p>监控端状态、心跳上报、支付推送与清理接口说明。</p>
+            <a href="#monitor-endpoints">查看监控说明</a>
+          </article>
+          <article class="portal-card">
+            <h2>商户通知</h2>
+            <p>查看支付成功后的回调字段与签名规则。</p>
+            <a href="#merchant-callback">查看回调字段</a>
+          </article>
+        </div>
+      </section>
+
+      <section class="steps-section" id="native-endpoints" aria-labelledby="native-title">
+        <h2 id="native-title">支付接口</h2>
+        <ul class="entry-list">
+          <li><strong>`POST|GET /createOrder`：</strong> 创建支付订单。请求参数包含 `payId`、`type`、`price`、`sign`，可选 `param`、`notifyUrl`、`returnUrl`、`isHtml`。</li>
+          <li><strong>`POST|GET /getOrder`：</strong> 按 `orderId` 查询订单详情，返回 `payId`、`orderId`、`payType`、`price`、`reallyPrice`、`payUrl`、`isAuto`、`state`、`timeOut`、`date`。</li>
+          <li><strong>`POST|GET /checkOrder`：</strong> 查询订单支付结果。未支付或过期返回失败消息，支付成功返回同步跳转 URL。</li>
+          <li><strong>`POST|GET /closeOrder`：</strong> 关闭未支付订单。请求参数包含 `orderId` 和简单签名 `md5(orderId + key)`。</li>
+        </ul>
+      </section>
+
+      <section class="steps-section" id="monitor-endpoints" aria-labelledby="monitor-title">
+        <h2 id="monitor-title">监控接口</h2>
+        <ul class="entry-list">
+          <li><strong>`POST|GET /getState`：</strong> 查询监控端状态，返回 `lastheart`、`lastpay`、`jkstate`。</li>
+          <li><strong>`POST|GET /appHeart`：</strong> 监控端心跳上报，请求参数包含 `t` 和 `sign`。</li>
+          <li><strong>`POST /appPush`：</strong> 监控端上报收款结果，请求参数包含 `type`、`amountCents`、`ts`、`nonce`、`eventId`、`sign`，并带防重放校验。</li>
+          <li><strong>`POST|GET /closeEndOrder`：</strong> 清理超时未完成订单。</li>
+        </ul>
+      </section>
+
+      <section class="entry-section" id="merchant-callback" aria-labelledby="callback-title">
+        <h2 id="callback-title">商户异步通知字段</h2>
+        <ul class="entry-list">
+          <li><strong>`payId`：</strong> 商户订单号</li>
+          <li><strong>`param`：</strong> 创建订单时传入的自定义参数</li>
+          <li><strong>`type`：</strong> 支付方式</li>
+          <li><strong>`price`：</strong> 订单金额</li>
+          <li><strong>`reallyPrice`：</strong> 实际支付金额</li>
+          <li><strong>`sign`：</strong> 回调签名，算法为 `md5(payId + param + type + price + reallyPrice + key)`</li>
+        </ul>
+      </section>
+    </main>
+
+    <footer class="portal-footer">
+      <span>VPay</span>
+      <a href="/index.html">系统门户</a>
+      <a href="/console/">管理后台</a>
+      <span>Payment API</span>
+    </footer>
+  </div>
+</body>
+</html>

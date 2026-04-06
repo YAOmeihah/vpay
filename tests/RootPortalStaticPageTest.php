@@ -20,6 +20,6 @@ final class RootPortalStaticPageTest extends TestCase
         $this->assertStringNotContainsString('window.location.replace("/console/")', $this->html);
         $this->assertStringContainsString('支付接入与管理控制台', $this->html);
         $this->assertStringContainsString('/console/', $this->html);
-        $this->assertStringContainsString('docs/payment-api.md', $this->html);
+        $this->assertStringContainsString('/payment-api.html', $this->html);
     }
 }

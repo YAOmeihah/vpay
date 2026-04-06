@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace tests;
 
 use app\controller\Admin;
+use app\controller\merchant\Order as MerchantOrderController;
 use app\service\CacheService;
 use app\service\admin\AdminPermissionService;
 use app\service\admin\AdminSettingsService;
@@ -21,6 +22,7 @@ use Endroid\QrCode\RoundBlockSizeMode;
 use Endroid\QrCode\Writer\PngWriter;
 use PHPUnit\Framework\TestCase;
 use think\App;
+use think\facade\View;
 
 class ControllerEdgeServiceRegressionTest extends TestCase
 {
@@ -42,6 +44,38 @@ class ControllerEdgeServiceRegressionTest extends TestCase
     {
         CacheService::clearAll();
         parent::tearDown();
+    }
+
+    public function test_merchant_order_html_error_page_uses_payment_style_shell(): void
+    {
+        $controller = new MerchantOrderController(self::$app);
+        $method = new \ReflectionMethod($controller, 'renderErrorHtml');
+        $method->setAccessible(true);
+
+        $html = $method->invoke($controller, '监控端状态异常，请检查');
+
+        $this->assertStringContainsString('payment-error-shell', $html);
+        $this->assertStringContainsString('payment-error-card', $html);
+        $this->assertStringContainsString('安全收银台', $html);
+        $this->assertStringContainsString('监控端状态异常', $html);
+        $this->assertStringContainsString('payment-error-icon', $html);
+        $this->assertStringContainsString('history.back()', $html);
+    }
+
+    public function test_default_view_configuration_can_render_merchant_error_template(): void
+    {
+        self::$app->view->forgetDriver();
+
+        $html = View::fetch('merchant/error', [
+            'title' => '监控端状态异常',
+            'message' => '监控端状态异常，请检查',
+            'helpText' => '请确认监控端恢复在线后，再重新发起支付。',
+            'buttonText' => '返回上页',
+        ]);
+
+        $this->assertStringContainsString('<title>监控端状态异常</title>', $html);
+        $this->assertStringContainsString('payment-error-shell', $html);
+        $this->assertStringContainsString('返回上页', $html);
     }
 
     public function test_admin_settings_service_keeps_existing_field_list_and_masks_sensitive_values(): void

@@ -1,16 +1,12 @@
-# Logs
+# Logs and temp files
 *.log
 *.pid
 *.tmp
 *.out
 *.err
+*.stackdump
 
-# Test / coverage cache
-/.phpunit.result.cache
-/.phpunit.cache/
-/coverage/
-
-# Archives / backups
+# Archives and backups
 *.zip
 *.tar
 *.gz
@@ -20,34 +16,56 @@
 *.orig
 *~
 
-# Runtime / cache
+# PHP / ThinkPHP runtime
 /runtime/
 /public/runtime/
 /public/console/
+.user.ini
+composer.phar
+
+# PHP test and coverage artifacts
+/.phpunit.result.cache
+/.phpunit.cache/
+/coverage/
 /test-results/
-/frontend/admin/.codex-test/
+
+# PHP local databases and caches
+*.cache
+*.sqlite
+*.db
+*.sqlitedb
+.php-cs-fixer.cache
 
 # Environment files
 .env
 .env.*
+!.example.env
+!.env.example
 !/frontend/admin/.env
 !/frontend/admin/.env.development
 !/frontend/admin/.env.production
 !/frontend/admin/.env.staging
-!.example.env
-!.env.example
 
-# Dependencies
+# PHP dependencies
 /vendor/
 
-# Runtime / cache / local data
-.user.ini
-*.cache
-*.sqlite
-*.db
+# Frontend build outputs
+/frontend/admin/dist/
+/frontend/admin/coverage/
+/frontend/admin/test-results/
+/frontend/admin/playwright-report/
+/frontend/admin/.vite/
+/frontend/admin/.turbo/
+/frontend/admin/.cache/
+/frontend/admin/.eslintcache
+/frontend/admin/.stylelintcache
+/frontend/admin/*.tsbuildinfo
+/frontend/admin/.codex-test/
 
-# Composer helper binary
-composer.phar
+# Package manager caches
+.npm/
+.pnpm-store/
+.yarn/
 
 # OS files
 .DS_Store
@@ -60,13 +78,13 @@ Desktop.ini
 /.settings/
 /.buildpath
 /.project
+/frontend/admin/.vscode/
 
-# Optional local tool folders
+# Local tool folders
 /.serena/
 /.claude/
 /.codex/
 /.worktrees/
 /worktrees/
+/.superpowers/
 docs/superpowers/
-CLAUDE.md
-.superpowers

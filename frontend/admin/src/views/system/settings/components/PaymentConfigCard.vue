@@ -3,8 +3,9 @@ import { ref } from "vue";
 import type { FormInstance, FormRules } from "element-plus";
 
 import type { PaymentSection } from "../sectionState";
+import { generateSettingsKey } from "../keyGenerator";
 
-defineProps<{
+const props = defineProps<{
   model: PaymentSection;
   loading: boolean;
 }>();
@@ -39,6 +40,10 @@ const handleSave = async () => {
   if (!valid) return;
   emit("save");
 };
+
+const handleGenerateMonitorKey = () => {
+  props.model.monitorKey = generateSettingsKey();
+};
 </script>
 
 <template>
@@ -53,25 +58,25 @@ const handleSave = async () => {
     <el-form ref="formRef" :model="model" :rules="rules" label-width="120px">
       <el-form-item label="订单有效期" prop="close">
         <el-input
-          v-model="model.close"
+          v-model="props.model.close"
           type="number"
           placeholder="请输入订单过期分钟数"
         />
       </el-form-item>
 
       <el-form-item label="异步回调" prop="notifyUrl">
-        <el-input v-model="model.notifyUrl" placeholder="请输入异步回调地址" />
+        <el-input v-model="props.model.notifyUrl" placeholder="请输入异步回调地址" />
       </el-form-item>
 
       <el-form-item label="同步回调" prop="returnUrl">
-        <el-input v-model="model.returnUrl" placeholder="请输入支付完成跳转地址" />
+        <el-input v-model="props.model.returnUrl" placeholder="请输入支付完成跳转地址" />
       </el-form-item>
 
       <el-form-item label="通知 SSL 校验">
         <div class="w-full space-y-2">
           <div class="flex min-h-8 items-center">
             <el-switch
-              v-model="model.notifySslVerify"
+              v-model="props.model.notifySslVerify"
               active-value="1"
               inactive-value="0"
               inline-prompt
@@ -86,15 +91,20 @@ const handleSave = async () => {
       </el-form-item>
 
       <el-form-item label="通讯密钥" prop="key">
-        <el-input v-model="model.key" placeholder="请输入通讯密钥" />
+        <el-input v-model="props.model.key" placeholder="请输入通讯密钥" />
       </el-form-item>
 
       <el-form-item label="监控密钥" prop="monitorKey">
         <div class="w-full space-y-2">
-          <el-input
-            v-model="model.monitorKey"
-            placeholder="请输入监控端签名密钥"
-          />
+          <div class="flex w-full gap-2">
+            <el-input
+              v-model="props.model.monitorKey"
+              placeholder="请输入监控端签名密钥"
+            />
+            <el-button plain @click="handleGenerateMonitorKey">
+              自动生成
+            </el-button>
+          </div>
           <div class="text-xs leading-5 text-gray-500">
             监控端回调签名专用，和商户通讯密钥分开管理。
           </div>
@@ -102,14 +112,14 @@ const handleSave = async () => {
       </el-form-item>
 
       <el-form-item label="区分方式" prop="payQf">
-        <el-select v-model="model.payQf" class="w-full">
+        <el-select v-model="props.model.payQf" class="w-full">
           <el-option label="金额递增" value="1" />
           <el-option label="金额递减" value="2" />
         </el-select>
       </el-form-item>
 
       <div class="flex justify-end">
-        <el-button type="primary" :loading="loading" @click="handleSave">
+        <el-button type="primary" :loading="props.loading" @click="handleSave">
           保存支付配置
         </el-button>
       </div>

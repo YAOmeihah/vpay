@@ -2,12 +2,81 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8" />
-  <meta http-equiv="refresh" content="0; url=/console/" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>跳转中</title>
-  <script>
-    window.location.replace("/console/");
-  </script>
+  <meta name="description" content="VPay 支付接入与管理控制台统一入口，面向后台配置、商户接入与监控回调说明。" />
+  <title>VPay | 支付接入与管理控制台</title>
+  <link rel="stylesheet" href="/assets/css/root-portal.css" />
 </head>
-<body>正在跳转到管理后台...</body>
+<body>
+  <div class="portal-shell">
+    <header class="portal-nav">
+      <a class="portal-brand" href="/">VPay</a>
+      <nav class="portal-nav-links" aria-label="主导航">
+        <a href="/docs/payment-api.md">接口文档</a>
+        <a class="nav-cta" href="/console/">管理后台</a>
+      </nav>
+    </header>
+
+    <main class="portal-main">
+      <section class="hero-section">
+        <div class="hero-copy">
+          <p class="hero-eyebrow">Payment Infrastructure Portal</p>
+          <h1>支付接入与管理控制台</h1>
+          <p class="hero-description">
+            统一访问商户支付接口、回调说明与后台管理能力，面向运维配置、订单处理与接入联调。
+          </p>
+          <div class="hero-actions">
+            <a class="button-primary" href="/console/">进入管理后台</a>
+            <a class="button-secondary" href="/docs/payment-api.md">查看接口文档</a>
+          </div>
+          <a class="hero-tertiary" href="#monitor-flow">了解监控回调与支付状态流程</a>
+        </div>
+
+        <div class="hero-cards">
+          <article class="portal-card">
+            <h2>管理后台</h2>
+            <p>查看系统配置、订单数据与收款码管理。</p>
+            <a href="/console/">进入 /console/</a>
+          </article>
+          <article class="portal-card">
+            <h2>商户接入</h2>
+            <p>快速查看下单参数、签名规则与回调字段。</p>
+            <a href="/docs/payment-api.md">查看 payment API</a>
+          </article>
+          <article class="portal-card" id="monitor-flow">
+            <h2>监控与回调</h2>
+            <p>了解状态上报、支付推送与通知处理路径。</p>
+            <a href="/docs/payment-api.md#monitor-endpoints">查看监控说明</a>
+          </article>
+        </div>
+      </section>
+
+      <section class="steps-section" aria-labelledby="steps-title">
+        <h2 id="steps-title">三步完成接入</h2>
+        <ol class="step-list">
+          <li>配置通信密钥与回调地址</li>
+          <li>调用创建订单接口发起支付</li>
+          <li>通过异步通知与查询接口确认结果</li>
+        </ol>
+      </section>
+
+      <section class="entry-section" aria-labelledby="entry-title">
+        <h2 id="entry-title">当前可用入口</h2>
+        <ul class="entry-list">
+          <li><strong>管理控制台：</strong><code>/console/</code></li>
+          <li><strong>支付接口：</strong><code>/createOrder</code> <code>/getOrder</code> <code>/checkOrder</code> <code>/closeOrder</code></li>
+          <li><strong>监控接口：</strong><code>/getState</code> <code>/appHeart</code> <code>/appPush</code> <code>/closeEndOrder</code></li>
+        </ul>
+      </section>
+    </main>
+
+    <footer class="portal-footer">
+      <span>VPay</span>
+      <a href="/console/">管理后台</a>
+      <a href="/docs/payment-api.md">接口文档</a>
+      <span>系统版本入口页</span>
+    </footer>
+  </div>
+  <script src="/assets/js/root-portal.js"></script>
+</body>
 </html>

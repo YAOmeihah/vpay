@@ -38,3 +38,9 @@
 - 开发代理不再转发 `/getMenu`，菜单由 Vue 路由静态定义。
 - `public/console/` 是本地构建产物目录，不纳入 Git 跟踪。
 - 旧 `api.html` 已由 [payment-api.md](./payment-api.md) 取代。
+
+## Root Portal
+
+- `/` 现在是系统门户页，用于分流后台入口和接口文档入口
+- `/console/` 仍然是唯一管理后台地址
+- 根路径门户页不承担登录逻辑，只承担导航和能力说明

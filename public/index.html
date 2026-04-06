@@ -3,78 +3,69 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="VPay 支付接入与管理控制台统一入口，面向后台配置、商户接入与监控回调说明。" />
-  <title>VPay | 支付接入与管理控制台</title>
-  <link rel="stylesheet" href="/assets/css/root-portal.css?v=2" />
+  <meta name="description" content="VPay 支付处理与后台协同平台，面向订单流转、结果通知、状态监控与配置管理。" />
+  <title>VPay | 支付处理与后台协同平台</title>
+  <link rel="stylesheet" href="/assets/css/root-portal.css?v=3" />
 </head>
 <body>
   <div class="portal-shell">
     <header class="portal-nav">
       <a class="portal-brand" href="/">VPay</a>
-      <nav class="portal-nav-links" aria-label="主导航">
-        <a href="/payment-api.html">接口文档</a>
-        <a class="nav-cta" href="/console/">管理后台</a>
-      </nav>
+      <div class="portal-nav-note" aria-label="系统说明">支付处理与后台协同平台</div>
     </header>
 
     <main class="portal-main">
       <section class="hero-section">
         <div class="hero-copy">
-          <p class="hero-eyebrow">Payment Infrastructure Portal</p>
-          <h1>支付接入与管理控制台</h1>
+          <p class="hero-eyebrow">Payment Operations Platform</p>
+          <h1>支付处理与后台协同平台</h1>
           <p class="hero-description">
-            统一访问商户支付接口、回调说明与后台管理能力，面向运维配置、订单处理与接入联调。
+            用于承载支付处理、订单流转、结果通知、状态监控与后台配置协同，服务于稳定的支付链路管理。
           </p>
-          <div class="hero-actions">
-            <a class="button-primary" href="/console/">进入管理后台</a>
-            <a class="button-secondary" href="/payment-api.html">查看接口文档</a>
-          </div>
-          <a class="hero-tertiary" href="#monitor-flow">了解监控回调与支付状态流程</a>
+          <p class="hero-summary">
+            站点首页仅展示系统定位与功能概览，不提供后台入口、接口文档入口或敏感字段说明。
+          </p>
         </div>
 
         <div class="hero-cards">
           <article class="portal-card">
-            <h2>管理后台</h2>
-            <p>查看系统配置、订单数据与收款码管理。</p>
-            <a href="/console/">进入 /console/</a>
+            <h2>订单处理</h2>
+            <p>覆盖支付请求进入后的订单生成、状态流转、结果确认与异常关闭流程。</p>
           </article>
           <article class="portal-card">
-            <h2>商户接入</h2>
-            <p>快速查看下单参数、签名规则与回调字段。</p>
-            <a href="/payment-api.html">查看 payment API</a>
+            <h2>结果通知</h2>
+            <p>围绕支付完成后的回传通知、结果同步与业务联动提供稳定支撑。</p>
           </article>
           <article class="portal-card" id="monitor-flow">
-            <h2>监控与回调</h2>
-            <p>了解状态上报、支付推送与通知处理路径。</p>
-            <a href="/payment-api.html#monitor-endpoints">查看监控说明</a>
+            <h2>监控协同</h2>
+            <p>支持支付状态采集、运行态监控与后台协同处理，提升链路可见性与稳定性。</p>
           </article>
         </div>
       </section>
 
       <section class="steps-section" aria-labelledby="steps-title">
-        <h2 id="steps-title">三步完成接入</h2>
+        <h2 id="steps-title">核心能力概览</h2>
         <ol class="step-list">
-          <li>配置通信密钥与回调地址</li>
-          <li>调用创建订单接口发起支付</li>
-          <li>通过异步通知与查询接口确认结果</li>
+          <li>支付请求进入后统一进入订单处理链路。</li>
+          <li>支付结果会触发通知、状态同步与后续协同动作。</li>
+          <li>后台配置与运行态监控共同支撑整体支付稳定性。</li>
         </ol>
       </section>
 
       <section class="entry-section" aria-labelledby="entry-title">
-        <h2 id="entry-title">当前可用入口</h2>
+        <h2 id="entry-title">功能说明</h2>
         <ul class="entry-list">
-          <li><strong>管理控制台：</strong><code>/console/</code></li>
-          <li><strong>支付接口：</strong><code>/createOrder</code> <code>/getOrder</code> <code>/checkOrder</code> <code>/closeOrder</code></li>
-          <li><strong>监控接口：</strong><code>/getState</code> <code>/appHeart</code> <code>/appPush</code> <code>/closeEndOrder</code></li>
+          <li><strong>订单流转：</strong>支持支付过程中的创建、查询、确认与关闭管理。</li>
+          <li><strong>结果联动：</strong>支持支付完成后的通知、同步与业务结果处理。</li>
+          <li><strong>后台协同：</strong>支持配置管理、状态监控与异常处理协作。</li>
         </ul>
       </section>
     </main>
 
     <footer class="portal-footer">
       <span>VPay</span>
-      <a href="/console/">管理后台</a>
-      <a href="/payment-api.html">接口文档</a>
-      <span>系统版本入口页</span>
+      <span>支付处理与后台协同平台</span>
+      <span>系统首页</span>
     </footer>
   </div>
   <script src="/assets/js/root-portal.js"></script>

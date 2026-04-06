@@ -18,8 +18,9 @@ final class RootPortalStaticPageTest extends TestCase
     {
         $this->assertStringNotContainsString('http-equiv="refresh"', $this->html);
         $this->assertStringNotContainsString('window.location.replace("/console/")', $this->html);
-        $this->assertStringContainsString('支付接入与管理控制台', $this->html);
-        $this->assertStringContainsString('/console/', $this->html);
-        $this->assertStringContainsString('/payment-api.html', $this->html);
+        $this->assertStringContainsString('支付处理与后台协同平台', $this->html);
+        $this->assertStringNotContainsString('/console/', $this->html);
+        $this->assertStringNotContainsString('/payment-api.html', $this->html);
+        $this->assertStringNotContainsString('/createOrder', $this->html);
     }
 }

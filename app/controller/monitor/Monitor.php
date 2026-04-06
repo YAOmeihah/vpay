@@ -83,7 +83,7 @@ class Monitor extends BaseController
             return json($this->getReturn());
         }
 
-        return json($this->getReturn(-1, "异步通知失败"));
+        return json($this->getReturn(-1, "异步通知失败", $result['notifyDetail'] ?? ''));
     }
 
     public function closeEndOrder()

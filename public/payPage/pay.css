@@ -66,8 +66,116 @@ a {
     display: none !important;
 }
 
-[v-cloak] {
+html[data-page-state="booting"],
+html[data-page-state="boot-failed"] {
+    overflow: hidden;
+}
+
+.boot-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background:
+        radial-gradient(circle at top left, rgba(7, 193, 96, 0.16), transparent 30%),
+        radial-gradient(circle at top right, rgba(22, 119, 255, 0.16), transparent 26%),
+        linear-gradient(180deg, #f1f7f2, #f7f9fc);
+    opacity: 0;
     visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.32s ease, visibility 0.32s ease;
+}
+
+html[data-page-state="booting"] .boot-screen,
+html[data-page-state="boot-failed"] .boot-screen {
+    display: flex;
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+}
+
+html[data-page-state="boot-leaving"] .boot-screen {
+    display: flex;
+    opacity: 0;
+    visibility: hidden;
+}
+
+html[data-page-state="booting"] .payment-shell,
+html[data-page-state="boot-failed"] .payment-shell {
+    visibility: hidden;
+}
+
+.boot-card {
+    width: min(100%, 420px);
+    padding: 34px 28px 28px;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.96);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: 28px;
+    box-shadow: 0 28px 64px rgba(15, 23, 42, 0.16);
+}
+
+.boot-spinner {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 26px;
+    margin-bottom: 18px;
+}
+
+.boot-spinner span {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--success) 0%, var(--accent) 100%);
+    box-shadow: 0 8px 18px rgba(7, 193, 96, 0.16);
+    animation: loading-dots 1.2s infinite ease-in-out both;
+}
+
+.boot-spinner span:nth-child(1) {
+    animation-delay: -0.24s;
+}
+
+.boot-spinner span:nth-child(2) {
+    animation-delay: -0.12s;
+}
+
+.boot-kicker {
+    margin: 0 0 10px;
+    font-size: 12px;
+    line-height: 1.2;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.boot-card h1 {
+    margin: 0;
+    font-size: 28px;
+    line-height: 1.2;
+    color: var(--text-strong);
+}
+
+.boot-card p {
+    margin: 12px 0 0;
+    font-size: 15px;
+    line-height: 1.6;
+    color: var(--text-muted);
+}
+
+.boot-refresh-btn {
+    min-height: 44px;
+    margin-top: 20px;
+    padding: 0 20px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 700;
 }
 
 .payment-shell {
@@ -972,6 +1080,19 @@ button:focus-visible {
 }
 
 @media (max-width: 768px) {
+    .boot-card {
+        padding: 28px 20px 22px;
+        border-radius: 22px;
+    }
+
+    .boot-card h1 {
+        font-size: 24px;
+    }
+
+    .boot-card p {
+        font-size: 14px;
+    }
+
     .payment-shell {
         padding: 12px;
     }

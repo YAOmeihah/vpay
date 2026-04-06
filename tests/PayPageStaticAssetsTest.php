@@ -9,14 +9,15 @@ class PayPageStaticAssetsTest extends TestCase
 {
     private string $payHtml;
     private string $payCss;
+    private string $rootPath;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $root = dirname(__DIR__);
-        $this->payHtml = file_get_contents($root . '/public/payPage/pay.html') ?: '';
-        $this->payCss = file_get_contents($root . '/public/payPage/pay.css') ?: '';
+        $this->rootPath = dirname(__DIR__);
+        $this->payHtml = file_get_contents($this->rootPath . '/public/payPage/pay.html') ?: '';
+        $this->payCss = file_get_contents($this->rootPath . '/public/payPage/pay.css') ?: '';
     }
 
     public function test_pay_page_uses_non_conflicting_countdown_function_name(): void
@@ -120,5 +121,57 @@ class PayPageStaticAssetsTest extends TestCase
         $this->assertStringContainsString('<path d="M24 12l11 4v8c0 7.2-4.7 12.9-11 15-6.3-2.1-11-7.8-11-15v-8l11-4z"></path>', $this->payHtml);
         $this->assertStringContainsString('.check-result-icon.error .status-icon-glyph', $this->payCss);
         $this->assertStringContainsString('width: 40px;', $this->payCss);
+    }
+
+    public function test_repo_no_longer_keeps_or_references_legacy_go_alipay_page(): void
+    {
+        $legacyFile = $this->rootPath . '/public/payPage/go_alipay.html';
+        $this->assertFileDoesNotExist($legacyFile);
+
+        $extensions = ['php', 'html', 'js', 'ts', 'vue', 'css', 'scss', 'md', 'json'];
+        $excludedDirs = [
+            $this->rootPath . '/.git',
+            $this->rootPath . '/vendor',
+            $this->rootPath . '/node_modules',
+            $this->rootPath . '/runtime',
+            $this->rootPath . '/test-results',
+            $this->rootPath . '/public/console/static',
+        ];
+        $excludedFiles = [
+            str_replace('\\', '/', __FILE__),
+        ];
+
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($this->rootPath, \FilesystemIterator::SKIP_DOTS)
+        );
+
+        foreach ($iterator as $file) {
+            $path = $file->getPathname();
+
+            if (!$file->isFile()) {
+                continue;
+            }
+
+            $normalizedPath = str_replace('\\', '/', $path);
+
+            foreach ($excludedDirs as $excludedDir) {
+                $normalizedExcludedDir = str_replace('\\', '/', $excludedDir);
+                if (str_starts_with($normalizedPath, $normalizedExcludedDir . '/')) {
+                    continue 2;
+                }
+            }
+
+            if (in_array($normalizedPath, $excludedFiles, true)) {
+                continue;
+            }
+
+            if (!in_array(strtolower($file->getExtension()), $extensions, true)) {
+                continue;
+            }
+
+            $contents = file_get_contents($path);
+            $this->assertIsString($contents);
+            $this->assertStringNotContainsString('go_alipay', $contents, 'Legacy go_alipay reference found in ' . $normalizedPath);
+        }
     }
 }

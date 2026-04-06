@@ -49,11 +49,13 @@ class OrderCreationServicesTest extends TestCase
             'matched' => false,
             'alreadyProcessed' => false,
             'notifyOk' => true,
+            'notifyDetail' => '',
         ], $first);
         $this->assertSame([
             'matched' => false,
             'alreadyProcessed' => false,
             'notifyOk' => true,
+            'notifyDetail' => '',
         ], $second);
 
         $firstRow = PayOrder::where('price', '66.66')->findOrFail();

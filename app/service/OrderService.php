@@ -78,7 +78,7 @@ class OrderService
 
     /**
      * 处理支付推送，匹配订单并发送通知
-     * 返回: ['matched' => bool, 'alreadyProcessed' => bool, 'notifyOk' => bool]
+     * 返回: ['matched' => bool, 'alreadyProcessed' => bool, 'notifyOk' => bool, 'notifyDetail' => string]
      */
     public static function handlePayPush(string $price, int $type): array
     {
@@ -111,7 +111,7 @@ class OrderService
                 ]);
             });
 
-            return ['matched' => false, 'alreadyProcessed' => false, 'notifyOk' => true];
+            return ['matched' => false, 'alreadyProcessed' => false, 'notifyOk' => true, 'notifyDetail' => ''];
         }
 
         $affected = static::runTransaction(function () use ($res): int {
@@ -130,19 +130,26 @@ class OrderService
         });
 
         if ($affected === 0) {
-            return ['matched' => true, 'alreadyProcessed' => true, 'notifyOk' => true];
+            return ['matched' => true, 'alreadyProcessed' => true, 'notifyOk' => true, 'notifyDetail' => ''];
         }
 
         static::orderStateManager()->invalidateOrderView((string) $res['order_id']);
 
-        $notifyOk = NotifyService::sendNotify($res->toArray());
+        $notifyResult = NotifyService::sendNotifyDetailed($res->toArray());
+        $notifyOk = $notifyResult['ok'];
+        $notifyDetail = $notifyResult['detail'];
 
         if (!$notifyOk) {
             PayOrder::where('id', $res['id'])->update(['state' => PayOrder::STATE_NOTIFY_FAILED]);
             static::orderStateManager()->invalidateOrderView((string) $res['order_id']);
         }
 
-        return ['matched' => true, 'alreadyProcessed' => false, 'notifyOk' => $notifyOk];
+        return [
+            'matched' => true,
+            'alreadyProcessed' => false,
+            'notifyOk' => $notifyOk,
+            'notifyDetail' => $notifyDetail,
+        ];
     }
 
     protected static function systemConfig(): SystemConfig

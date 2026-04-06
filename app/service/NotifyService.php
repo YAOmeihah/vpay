@@ -52,9 +52,7 @@ class NotifyService
             ];
         }
 
-        $detail = $httpResult['error'] !== ''
-            ? '通知请求失败: ' . $httpResult['error']
-            : ($response !== '' ? '通知接口返回: ' . $response : '通知接口未返回 success');
+        $detail = static::buildFailureDetail($httpResult, $response);
 
         return [
             'ok' => false,
@@ -77,7 +75,14 @@ class NotifyService
     /**
      * 安全的 HTTP GET 请求，并返回调试信息。
      *
-     * @return array{response: string, error: string}
+     * @return array{
+     *   response: string,
+     *   error: string,
+     *   errno: int,
+     *   httpCode: int,
+     *   effectiveUrl: string,
+     *   primaryIp: string
+     * }
      */
     protected static function httpGetDetailed(string $url): array
     {
@@ -85,7 +90,14 @@ class NotifyService
         $scheme = strtolower($parsed['scheme'] ?? '');
 
         if (!in_array($scheme, ['http', 'https'], true)) {
-            return ['response' => '', 'error' => '通知地址协议不受支持'];
+            return [
+                'response' => '',
+                'error' => '通知地址协议不受支持',
+                'errno' => 0,
+                'httpCode' => 0,
+                'effectiveUrl' => $url,
+                'primaryIp' => '',
+            ];
         }
 
         // 防止 SSRF：检查目标 IP 是否为内网地址
@@ -93,7 +105,14 @@ class NotifyService
         if ($host !== '') {
             $ip = gethostbyname($host);
             if ($ip !== $host && static::isPrivateIp($ip)) {
-                return ['response' => '', 'error' => '通知地址指向内网地址，已被安全策略拦截'];
+                return [
+                    'response' => '',
+                    'error' => '通知地址指向内网地址，已被安全策略拦截',
+                    'errno' => 0,
+                    'httpCode' => 0,
+                    'effectiveUrl' => $url,
+                    'primaryIp' => $ip,
+                ];
             }
         }
 
@@ -111,12 +130,57 @@ class NotifyService
         curl_setopt($ch, CURLOPT_ENCODING, 'gzip');
         $result = curl_exec($ch);
         $error = curl_error($ch);
+        $errno = curl_errno($ch);
+        $httpCode = (int) (curl_getinfo($ch, CURLINFO_HTTP_CODE) ?: 0);
+        $effectiveUrl = (string) (curl_getinfo($ch, CURLINFO_EFFECTIVE_URL) ?: $url);
+        $primaryIp = (string) (curl_getinfo($ch, CURLINFO_PRIMARY_IP) ?: '');
         curl_close($ch);
 
         return [
             'response' => is_string($result) ? $result : '',
             'error' => trim($error),
+            'errno' => $errno,
+            'httpCode' => $httpCode,
+            'effectiveUrl' => $effectiveUrl,
+            'primaryIp' => $primaryIp,
         ];
+    }
+
+    /**
+     * @param array{
+     *   response: string,
+     *   error: string,
+     *   errno: int,
+     *   httpCode: int,
+     *   effectiveUrl: string,
+     *   primaryIp: string
+     * } $httpResult
+     */
+    protected static function buildFailureDetail(array $httpResult, string $response): string
+    {
+        if ($httpResult['error'] !== '') {
+            $parts = ['通知请求失败: ' . $httpResult['error']];
+
+            if (($httpResult['errno'] ?? 0) > 0) {
+                $parts[] = 'curl_errno=' . $httpResult['errno'];
+            }
+
+            if (($httpResult['httpCode'] ?? 0) > 0) {
+                $parts[] = 'http_code=' . $httpResult['httpCode'];
+            }
+
+            if (($httpResult['primaryIp'] ?? '') !== '') {
+                $parts[] = 'primary_ip=' . $httpResult['primaryIp'];
+            }
+
+            if (($httpResult['effectiveUrl'] ?? '') !== '') {
+                $parts[] = 'effective_url=' . $httpResult['effectiveUrl'];
+            }
+
+            return implode('; ', $parts);
+        }
+
+        return $response !== '' ? '通知接口返回: ' . $response : '通知接口未返回 success';
     }
 
     private static function isPrivateIp(string $ip): bool

@@ -31,6 +31,27 @@ namespace app\service {
         }
     }
 
+    if (!function_exists(__NAMESPACE__ . '\curl_error')) {
+        function curl_error(mixed $handle): string
+        {
+            return \tests\NotifyHttpProbe::curlError($handle);
+        }
+    }
+
+    if (!function_exists(__NAMESPACE__ . '\curl_errno')) {
+        function curl_errno(mixed $handle): int
+        {
+            return \tests\NotifyHttpProbe::curlErrno($handle);
+        }
+    }
+
+    if (!function_exists(__NAMESPACE__ . '\curl_getinfo')) {
+        function curl_getinfo(mixed $handle, ?int $option = null): mixed
+        {
+            return \tests\NotifyHttpProbe::curlGetInfo($handle, $option);
+        }
+    }
+
     if (!function_exists(__NAMESPACE__ . '\gethostbyname')) {
         function gethostbyname(string $host): string
         {
@@ -527,6 +548,35 @@ namespace tests {
             $this->assertSame(0, NotifyHttpProbe::$curlOptions[CURLOPT_SSL_VERIFYHOST] ?? 2);
         }
 
+        public function test_notify_service_includes_curl_errno_and_http_code_in_failure_detail(): void
+        {
+            NotifyServiceAdapterProbe::$config = new FakeSystemConfig(notifySslVerifyEnabled: true);
+            NotifyHttpProbe::enable(
+                hostMap: ['merchant.example' => '93.184.216.34'],
+                result: false,
+                error: 'Empty reply from server'
+            );
+            NotifyHttpProbe::$info = [
+                CURLINFO_HTTP_CODE => 200,
+                CURLINFO_EFFECTIVE_URL => 'https://merchant.example/notify?foo=bar',
+                CURLINFO_PRIMARY_IP => '93.184.216.34',
+            ];
+            $result = NotifyServiceAdapterProbe::sendNotifyDetailed([
+                'notify_url' => 'https://merchant.example/notify',
+                'pay_id' => 'merchant-1001',
+                'param' => 'attach',
+                'type' => PayOrder::TYPE_WECHAT,
+                'price' => '12.34',
+                'really_price' => '12.34',
+            ]);
+
+            $this->assertFalse($result['ok']);
+            $this->assertStringContainsString('通知请求失败: Empty reply from server', $result['detail']);
+            $this->assertStringContainsString('curl_errno=52', $result['detail']);
+            $this->assertStringContainsString('http_code=200', $result['detail']);
+            $this->assertStringContainsString('primary_ip=93.184.216.34', $result['detail']);
+        }
+
         public function test_order_creation_kernel_preserves_raw_timeout_string_in_payload_and_cache(): void
         {
             $this->seedSettings(['close' => '99']);
@@ -591,6 +641,48 @@ namespace tests {
                 'matched' => true,
                 'alreadyProcessed' => false,
                 'notifyOk' => true,
+                'notifyDetail' => '',
+            ], $result);
+        }
+
+        public function test_order_service_handle_pay_push_returns_notify_failure_detail(): void
+        {
+            NotifyHttpProbe::enable(
+                hostMap: ['merchant.example' => '93.184.216.34'],
+                result: 'gateway error'
+            );
+            $this->seedSettings(['key' => 'test-sign-key']);
+
+            PayOrder::reset();
+            \app\model\TmpPrice::reset();
+
+            PayOrder::seed([
+                'close_date' => 0,
+                'create_date' => 1700000000,
+                'is_auto' => 0,
+                'notify_url' => 'https://merchant.example/notify',
+                'order_id' => 'order-notify-fail-1001',
+                'param' => 'attach',
+                'pay_date' => 0,
+                'pay_id' => 'merchant-notify-fail-1001',
+                'pay_url' => 'weixin://pay-url',
+                'price' => '12.34',
+                'really_price' => '12.34',
+                'return_url' => 'https://merchant.example/return',
+                'state' => PayOrder::STATE_UNPAID,
+                'type' => PayOrder::TYPE_WECHAT,
+            ]);
+            \app\model\TmpPrice::seed('order-notify-fail-1001', '1234-1');
+
+            OrderServiceAdapterProbe::$state = new RecordingMonitorState();
+
+            $result = OrderServiceAdapterProbe::handlePayPush('12.34', PayOrder::TYPE_WECHAT);
+
+            $this->assertSame([
+                'matched' => true,
+                'alreadyProcessed' => false,
+                'notifyOk' => false,
+                'notifyDetail' => '通知接口返回: gateway error',
             ], $result);
         }
 
@@ -893,14 +985,19 @@ namespace tests {
         public static bool $enabled = false;
         public static array $hostMap = [];
         public static array $curlOptions = [];
+        public static array $info = [];
         public static string|false $result = '';
+        public static string $error = '';
+        public static int $errno = 52;
 
-        public static function enable(array $hostMap = [], string|false $result = 'success'): void
+        public static function enable(array $hostMap = [], string|false $result = 'success', string $error = ''): void
         {
             self::$enabled = true;
             self::$hostMap = $hostMap;
             self::$curlOptions = [];
+            self::$info = [];
             self::$result = $result;
+            self::$error = $error;
         }
 
         public static function reset(): void
@@ -908,7 +1005,10 @@ namespace tests {
             self::$enabled = false;
             self::$hostMap = [];
             self::$curlOptions = [];
+            self::$info = [];
             self::$result = '';
+            self::$error = '';
+            self::$errno = 52;
         }
 
         public static function curlInit(): mixed
@@ -949,6 +1049,37 @@ namespace tests {
             if (is_resource($handle)) {
                 fclose($handle);
             }
+        }
+
+        public static function curlError(mixed $handle): string
+        {
+            if (!self::$enabled) {
+                return \curl_error($handle);
+            }
+
+            return self::$error;
+        }
+
+        public static function curlErrno(mixed $handle): int
+        {
+            if (!self::$enabled) {
+                return \curl_errno($handle);
+            }
+
+            return self::$result === false ? self::$errno : 0;
+        }
+
+        public static function curlGetInfo(mixed $handle, ?int $option = null): mixed
+        {
+            if (!self::$enabled) {
+                return $option === null ? \curl_getinfo($handle) : \curl_getinfo($handle, $option);
+            }
+
+            if ($option === null) {
+                return self::$info;
+            }
+
+            return self::$info[$option] ?? null;
         }
 
         public static function gethostbyname(string $host): string

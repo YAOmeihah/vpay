@@ -237,4 +237,59 @@ class MonitorControllerAppPushTest extends TestCase
         $this->assertSame(-1, $payload['code']);
         $this->assertSame('监控回调时间戳已失效', $payload['msg']);
     }
+
+    public function test_app_push_returns_notify_failure_detail_to_monitor_client(): void
+    {
+        $request = (clone self::$app->request)
+            ->withPost([
+                'type' => '2',
+                'amountCents' => '10',
+                'ts' => '1712300000000',
+                'nonce' => 'nonce-notify-fail',
+                'eventId' => 'evt-notify-fail',
+                'sign' => 'signed',
+            ])
+            ->withServer(['REQUEST_METHOD' => 'POST'])
+            ->setMethod('POST');
+
+        self::$app->instance('request', $request);
+
+        $controller = new class(self::$app) extends Monitor {
+            protected function closeExpiredOrders(): void
+            {
+            }
+
+            protected function verifyMonitorPushSignature(
+                int $type,
+                int $amountCents,
+                int $ts,
+                string $nonce,
+                string $eventId,
+                string $sign
+            ): bool {
+                return true;
+            }
+
+            protected function validateMonitorReplay(string $eventId, string $nonce, int $timestamp): string
+            {
+                return 'accepted';
+            }
+
+            protected function handlePayPush(string $price, int $type): array
+            {
+                return [
+                    'alreadyProcessed' => false,
+                    'notifyOk' => false,
+                    'notifyDetail' => '通知接口返回: gateway error',
+                ];
+            }
+        };
+
+        $response = $controller->appPush();
+        $payload = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertSame(-1, $payload['code']);
+        $this->assertSame('异步通知失败', $payload['msg']);
+        $this->assertSame('通知接口返回: gateway error', $payload['data']);
+    }
 }

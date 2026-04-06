@@ -17,11 +17,117 @@
     <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
     <title>扫码支付</title>
     <link href="pay.css" rel="stylesheet" media="screen">
-    <script src="https://lib.baomitu.com/jquery/3.3.1/jquery.min.js"></script>
+    <script>
+        (function () {
+            var bootTimeoutId = null;
+            var bootState = 'booting';
+            var pendingMessage = '';
+            var bootStartedAt = Date.now();
+            var bootMinimumVisibleMs = 0;
+            var bootLeaveDurationMs = 320;
+
+            function applyBootState(state, message) {
+                bootState = state;
+                document.documentElement.setAttribute('data-page-state', state);
+
+                if (typeof message === 'string') {
+                    pendingMessage = message;
+                }
+
+                var messageEl = document.getElementById('bootMessage');
+                var refreshBtn = document.getElementById('bootRefreshBtn');
+                if (messageEl && pendingMessage) {
+                    messageEl.textContent = pendingMessage;
+                }
+
+                if (refreshBtn) {
+                    refreshBtn.hidden = state !== 'boot-failed';
+                }
+            }
+
+            function ensureBootBindings() {
+                var refreshBtn = document.getElementById('bootRefreshBtn');
+                if (refreshBtn && !refreshBtn.dataset.bound) {
+                    refreshBtn.dataset.bound = 'true';
+                    refreshBtn.addEventListener('click', function () {
+                        window.location.reload();
+                    });
+                }
+
+                if (pendingMessage) {
+                    applyBootState(bootState, pendingMessage);
+                }
+            }
+
+            window.startPaymentBootTimer = function () {
+                if (bootTimeoutId) {
+                    window.clearTimeout(bootTimeoutId);
+                }
+
+                bootTimeoutId = window.setTimeout(function () {
+                    applyBootState('boot-failed', '网络较慢或脚本加载失败，请刷新页面后重试。');
+                }, 4500);
+            };
+
+            window.markPaymentBootReady = function () {
+                var elapsed = Date.now() - bootStartedAt;
+                var remaining = Math.max(0, bootMinimumVisibleMs - elapsed);
+
+                if (bootTimeoutId) {
+                    window.clearTimeout(bootTimeoutId);
+                    bootTimeoutId = null;
+                }
+
+                window.setTimeout(function () {
+                    applyBootState('boot-leaving', '');
+
+                    window.setTimeout(function () {
+                        applyBootState('ready', '');
+                    }, bootLeaveDurationMs);
+                }, remaining);
+            };
+
+            window.showPaymentBootError = function (message) {
+                if (bootTimeoutId) {
+                    window.clearTimeout(bootTimeoutId);
+                    bootTimeoutId = null;
+                }
+
+                applyBootState('boot-failed', message || '页面初始化失败，请刷新页面重试。');
+            };
+
+            document.documentElement.setAttribute('data-page-state', 'booting');
+
+            window.startPaymentBootTimer();
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', function () {
+                    ensureBootBindings();
+                });
+            } else {
+                ensureBootBindings();
+            }
+        })();
+    </script>
+    <script defer src="https://lib.baomitu.com/jquery/3.3.1/jquery.min.js"></script>
 </head>
 
 <body>
-<div class="payment-shell" id="body" v-cloak>
+<div class="boot-screen" id="bootScreen" role="status" aria-live="polite">
+    <div class="boot-card">
+        <div class="boot-spinner" aria-hidden="true">
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
+        <p class="boot-kicker">安全收银台</p>
+        <h1>正在加载支付页面</h1>
+        <p id="bootMessage">正在安全加载订单信息，网络正常时通常只需 1-2 秒。</p>
+        <button type="button" id="bootRefreshBtn" class="boot-refresh-btn" hidden>刷新页面</button>
+    </div>
+</div>
+
+<div class="payment-shell" id="body">
     <main class="payment-card">
         <header class="payment-header">
             <div class="payment-brand payment-brand-desktop">
@@ -289,6 +395,62 @@
     var orderPollTimeoutId = null;
     var pageVm = null;
 
+    function httpPost(url, body, onSuccess, onError) {
+        if (window.jQuery && typeof window.jQuery.post === 'function') {
+            var request = window.jQuery.post(url, body, onSuccess);
+            if (request && typeof request.fail === 'function') {
+                request.fail(function () {
+                    if (typeof onError === 'function') {
+                        onError();
+                    }
+                });
+                return;
+            }
+
+            if (request && typeof request.catch === 'function') {
+                request.catch(function () {
+                    if (typeof onError === 'function') {
+                        onError();
+                    }
+                });
+                return;
+            }
+
+            return;
+        }
+
+        if (!window.fetch) {
+            if (typeof onError === 'function') {
+                onError();
+            }
+            return;
+        }
+
+        window.fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            credentials: 'same-origin',
+            body: body
+        }).then(function (response) {
+            if (!response.ok) {
+                throw new Error('Request failed');
+            }
+
+            return response.json();
+        }).then(function (data) {
+            if (typeof onSuccess === 'function') {
+                onSuccess(data);
+            }
+        }).catch(function () {
+            if (typeof onError === 'function') {
+                onError();
+            }
+        });
+    }
+
     function getQueryString(name) {
         var reg = new RegExp('(^|&)' + name + '=([^&]*)(&|$)', 'i');
         var result = window.location.search.substr(1).match(reg);
@@ -380,6 +542,9 @@
     function showExpiredState(message) {
         stopCountdown();
         stopPolling();
+        if (typeof window.markPaymentBootReady === 'function') {
+            window.markPaymentBootReady();
+        }
 
         var orderBody = document.getElementById('orderbody');
         var timeOut = document.getElementById('timeOut');
@@ -602,6 +767,9 @@
             bindQrImageState();
             initMobileSave();
             toggleOrderDetail(false);
+            if (typeof window.markPaymentBootReady === 'function') {
+                window.markPaymentBootReady();
+            }
         });
 
         if (Number(orderData.state) === -1) {
@@ -620,14 +788,14 @@
             return;
         }
 
-        $.post('../getOrder', 'orderId=' + encodeURIComponent(orderId), function (response) {
+        httpPost('../getOrder', 'orderId=' + encodeURIComponent(orderId), function (response) {
             if (response.code === 1 && response.data) {
                 applyOrderData(response.data);
                 return;
             }
 
             showExpiredState(response.msg || response.data || '订单不存在，请返回网站重新发起支付。');
-        }).fail(function () {
+        }, function () {
             showExpiredState('订单信息获取失败，请刷新页面重试。');
         });
     }
@@ -635,7 +803,7 @@
     function check(isManualCheck) {
         stopPolling();
 
-        $.post('../checkOrder', 'orderId=' + encodeURIComponent(getQueryString('orderId') || ''), function (response) {
+        httpPost('../checkOrder', 'orderId=' + encodeURIComponent(getQueryString('orderId') || ''), function (response) {
             if (response.code === 1) {
                 hideCheckResult();
                 stopCountdown();
@@ -660,7 +828,7 @@
             }
 
             orderPollTimeoutId = window.setTimeout(check, 1500);
-        }).fail(function () {
+        }, function () {
             if (isManualCheck) {
                 showCheckResult('error', '检查失败', '网络错误，请稍后重试。');
                 return;
@@ -823,29 +991,35 @@
         }
     };
 
-    pageVm = new Vue({
-        el: '#body',
-        data: {
-            payId: '',
-            orderId: getQueryString('orderId') || '',
-            payType: 1,
-            payType1: '微信',
-            price: '0.00',
-            reallyPrice: '0.00',
-            payUrl: '',
-            isAuto: 0,
-            state: 0,
-            timeOut: 15,
-            date: 0
-        },
-        methods: {
-            formatDate: formatDate
+    if (!window.Vue) {
+        if (typeof window.showPaymentBootError === 'function') {
+            window.showPaymentBootError('页面核心脚本加载失败，请刷新页面后重试。');
         }
-    });
+    } else {
+        pageVm = new Vue({
+            el: '#body',
+            data: {
+                payId: '',
+                orderId: getQueryString('orderId') || '',
+                payType: 1,
+                payType1: '微信',
+                price: '0.00',
+                reallyPrice: '0.00',
+                payUrl: '',
+                isAuto: 0,
+                state: 0,
+                timeOut: 15,
+                date: 0
+            },
+            methods: {
+                formatDate: formatDate
+            }
+        });
 
-    pageVisibilityHandler.init();
-    window.addEventListener('resize', initMobileSave);
-    fetchOrder();
+        pageVisibilityHandler.init();
+        window.addEventListener('resize', initMobileSave);
+        fetchOrder();
+    }
 </script>
 
 </body>

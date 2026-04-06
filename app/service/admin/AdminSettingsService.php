@@ -127,7 +127,11 @@ class AdminSettingsService
 
     protected function generateKey(): string
     {
-        return md5((string) time());
+        try {
+            return bin2hex(random_bytes(16));
+        } catch (\Throwable) {
+            return md5(uniqid((string) mt_rand(), true));
+        }
     }
 
     private function ensureGeneratedKey(string $settingKey, string $currentValue): string

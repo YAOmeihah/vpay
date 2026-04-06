@@ -73,6 +73,11 @@ body {
   gap: 16px;
 }
 
+.portal-nav-links > a:not(.nav-cta) {
+  color: var(--portal-primary);
+  font-weight: 600;
+}
+
 .portal-nav-links a,
 .button-primary,
 .button-secondary,
@@ -82,8 +87,8 @@ body {
   transition: color 180ms ease, background-color 180ms ease, border-color 180ms ease, transform 180ms ease;
 }
 
-.portal-nav-links a:hover,
-.portal-nav-links a:focus-visible,
+.portal-nav-links > a:not(.nav-cta):hover,
+.portal-nav-links > a:not(.nav-cta):focus-visible,
 .portal-card a:hover,
 .portal-card a:focus-visible,
 .hero-tertiary:hover,
@@ -93,7 +98,7 @@ body {
   color: var(--portal-secondary);
 }
 
-.nav-cta,
+.portal-nav-links .nav-cta,
 .button-primary {
   display: inline-flex;
   align-items: center;
@@ -104,12 +109,14 @@ body {
   background: var(--portal-primary);
   color: #fff;
   border: 1px solid transparent;
+  font-weight: 700;
+  box-shadow: 0 12px 30px rgba(22, 50, 79, 0.18);
 }
 
 .button-primary:hover,
 .button-primary:focus-visible,
-.nav-cta:hover,
-.nav-cta:focus-visible {
+.portal-nav-links .nav-cta:hover,
+.portal-nav-links .nav-cta:focus-visible {
   background: #10283f;
   color: #fff;
   transform: translateY(-1px);

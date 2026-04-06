@@ -11,6 +11,7 @@ use app\service\NotifyService;
 use app\service\SignService;
 use app\service\config\SettingSystemConfig;
 use app\service\order\OrderStateManager;
+use think\facade\View;
 
 class Order extends BaseController
 {
@@ -65,33 +66,12 @@ class Order extends BaseController
 
     private function renderErrorHtml(string $msg): string
     {
-        $msg = htmlspecialchars($msg, ENT_QUOTES, 'UTF-8');
-        return '<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>支付异常</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
-        .error-card { background: white; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); padding: 40px 30px; text-align: center; max-width: 400px; width: 100%; }
-        .error-icon { font-size: 48px; color: #ff6b6b; margin-bottom: 20px; }
-        .error-title { font-size: 24px; color: #333; margin-bottom: 15px; font-weight: 600; }
-        .error-message { font-size: 16px; color: #666; line-height: 1.5; margin-bottom: 30px; }
-        .retry-btn { background: #667eea; color: white; border: none; padding: 12px 30px; border-radius: 6px; font-size: 16px; cursor: pointer; transition: background 0.3s ease; }
-        .retry-btn:hover { background: #5a6fd8; }
-    </style>
-</head>
-<body>
-    <div class="error-card">
-        <div class="error-icon">⚠️</div>
-        <h1 class="error-title">支付异常</h1>
-        <p class="error-message">' . $msg . '</p>
-        <button class="retry-btn" onclick="history.back()">返回上页</button>
-    </div>
-</body>
-</html>';
+        return View::fetch('merchant/error', [
+            'title' => '监控端状态异常',
+            'message' => htmlspecialchars($msg, ENT_QUOTES, 'UTF-8'),
+            'helpText' => '请确认监控端恢复在线后，再重新发起支付。',
+            'buttonText' => '返回上页',
+        ]);
     }
 
     public function getOrder()

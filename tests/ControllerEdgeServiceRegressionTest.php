@@ -713,6 +713,19 @@ class ControllerEdgeServiceRegressionTest extends TestCase
         $this->assertSame($payload, trim((string) $result));
     }
 
+    public function test_admin_auth_session_flow_uses_framework_session_api_only(): void
+    {
+        $authController = (string) file_get_contents(self::$rootPath . 'app/controller/admin/Auth.php');
+        $adminController = (string) file_get_contents(self::$rootPath . 'app/controller/Admin.php');
+
+        $this->assertStringContainsString('Session::regenerate(false);', $authController);
+        $this->assertStringNotContainsString('session_start(', $authController);
+        $this->assertStringNotContainsString('session_regenerate_id(', $authController);
+
+        $this->assertStringNotContainsString('session_start(', $adminController);
+        $this->assertStringNotContainsString('session_regenerate_id(', $adminController);
+    }
+
     private static function configureCache(): void
     {
         $suffix = substr(sha1(self::$rootPath), 0, 12);

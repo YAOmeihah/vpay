@@ -114,16 +114,8 @@ class Admin extends BaseController
 
     public function logout()
     {
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
-
         Session::clear();
         Session::destroy();
-
-        if (session_status() === PHP_SESSION_ACTIVE) {
-            session_regenerate_id(true);
-        }
 
         return json([
             'code' => 1,

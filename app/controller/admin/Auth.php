@@ -43,18 +43,14 @@ class Auth extends BaseController
 
         $limiter->clearLoginAttempts($clientIp);
 
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
+        // Keep session lifecycle inside ThinkPHP's Session middleware so the
+        // response emits a single consistent PHPSESSID cookie.
+        Session::regenerate(false);
 
         Session::set("admin", 1);
         Session::set("admin_user", (string) $_user);
         Session::set("login_time", time());
         Session::set("login_ip", $clientIp);
-
-        if (session_status() === PHP_SESSION_ACTIVE) {
-            session_regenerate_id(false);
-        }
 
         return json($this->getReturn(1, "登录成功"));
     }

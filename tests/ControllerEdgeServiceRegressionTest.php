@@ -670,29 +670,6 @@ class ControllerEdgeServiceRegressionTest extends TestCase
         $this->assertSame('无法获取', $result);
     }
 
-    public function test_legacy_qr_code_library_files_are_php8_compatible(): void
-    {
-        $libraryPath = self::$rootPath . 'public' . DIRECTORY_SEPARATOR . 'qr-code' . DIRECTORY_SEPARATOR . 'lib';
-        $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($libraryPath));
-        $lintFailures = [];
-
-        foreach ($iterator as $fileInfo) {
-            if (!$fileInfo->isFile() || strtolower($fileInfo->getExtension()) !== 'php') {
-                continue;
-            }
-
-            $command = escapeshellarg(PHP_BINARY) . ' -l ' . escapeshellarg($fileInfo->getPathname()) . ' 2>&1';
-            $output = [];
-            exec($command, $output, $exitCode);
-
-            if ($exitCode !== 0) {
-                $lintFailures[] = $fileInfo->getPathname() . PHP_EOL . implode(PHP_EOL, $output);
-            }
-        }
-
-        $this->assertSame([], $lintFailures, 'Legacy QR code library must stay PHP 8 compatible.');
-    }
-
     public function test_admin_decode_qrcode_uses_business_error_code_for_decode_failures(): void
     {
         $source = (string) file_get_contents(self::$rootPath . 'app/controller/Admin.php');

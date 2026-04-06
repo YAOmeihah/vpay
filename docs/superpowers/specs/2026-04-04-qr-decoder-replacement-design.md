@@ -2,13 +2,13 @@
 
 ## Goal
 
-Replace the legacy `QrReader + public/qr-code/lib` backend QR decoder with a lighter maintained Composer dependency that improves compatibility and keeps the existing admin upload flow unchanged.
+Replace the legacy bundled backend QR decoder with a lighter maintained Composer dependency that improves compatibility and keeps the existing admin upload flow unchanged.
 
 ## Current Context
 
 - The admin QR upload endpoint is [`app/controller/Admin.php`](D:/Hrlni/Desktop/phpEnv/www/vpay.test/app/controller/Admin.php), method `decodeQrcode()`.
 - The frontend already uploads image blobs and expects the same endpoint and response shape.
-- The current decoder is a legacy bundled library under `public/qr-code/lib`, which has already required PHP 8 compatibility patches and still has poor decode behavior for payment collection QR screenshots.
+- The previous decoder was a legacy bundled library that had already required PHP 8 compatibility patches and still had poor decode behavior for payment collection QR screenshots.
 - The current logout regression was caused by QR decode failures sharing the same `-1` code path as unauthorized responses. That behavior is being separated.
 
 ## Options Considered
@@ -37,7 +37,7 @@ Use `chillerlan/php-qrcode` as the new backend decode library and keep the exist
 ### Backend
 
 - Add `chillerlan/php-qrcode` to Composer dependencies.
-- Update `decodeQrcode()` to decode the uploaded image blob using the new library instead of loading `public/qr-code/lib/QrReader.php`.
+- Update `decodeQrcode()` to decode the uploaded image blob using the new library instead of loading the retired bundled decoder.
 - Keep successful responses as `code = 1`.
 - Keep QR decode failures as business failures, not unauthorized failures.
 
@@ -50,7 +50,7 @@ Use `chillerlan/php-qrcode` as the new backend decode library and keep the exist
 ### Compatibility
 
 - Do not change the admin route, request payload, or success payload shape.
-- Defer deleting `public/qr-code/lib` until the new decoder is fully verified in this repo and on production-like samples.
+- The retired bundled decoder can be removed entirely because the runtime path no longer depends on it.
 
 ## Error Handling
 

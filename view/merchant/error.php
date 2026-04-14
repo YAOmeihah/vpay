@@ -54,6 +54,20 @@
             box-shadow: var(--shadow-lg);
             backdrop-filter: blur(18px);
             text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .payment-error-card::after {
+            content: "";
+            position: absolute;
+            inset: auto -68px -72px auto;
+            width: 220px;
+            height: 220px;
+            border-radius: 50%;
+            background:
+                radial-gradient(circle, rgba(229, 72, 77, 0.08) 0%, rgba(229, 72, 77, 0.02) 48%, rgba(229, 72, 77, 0) 74%);
+            pointer-events: none;
         }
 
         .payment-error-header {
@@ -62,10 +76,19 @@
             align-items: center;
             gap: 18px;
             margin-bottom: 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .payment-error-main {
+            position: relative;
+            z-index: 1;
         }
 
         .payment-error-heading-group {
             min-width: 0;
+            position: relative;
+            z-index: 1;
         }
 
         .payment-error-kicker {
@@ -134,6 +157,8 @@
             font-size: 14px;
             line-height: 1.7;
             color: var(--text-muted);
+            position: relative;
+            z-index: 1;
         }
 
         .payment-error-button {
@@ -148,6 +173,8 @@
             font-weight: 700;
             cursor: pointer;
             transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+            position: relative;
+            z-index: 1;
         }
 
         .payment-error-button:hover {
@@ -161,28 +188,82 @@
             outline-offset: 3px;
         }
 
+        .payment-error-watermark {
+            display: none;
+            position: absolute;
+            right: 42px;
+            top: 50%;
+            width: 220px;
+            height: 220px;
+            transform: translateY(-50%);
+            border-radius: 36px;
+            align-items: center;
+            justify-content: center;
+            background:
+                radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.86), rgba(255, 242, 243, 0.72)),
+                linear-gradient(180deg, rgba(255, 248, 248, 0.74), rgba(255, 242, 243, 0.48));
+            border: 1px solid rgba(229, 72, 77, 0.08);
+            box-shadow:
+                inset 0 1px 0 rgba(255, 255, 255, 0.92),
+                0 12px 24px rgba(229, 72, 77, 0.05);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .payment-error-watermark::before {
+            content: "";
+            position: absolute;
+            inset: 22px;
+            border-radius: 28px;
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .payment-error-watermark svg {
+            position: relative;
+            z-index: 1;
+            width: 84px;
+            height: 84px;
+            display: block;
+            stroke: var(--danger);
+            stroke-width: 1.8;
+            fill: none;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            opacity: 0.7;
+        }
+
         @media (min-width: 768px) {
             .payment-error-card {
-                width: min(720px, 100%);
-                padding: 34px 40px 32px;
+                width: min(820px, 100%);
+                padding: 38px 42px 36px;
                 text-align: left;
+            }
+
+            .payment-error-content {
+                position: relative;
+                z-index: 1;
+                max-width: 470px;
             }
 
             .payment-error-header {
                 flex-direction: row;
-                align-items: center;
-                gap: 22px;
-                margin-bottom: 24px;
+                align-items: flex-start;
+                gap: 0;
+                margin-bottom: 18px;
             }
 
             .payment-error-icon {
-                width: 84px;
-                height: 84px;
-                flex: 0 0 auto;
+                display: none;
             }
 
             .payment-error-kicker {
                 margin-bottom: 12px;
+            }
+
+            .payment-error-heading-group {
+                flex: 1;
+                max-width: none;
+                padding-right: 0;
             }
 
             .payment-error-title,
@@ -205,7 +286,17 @@
 
             .payment-error-help {
                 max-width: none;
-                margin-bottom: 28px;
+                margin-bottom: 30px;
+                padding-left: 0;
+                padding-right: 32px;
+            }
+
+            .payment-error-button {
+                margin-left: 0;
+            }
+
+            .payment-error-watermark {
+                display: flex;
             }
         }
 
@@ -217,6 +308,12 @@
             .payment-error-card {
                 padding: 24px 20px 22px;
                 border-radius: var(--radius-lg);
+            }
+
+            .payment-error-card::after {
+                width: 160px;
+                height: 160px;
+                inset: auto -46px -50px auto;
             }
 
             .payment-error-header {
@@ -251,6 +348,7 @@
             .payment-error-button {
                 width: 100%;
                 min-width: 0;
+                min-height: 50px;
             }
         }
     </style>
@@ -258,22 +356,33 @@
 <body>
     <div class="payment-error-shell">
         <main class="payment-error-card" role="alert" aria-live="polite">
-            <div class="payment-error-header">
-                <div class="payment-error-icon" aria-hidden="true">
-                    <svg viewBox="0 0 48 48" focusable="false">
-                        <path d="M24 7 11 12v9c0 8.5 5.6 15.3 13 17.7C31.4 36.3 37 29.5 37 21v-9L24 7Z"></path>
-                        <path d="M24 17v8"></path>
-                        <path d="M24 30.5h.01"></path>
-                    </svg>
-                </div>
-                <div class="payment-error-heading-group">
-                    <div class="payment-error-kicker">安全收银台</div>
-                    <h1 class="payment-error-title"><?= $title ?></h1>
-                    <p class="payment-error-message"><?= $message ?></p>
+            <div class="payment-error-main">
+                <div class="payment-error-content">
+                    <div class="payment-error-header">
+                        <div class="payment-error-icon" aria-hidden="true">
+                            <svg viewBox="0 0 48 48" focusable="false">
+                                <path d="M24 7 11 12v9c0 8.5 5.6 15.3 13 17.7C31.4 36.3 37 29.5 37 21v-9L24 7Z"></path>
+                                <path d="M24 17v8"></path>
+                                <path d="M24 30.5h.01"></path>
+                            </svg>
+                        </div>
+                        <div class="payment-error-heading-group">
+                            <div class="payment-error-kicker">安全收银台</div>
+                            <h1 class="payment-error-title"><?= $title ?></h1>
+                            <p class="payment-error-message"><?= $message ?></p>
+                        </div>
+                    </div>
+                    <p class="payment-error-help"><?= $helpText ?></p>
+                    <button class="payment-error-button" type="button" onclick="history.back()"><?= $buttonText ?></button>
                 </div>
             </div>
-            <p class="payment-error-help"><?= $helpText ?></p>
-            <button class="payment-error-button" type="button" onclick="history.back()"><?= $buttonText ?></button>
+            <div class="payment-error-watermark" aria-hidden="true">
+                <svg viewBox="0 0 48 48" focusable="false">
+                    <path d="M24 7 11 12v9c0 8.5 5.6 15.3 13 17.7C31.4 36.3 37 29.5 37 21v-9L24 7Z"></path>
+                    <path d="M24 17v8"></path>
+                    <path d="M24 30.5h.01"></path>
+                </svg>
+            </div>
         </main>
     </div>
 </body>

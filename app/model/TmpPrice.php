@@ -14,11 +14,12 @@ class TmpPrice extends Model
     protected $name = 'tmp_price';
     
     // 设置主键
-    protected $pk = 'price';
+    protected $pk = 'oid';
     
     // 设置字段信息
     protected $schema = [
         'price' => 'string',
+        'channel_id' => 'bigint',
         'oid'   => 'string',
     ];
 }

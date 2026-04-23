@@ -20,7 +20,7 @@ test("generateSettingsKey produces different values across calls", () => {
 
 test("payment config card exposes an auto-generate action for monitor key", () => {
   const source = readFileSync(
-    resolve("src/views/system/settings/components/PaymentConfigCard.vue"),
+    resolve("frontend/admin/src/views/system/settings/components/PaymentConfigCard.vue"),
     "utf8"
   );
 

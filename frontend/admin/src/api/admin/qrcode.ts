@@ -4,6 +4,7 @@ export const getPayQrcodes = (params: {
   type: 1 | 2;
   page: number;
   limit: number;
+  channelId?: number;
 }) =>
   http.request<{ code: number; msg: string; data: any[]; count: number }>(
     "get",
@@ -15,6 +16,7 @@ export const addPayQrcode = (data: {
   type: 1 | 2;
   pay_url: string;
   price: string;
+  channelId?: number;
 }) =>
   http.request<{ code: number; msg: string; data: null }>(
     "post",

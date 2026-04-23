@@ -7,6 +7,7 @@ import { ElMessageBox } from "element-plus";
 const props = defineProps<{
   type: 1 | 2;
   title: string;
+  channelId?: number;
 }>();
 
 const loading = ref(false);
@@ -18,7 +19,12 @@ const limit = 10;
 const loadList = async () => {
   try {
     loading.value = true;
-    const res = await getPayQrcodes({ type: props.type, page: page.value, limit });
+    const res = await getPayQrcodes({
+      type: props.type,
+      channelId: props.channelId,
+      page: page.value,
+      limit
+    });
     if (res.code === 1) {
       list.value = res.data;
       total.value = res.count;

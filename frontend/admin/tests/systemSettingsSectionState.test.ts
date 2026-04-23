@@ -21,6 +21,7 @@ test("settings sections hydrate backend payload and emit independent save payloa
     notify_ssl_verify: "0",
     close: "15",
     payQf: "1",
+    allocationStrategy: "round_robin",
     wxpay: "weixin://pay",
     zfbpay: "alipay://pay"
   });
@@ -30,6 +31,7 @@ test("settings sections hydrate backend payload and emit independent save payloa
   assert.equal(sections.payment.notifyUrl, "https://merchant.example/notify");
   assert.equal(sections.payment.monitorKey, "monitor-sign-key");
   assert.equal(sections.payment.notifySslVerify, "0");
+  assert.equal(sections.payment.allocationStrategy, "round_robin");
   assert.equal(sections.qrcode.wxpay, "weixin://pay");
 
   sections.security.newPassword = "next-pass";
@@ -46,7 +48,8 @@ test("settings sections hydrate backend payload and emit independent save payloa
     monitorKey: "monitor-sign-key",
     notify_ssl_verify: "0",
     close: "15",
-    payQf: "1"
+    payQf: "1",
+    allocationStrategy: "round_robin"
   });
   assert.deepEqual(buildQrcodePayload(sections.qrcode), {
     wxpay: "weixin://pay",

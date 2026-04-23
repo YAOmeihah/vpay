@@ -31,7 +31,8 @@ const rules: FormRules<PaymentSection> = {
   key: [{ required: true, message: "请输入通讯密钥", trigger: "blur" }],
   monitorKey: [{ required: true, message: "请输入监控签名密钥", trigger: "blur" }],
   close: [{ validator: validatePositiveInteger, trigger: "blur" }],
-  payQf: [{ required: true, message: "请选择区分方式", trigger: "change" }]
+  payQf: [{ required: true, message: "请选择区分方式", trigger: "change" }],
+  allocationStrategy: [{ required: true, message: "请选择分配策略", trigger: "change" }]
 };
 
 const handleSave = async () => {
@@ -116,6 +117,18 @@ const handleGenerateMonitorKey = () => {
           <el-option label="金额递增" value="1" />
           <el-option label="金额递减" value="2" />
         </el-select>
+      </el-form-item>
+
+      <el-form-item label="分配策略" prop="allocationStrategy">
+        <div class="w-full space-y-2">
+          <el-select v-model="props.model.allocationStrategy" class="w-full">
+            <el-option label="固定优先级" value="fixed_priority" />
+            <el-option label="顺序轮询" value="round_robin" />
+          </el-select>
+          <div class="text-xs leading-5 text-gray-500">
+            固定优先级会优先选择优先级最小的在线通道；顺序轮询会在可用通道之间依次切换。
+          </div>
+        </div>
       </el-form-item>
 
       <div class="flex justify-end">

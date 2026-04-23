@@ -9,7 +9,6 @@ use app\service\MonitorService;
 use app\service\OrderService;
 use app\service\SignService;
 use app\service\payment\PaymentEventService;
-use app\service\runtime\SettingMonitorState;
 use app\service\security\MonitorReplayGuard;
 use app\service\terminal\TerminalCredentialService;
 
@@ -24,16 +23,7 @@ class Monitor extends BaseController
         $sign = (string) $this->request->param('sign', '');
 
         if ($terminalCode === '') {
-            if (!$this->verifyMonitorSimpleSignature((string) $t, $sign)) {
-                return json($this->getReturn(-1, "签名校验不通过"));
-            }
-
-            $state = $this->monitorState();
-            $lastheart = $state->getLastHeartbeatRaw();
-            $lastpay = $state->getLastPaidRaw();
-            $jkstate = $state->getOnlineFlagRaw();
-
-            return json($this->getReturn(1, "成功", array("lastheart" => $lastheart, "lastpay" => $lastpay, "jkstate" => $jkstate)));
+            return json($this->getReturn(-1, "终端编码不能为空"));
         }
 
         try {
@@ -62,12 +52,7 @@ class Monitor extends BaseController
         $sign = (string) $this->request->param('sign', '');
 
         if ($terminalCode === '') {
-            if (!$this->verifyMonitorSimpleSignature((string) $t, $sign)) {
-                return json($this->getReturn(-1, "签名校验不通过"));
-            }
-
-            MonitorService::heartbeat();
-            return json($this->getReturn());
+            return json($this->getReturn(-1, "终端编码不能为空"));
         }
 
         try {
@@ -101,31 +86,7 @@ class Monitor extends BaseController
         }
 
         if ($terminalCode === '') {
-            if (!$this->verifyMonitorPushSignature($type, $amountCents, $ts, $nonce, $eventId, $sign)) {
-                return json($this->getReturn(-1, "签名校验不通过"));
-            }
-
-            try {
-                $guardResult = $this->validateMonitorReplay($eventId, $nonce, $ts);
-            } catch (\RuntimeException $e) {
-                return json($this->getReturn(-1, $e->getMessage()));
-            }
-
-            if ($guardResult === 'duplicate') {
-                return json($this->getReturn(1, "监控事件已处理"));
-            }
-
-            $result = $this->handlePayPush($this->formatAmountCents($amountCents), $type);
-
-            if ($result['alreadyProcessed']) {
-                return json($this->getReturn(1, "订单已处理"));
-            }
-
-            if ($result['notifyOk']) {
-                return json($this->getReturn());
-            }
-
-            return json($this->getReturn(-1, "异步通知失败", $result['notifyDetail'] ?? ''));
+            return json($this->getReturn(-1, "终端编码不能为空"));
         }
 
         try {
@@ -181,11 +142,6 @@ class Monitor extends BaseController
         return json($this->getReturn(1, "没有等待清理的订单"));
     }
 
-    private function monitorState(): SettingMonitorState
-    {
-        return $this->app->make(SettingMonitorState::class);
-    }
-
     protected function monitorReplayGuard(): MonitorReplayGuard
     {
         return $this->app->make(MonitorReplayGuard::class);
@@ -194,22 +150,6 @@ class Monitor extends BaseController
     protected function closeExpiredOrders(): void
     {
         MonitorService::closeExpiredOrders();
-    }
-
-    protected function verifyMonitorPushSignature(
-        int $type,
-        int $amountCents,
-        int $ts,
-        string $nonce,
-        string $eventId,
-        string $sign
-    ): bool {
-        return SignService::verifyMonitorPushSign($type, $amountCents, $ts, $nonce, $eventId, $sign);
-    }
-
-    protected function verifyMonitorSimpleSignature(string $data, string $sign): bool
-    {
-        return SignService::verifyMonitorSimpleSign($data, $sign);
     }
 
     protected function verifyTerminalMonitorPushSignature(
@@ -232,11 +172,6 @@ class Monitor extends BaseController
     protected function validateMonitorReplay(string $eventId, string $nonce, int $timestamp): string
     {
         return $this->monitorReplayGuard()->assertValid($eventId, $nonce, $timestamp);
-    }
-
-    protected function handlePayPush(string $price, int $type): array
-    {
-        return OrderService::handlePayPush($price, $type);
     }
 
     protected function handleTerminalPayPush(

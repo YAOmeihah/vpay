@@ -4,6 +4,7 @@ import { useRouter } from "vue-router";
 import { ElMessageBox } from "element-plus";
 
 import {
+  deleteTerminal,
   getTerminals,
   resetTerminalKey,
   saveTerminal,
@@ -26,6 +27,7 @@ const dialogVisible = ref(false);
 const form = reactive<TerminalPayload>({
   terminalCode: "",
   terminalName: "",
+  dispatchPriority: 100,
   status: "enabled",
   online_state: "offline",
   monitorKey: ""
@@ -37,6 +39,7 @@ const resetForm = () => {
   form.id = undefined;
   form.terminalCode = "";
   form.terminalName = "";
+  form.dispatchPriority = 100;
   form.status = "enabled";
   form.online_state = "offline";
   form.monitorKey = "";
@@ -70,6 +73,7 @@ const openEdit = (row: any) => {
   form.id = Number(row.id);
   form.terminalCode = String(row.terminal_code ?? "");
   form.terminalName = String(row.terminal_name ?? "");
+  form.dispatchPriority = Number(row.dispatch_priority ?? 100);
   form.status = String(row.status ?? "enabled");
   form.online_state = String(row.online_state ?? "offline");
   form.monitorKey = String(row.monitor_key ?? "");
@@ -107,6 +111,30 @@ const handleToggle = async (row: any) => {
   }
 };
 
+const handleDelete = async (row: any) => {
+  await ElMessageBox.confirm(
+    "确认删除该终端？删除后会同时清理终端下的支付通道；若存在未支付订单则会被阻止。",
+    "提示",
+    {
+      type: "warning",
+      confirmButtonText: "删除",
+      confirmButtonClass: "el-button--danger"
+    }
+  );
+
+  try {
+    const res = await deleteTerminal({ id: Number(row.id) });
+    if (res.code === 1) {
+      message("终端已删除", { type: "success" });
+      await loadList();
+    } else {
+      message(res.msg || "终端删除失败", { type: "error" });
+    }
+  } catch (error: any) {
+    message(error?.msg || error?.message || "终端删除失败", { type: "error" });
+  }
+};
+
 const handleResetKey = async (row: any) => {
   await ElMessageBox.confirm("确认重置该终端的监控密钥？", "提示", {
     type: "warning"
@@ -122,7 +150,7 @@ const handleResetKey = async (row: any) => {
 
 const openChannels = (row: any) => {
   router.push({
-    name: "TerminalChannels",
+    name: "TerminalPaymentConfig",
     params: { terminalId: String(row.id) },
     query: { terminalName: String(row.terminal_name ?? "") }
   });
@@ -138,7 +166,7 @@ onMounted(loadList);
         <div class="space-y-1">
           <h2 class="text-lg font-medium">终端管理</h2>
           <p class="text-sm text-gray-500">
-            管理监控终端、在线状态和专属监控密钥。每个终端都可以进入通道页维护对应收款通道。
+            管理监控终端、分配顺序、在线状态和专属监控密钥。数字越小越优先参与固定顺序分配。
           </p>
         </div>
         <el-button type="primary" @click="openCreate">新建终端</el-button>
@@ -149,6 +177,7 @@ onMounted(loadList);
       <el-table :data="list" v-loading="loading" border>
         <el-table-column label="终端名称" prop="terminal_name" min-width="160" />
         <el-table-column label="终端编码" prop="terminal_code" min-width="180" />
+        <el-table-column label="分配顺序" prop="dispatch_priority" min-width="110" />
         <el-table-column label="运行状态" min-width="110">
           <template #default="{ row }">
             <el-tag :type="row.status === 'enabled' ? 'success' : 'info'">
@@ -164,10 +193,10 @@ onMounted(loadList);
           </template>
         </el-table-column>
         <el-table-column label="监控密钥" prop="monitor_key" min-width="220" show-overflow-tooltip />
-        <el-table-column label="操作" width="280" fixed="right">
+        <el-table-column label="操作" width="330" fixed="right">
           <template #default="{ row }">
             <el-button size="small" text type="primary" @click="openChannels(row)">
-              通道
+              支付配置
             </el-button>
             <el-button size="small" text @click="openEdit(row)">编辑</el-button>
             <el-button size="small" text @click="handleResetKey(row)">
@@ -175,6 +204,9 @@ onMounted(loadList);
             </el-button>
             <el-button size="small" text type="warning" @click="handleToggle(row)">
               {{ row.status === "enabled" ? "停用" : "启用" }}
+            </el-button>
+            <el-button size="small" text type="danger" @click="handleDelete(row)">
+              删除
             </el-button>
           </template>
         </el-table-column>
@@ -194,10 +226,13 @@ onMounted(loadList);
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="560px">
       <el-form label-width="120px">
         <el-form-item label="终端编码">
-          <el-input v-model="form.terminalCode" placeholder="如 legacy-default / term-a" />
+          <el-input v-model="form.terminalCode" placeholder="如 default-terminal / term-a" />
         </el-form-item>
         <el-form-item label="终端名称">
           <el-input v-model="form.terminalName" placeholder="请输入终端名称" />
+        </el-form-item>
+        <el-form-item label="分配顺序">
+          <el-input-number v-model="form.dispatchPriority" :min="1" class="w-full" />
         </el-form-item>
         <el-form-item label="启用状态">
           <el-select v-model="form.status" class="w-full">

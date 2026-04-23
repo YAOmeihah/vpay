@@ -16,24 +16,20 @@ final class TerminalCredentialServiceTest extends TestCase
 
         $service = new TerminalCredentialService(
             lookupByCode: static fn (string $code) => $code === 'term-a' ? $terminal : null,
-            legacyDefaultCode: 'legacy-default',
         );
 
         self::assertSame('terminal-secret', $service->requireKeyFor('term-a'));
     }
 
-    public function test_it_falls_back_to_legacy_default_when_terminal_code_is_missing(): void
+    public function test_it_rejects_missing_terminal_code(): void
     {
-        $legacy = new MonitorTerminal([
-            'terminal_code' => 'legacy-default',
-            'monitor_key' => 'legacy-secret',
-        ]);
-
         $service = new TerminalCredentialService(
-            lookupByCode: static fn (string $code) => $code === 'legacy-default' ? $legacy : null,
-            legacyDefaultCode: 'legacy-default',
+            lookupByCode: static fn (string $code) => null,
         );
 
-        self::assertSame('legacy-secret', $service->requireKeyFor(''));
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('终端编码不能为空');
+
+        $service->requireKeyFor('');
     }
 }

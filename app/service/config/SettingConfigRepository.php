@@ -16,12 +16,9 @@ class SettingConfigRepository
         'notifyUrl',
         'returnUrl',
         'key',
-        'monitorKey',
         'close',
         'payQf',
         'allocationStrategy',
-        'wxpay',
-        'zfbpay',
         'notify_ssl_verify',
     ];
 

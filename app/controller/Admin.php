@@ -14,6 +14,7 @@ use app\service\admin\ChannelAdminService;
 use app\service\admin\DashboardStatsService;
 use app\service\admin\TerminalAdminService;
 use app\service\order\OrderStateManager;
+use app\service\payment\PaymentTestLabService;
 use chillerlan\QRCode\QRCode;
 use chillerlan\QRCode\QROptions;
 use think\facade\Db;
@@ -124,6 +125,43 @@ class Admin extends BaseController
             'msg' => '退出成功',
             'data' => null,
         ]);
+    }
+
+    public function createPaymentTestOrder()
+    {
+        try {
+            return json($this->getReturn(
+                1,
+                '成功',
+                $this->paymentTestLabService()->createOrder(
+                    (array)$this->request->param(),
+                    $this->requestBaseUrl()
+                )
+            ));
+        } catch (\RuntimeException $e) {
+            return json($this->getReturn(-1, $e->getMessage()));
+        }
+    }
+
+    public function getPaymentTestOrder()
+    {
+        try {
+            return json($this->getReturn(
+                1,
+                '成功',
+                $this->paymentTestLabService()->getOrderStatus((string)$this->request->param('orderId', ''))
+            ));
+        } catch (\RuntimeException $e) {
+            return json($this->getReturn(-1, $e->getMessage()));
+        }
+    }
+
+    public function getPaymentTestCallback()
+    {
+        return json($this->getReturn(1, '成功', $this->paymentTestLabService()->getLatestCallback(
+            (string)$this->request->param('orderId', ''),
+            (string)$this->request->param('payId', '')
+        )));
     }
 
     /**
@@ -282,9 +320,19 @@ class Admin extends BaseController
         return $this->app->make(AdminPermissionService::class);
     }
 
+    private function requestBaseUrl(): string
+    {
+        return $this->request->scheme() . '://' . $this->request->host(true);
+    }
+
     public function getTerminals()
     {
         return json($this->getReturn(1, "成功", $this->terminalAdminService()->paginate($this->request->param())));
+    }
+
+    public function getTerminal()
+    {
+        return json($this->getReturn(1, "成功", $this->terminalAdminService()->find((int) $this->request->param('id'))));
     }
 
     public function saveTerminal()
@@ -296,6 +344,16 @@ class Admin extends BaseController
     {
         $this->terminalAdminService()->toggle((int) $this->request->param('id'));
         return json($this->getReturn());
+    }
+
+    public function deleteTerminal()
+    {
+        try {
+            $this->terminalAdminService()->delete((int) $this->request->param('id'));
+            return json($this->getReturn());
+        } catch (\RuntimeException $e) {
+            return json($this->getReturn(-1, $e->getMessage()));
+        }
     }
 
     public function resetTerminalKey()
@@ -560,6 +618,11 @@ class Admin extends BaseController
     private function orderStateManager(): OrderStateManager
     {
         return $this->app->make(OrderStateManager::class);
+    }
+
+    private function paymentTestLabService(): PaymentTestLabService
+    {
+        return $this->app->make(PaymentTestLabService::class);
     }
 
 }

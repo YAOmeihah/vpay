@@ -7,7 +7,6 @@ export type ChannelPayload = {
   channelName: string;
   status?: string;
   payUrl?: string;
-  priority?: number;
 };
 
 export const getTerminalChannels = (params: { terminalId: number }) =>

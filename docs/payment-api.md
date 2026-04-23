@@ -80,8 +80,9 @@
 
 请求参数：
 
+- `terminalCode`：监控终端编码，必填。
 - `t`：时间戳或约定字符串，参与签名。
-- `sign`：简单签名，算法为 `md5(t + key)`。
+- `sign`：简单签名，算法为 `md5(t + 终端监控密钥)`。
 
 返回字段：
 
@@ -95,8 +96,9 @@
 
 请求参数：
 
+- `terminalCode`：监控终端编码，必填。
 - `t`
-- `sign`：算法为 `md5(t + key)`。
+- `sign`：算法为 `md5(t + 终端监控密钥)`。
 
 ### `POST /appPush`
 
@@ -104,12 +106,13 @@
 
 请求参数：
 
+- `terminalCode`：监控终端编码，必填。
 - `type`
 - `amountCents`：以分为单位的到账金额，例如 `10003` 表示 `100.03` 元。
 - `ts`：13 位毫秒时间戳；秒级时间戳会被直接拒绝，超过允许时间窗也会被拒绝。
 - `nonce`：防重放随机串，短时间内重复使用会被拒绝。
 - `eventId`：监控端事件唯一标识，用于幂等处理；同一 `eventId` 重投会返回“已处理”。
-- `sign`：算法为 `hash_hmac('sha256', "type|amountCents|ts|nonce|eventId", monitorKey)`。
+- `sign`：算法为 `hash_hmac('sha256', "type|amountCents|ts|nonce|eventId", 终端监控密钥)`。
 
 返回说明：
 
@@ -117,7 +120,7 @@
 - `nonce` 被复用时返回失败消息。
 - `ts` 过期时返回失败消息。
 - 商户异步通知失败时，响应会返回 `{"code":-1,"msg":"异步通知失败","data":"..."}`，`data` 中带具体失败原因，便于监控端排障。
-- 验签与防重放通过后，系统会把 `amountCents` 转成元格式，再按静态码模式现有规则匹配 `really_price + type` 的未支付订单。
+- 验签与防重放通过后，系统会把 `amountCents` 转成元格式，再按 `terminal_id + really_price + type` 匹配分配给该终端的未支付订单。
 
 ### `POST|GET /closeEndOrder`
 

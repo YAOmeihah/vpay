@@ -10,7 +10,9 @@ Route::group('admin/index', function () {
     Route::any('getSettings', 'admin/getSettings');
     Route::any('saveSetting', 'admin/saveSetting');
     Route::any('getTerminals', 'admin/getTerminals');
+    Route::any('getTerminal', 'admin/getTerminal');
     Route::post('saveTerminal', 'admin/saveTerminal');
+    Route::post('deleteTerminal', 'admin/deleteTerminal');
     Route::post('toggleTerminal', 'admin/toggleTerminal');
     Route::post('resetTerminalKey', 'admin/resetTerminalKey');
     Route::any('getTerminalChannels', 'admin/getTerminalChannels');
@@ -21,6 +23,9 @@ Route::group('admin/index', function () {
     Route::any('delPayQrcode', 'admin/delPayQrcode');
     Route::post('decodeQrcode', 'admin/decodeQrcode');
     Route::any('getOrders', 'admin/getOrders');
+    Route::post('createPaymentTestOrder', 'admin/createPaymentTestOrder');
+    Route::any('getPaymentTestOrder', 'admin/getPaymentTestOrder');
+    Route::any('getPaymentTestCallback', 'admin/getPaymentTestCallback');
     Route::any('delOrder', 'admin/delOrder');
     Route::any('setBd', 'admin/setBd');
     Route::any('delGqOrder', 'admin/delGqOrder');

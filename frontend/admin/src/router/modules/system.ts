@@ -21,7 +21,7 @@ export default {
       path: "/system/monitor",
       name: "MonitorSettings",
       component: () => import("@/views/system/monitor/index.vue"),
-      meta: { title: "监控端设置" }
+      meta: { title: "监控总览" }
     },
     {
       path: "/system/terminals",
@@ -30,10 +30,16 @@ export default {
       meta: { title: "终端管理" }
     },
     {
+      path: "/system/payment-test",
+      name: "PaymentLabLauncher",
+      component: () => import("@/views/system/payment-test/index.vue"),
+      meta: { title: "支付测试" }
+    },
+    {
       path: "/system/terminals/:terminalId",
-      name: "TerminalChannels",
+      name: "TerminalPaymentConfig",
       component: () => import("@/views/system/terminals/detail.vue"),
-      meta: { title: "通道管理", showLink: false }
+      meta: { title: "支付配置", showLink: false }
     }
   ]
 } satisfies RouteConfigsTable;

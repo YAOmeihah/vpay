@@ -12,8 +12,6 @@ use app\service\config\SettingSystemConfig;
 use app\service\config\SystemConfig;
 use app\service\order\OrderStateManager;
 use app\service\payment\PaymentEventService;
-use app\service\runtime\MonitorState;
-use app\service\runtime\SettingMonitorState;
 use app\service\terminal\ChannelPriceReservationService;
 use app\service\terminal\TerminalAllocatorService;
 use think\facade\Db;
@@ -33,11 +31,6 @@ class OrderService
         $param = $params['param'] ?? '';
         $notifyUrl = $params['notifyUrl'] ?? static::systemConfig()->getNotifyUrl();
         $returnUrl = $params['returnUrl'] ?? static::systemConfig()->getReturnUrl();
-
-        // 检查监控端状态
-        if (!static::monitorState()->isOnline()) {
-            throw new \RuntimeException('监控端状态异常，请检查');
-        }
 
         $orderId = OrderCreationKernel::generatePlatformOrderId();
         $channel = static::selectChannel($type);
@@ -103,18 +96,6 @@ class OrderService
      * 处理支付推送，匹配订单并发送通知
      * 返回: ['matched' => bool, 'alreadyProcessed' => bool, 'notifyOk' => bool, 'notifyDetail' => string]
      */
-    public static function handlePayPush(string $price, int $type): array
-    {
-        static::monitorState()->markPaidAt(time());
-
-        return static::processPayPush(null, $price, $type);
-    }
-
-    /**
-     * 处理带终端标识的支付推送
-     * @param array<string, mixed> $rawPayload
-     * 返回: ['matched' => bool, 'alreadyProcessed' => bool, 'notifyOk' => bool, 'notifyDetail' => string]
-     */
     public static function handleTerminalPayPush(
         int $terminalId,
         string $price,
@@ -122,7 +103,7 @@ class OrderService
         string $eventId,
         array $rawPayload
     ): array {
-        static::monitorState()->markPaidAt(time());
+        static::markTerminalPaid($terminalId, time());
 
         return static::processPayPush($terminalId, $price, $type, $eventId, $rawPayload);
     }
@@ -130,11 +111,6 @@ class OrderService
     protected static function systemConfig(): SystemConfig
     {
         return app()->make(SettingSystemConfig::class);
-    }
-
-    protected static function monitorState(): MonitorState
-    {
-        return app()->make(SettingMonitorState::class);
     }
 
     protected static function orderStateManager(): OrderStateManager
@@ -192,10 +168,11 @@ class OrderService
                 'channel_name' => (string) $channel['channel_name'],
                 'status' => (string) $channel['status'],
                 'pay_url' => (string) $channel['pay_url'],
-                'priority' => (int) $channel['priority'],
                 'last_used_at' => (int) $channel['last_used_at'],
                 'terminal_name' => (string) $terminal['terminal_name'],
+                'terminal_status' => (string) $terminal['status'],
                 'online_state' => (string) $terminal['online_state'],
+                'dispatch_priority' => (int) ($terminal['dispatch_priority'] ?? 100),
             ];
         }
 
@@ -236,11 +213,19 @@ class OrderService
         ]);
     }
 
+    protected static function markTerminalPaid(int $terminalId, int $timestamp): void
+    {
+        MonitorTerminal::where('id', $terminalId)->update([
+            'last_paid_at' => $timestamp,
+            'updated_at' => $timestamp,
+        ]);
+    }
+
     /**
      * @param array<string, mixed> $rawPayload
      */
     private static function processPayPush(
-        ?int $terminalId,
+        int $terminalId,
         string $price,
         int $type,
         string $eventId = '',
@@ -250,14 +235,12 @@ class OrderService
             ->where('state', PayOrder::STATE_UNPAID)
             ->where('type', $type);
 
-        if ($terminalId !== null) {
-            $res->where('terminal_id', $terminalId);
-        }
+        $res->where('terminal_id', $terminalId);
 
         $matchedOrder = $res->find();
 
         if (!$matchedOrder) {
-            if ($terminalId !== null && $eventId !== '') {
+            if ($eventId !== '') {
                 static::paymentEventService()->recordUnmatched(
                     $terminalId,
                     $eventId,
@@ -267,7 +250,7 @@ class OrderService
                 );
             }
 
-            static::runTransaction(function () use ($price, $type): void {
+            static::runTransaction(function () use ($terminalId, $price, $type): void {
                 $suffix = OrderCreationKernel::generatePlatformOrderId();
 
                 PayOrder::create([
@@ -283,6 +266,7 @@ class OrderService
                     'price'        => $price,
                     'really_price' => $price,
                     'return_url'   => '',
+                    'terminal_id'  => $terminalId,
                     'state'        => PayOrder::STATE_PAID,
                     'type'         => $type,
                 ]);
@@ -309,7 +293,7 @@ class OrderService
             return ['matched' => true, 'alreadyProcessed' => true, 'notifyOk' => true, 'notifyDetail' => ''];
         }
 
-        if ($terminalId !== null && $eventId !== '') {
+        if ($eventId !== '') {
             static::paymentEventService()->recordMatched(
                 $terminalId,
                 (int) ($matchedOrder['channel_id'] ?? 0),

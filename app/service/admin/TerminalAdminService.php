@@ -4,7 +4,9 @@ declare(strict_types=1);
 namespace app\service\admin;
 
 use app\model\MonitorTerminal;
-use app\service\config\SettingConfigRepository;
+use app\model\PayOrder;
+use app\model\TerminalChannel;
+use think\facade\Db;
 
 class TerminalAdminService
 {
@@ -18,7 +20,8 @@ class TerminalAdminService
         $limit = max(1, (int) ($params['limit'] ?? 10));
         $keyword = trim((string) ($params['keyword'] ?? ''));
 
-        $query = MonitorTerminal::order('id', 'desc');
+        $query = MonitorTerminal::order('dispatch_priority', 'asc')
+            ->order('id', 'asc');
         if ($keyword !== '') {
             $query->where(function ($inner) use ($keyword): void {
                 $inner->whereLike('terminal_code', '%' . $keyword . '%')
@@ -45,9 +48,15 @@ class TerminalAdminService
     {
         $id = (int) ($input['id'] ?? 0);
         $timestamp = time();
+        $existing = $id > 0 ? MonitorTerminal::where('id', $id)->find() : null;
         $data = [
             'terminal_code' => trim((string) ($input['terminalCode'] ?? $input['terminal_code'] ?? '')),
             'terminal_name' => trim((string) ($input['terminalName'] ?? $input['terminal_name'] ?? '')),
+            'dispatch_priority' => $this->normalizeDispatchPriority(
+                $input['dispatchPriority']
+                    ?? $input['dispatch_priority']
+                    ?? ($existing['dispatch_priority'] ?? 100)
+            ),
             'status' => trim((string) ($input['status'] ?? 'enabled')) ?: 'enabled',
             'online_state' => trim((string) ($input['online_state'] ?? 'offline')) ?: 'offline',
             'monitor_key' => trim((string) ($input['monitorKey'] ?? $input['monitor_key'] ?? '')),
@@ -74,6 +83,14 @@ class TerminalAdminService
         return $terminal->toArray();
     }
 
+    /**
+     * @return array<string, mixed>
+     */
+    public function find(int $id): array
+    {
+        return MonitorTerminal::where('id', $id)->findOrFail()->toArray();
+    }
+
     public function toggle(int $id): void
     {
         $terminal = MonitorTerminal::where('id', $id)->findOrFail();
@@ -96,45 +113,28 @@ class TerminalAdminService
         return $key;
     }
 
-    public function legacyDefaultMonitorKey(): string
+    public function delete(int $id): void
     {
-        try {
-            $terminal = MonitorTerminal::where('terminal_code', 'legacy-default')->find();
-            if ($terminal) {
-                return (string) $terminal['monitor_key'];
-            }
-        } catch (\Throwable) {
-            // Legacy tests may not have the terminal table available yet.
+        if ($id <= 0) {
+            throw new \RuntimeException('终端不存在');
         }
 
-        return $this->getConfigValue('monitorKey');
-    }
-
-    public function updateLegacyDefaultMonitorKey(string $monitorKey): void
-    {
-        try {
-            $terminal = MonitorTerminal::where('terminal_code', 'legacy-default')->find();
-            if ($terminal) {
-                MonitorTerminal::where('id', $terminal['id'])->update([
-                    'monitor_key' => $monitorKey,
-                    'updated_at' => time(),
-                ]);
-            }
-        } catch (\Throwable) {
-            // Fall back to the legacy config storage when terminal tables are unavailable.
+        $terminal = MonitorTerminal::where('id', $id)->find();
+        if (!$terminal) {
+            throw new \RuntimeException('终端不存在');
         }
 
-        $this->configRepository()->set('monitorKey', $monitorKey);
-    }
+        $openOrder = PayOrder::where('terminal_id', $id)
+            ->where('state', PayOrder::STATE_UNPAID)
+            ->find();
+        if ($openOrder !== null) {
+            throw new \RuntimeException('该终端存在未支付订单，不能删除');
+        }
 
-    protected function getConfigValue(string $key, string $default = ''): string
-    {
-        return $this->configRepository()->get($key, $default);
-    }
-
-    protected function configRepository(): SettingConfigRepository
-    {
-        return new SettingConfigRepository();
+        Db::transaction(function () use ($id): void {
+            TerminalChannel::where('terminal_id', $id)->delete();
+            MonitorTerminal::where('id', $id)->delete();
+        });
     }
 
     protected function generateKey(): string
@@ -158,5 +158,10 @@ class TerminalAdminService
 
         $json = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         return $json === false ? null : $json;
+    }
+
+    private function normalizeDispatchPriority(mixed $value): int
+    {
+        return max(1, (int) $value);
     }
 }

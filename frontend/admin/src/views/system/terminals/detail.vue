@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { ElMessageBox } from "element-plus";
 
+import { getTerminalDetail } from "@/api/admin/terminal";
 import {
   getTerminalChannels,
   saveTerminalChannel,
@@ -11,69 +12,96 @@ import {
 } from "@/api/admin/channel";
 import QrBatchUploader from "@/components/admin/QrBatchUploader.vue";
 import QrList from "@/components/admin/QrList.vue";
+import TerminalMonitorCard from "@/components/admin/TerminalMonitorCard.vue";
 import { message } from "@/utils/message";
+import {
+  buildMonitorOverviewCards,
+  type MonitorOverviewCard
+} from "../monitor/overviewState";
+import {
+  buildPaymentSlots,
+  defaultChannelName,
+  paymentTypeLabel,
+  type PaymentSlot
+} from "./paymentSlotState";
 
-defineOptions({ name: "TerminalChannels" });
+defineOptions({ name: "TerminalPaymentConfig" });
 
 const route = useRoute();
+const router = useRouter();
 const loading = ref(false);
 const saving = ref(false);
-const list = ref<any[]>([]);
+const list = ref<PaymentSlot[]>([]);
 const dialogVisible = ref(false);
+const monitorCard = ref<MonitorOverviewCard | null>(null);
 
 const terminalId = computed(() => Number(route.params.terminalId));
-const terminalName = computed(() => String(route.query.terminalName ?? `终端 #${terminalId.value}`));
+const terminalName = computed(
+  () =>
+    monitorCard.value?.terminalName ??
+    String(route.query.terminalName ?? `终端 #${terminalId.value}`)
+);
 
 const form = reactive<ChannelPayload>({
   terminalId: 0,
   type: 1,
   channelName: "",
   status: "enabled",
-  payUrl: "",
-  priority: 100
+  payUrl: ""
 });
 
-const dialogTitle = computed(() => (form.id ? "编辑通道" : "新建通道"));
+const dialogTitle = computed(
+  () => `${form.id ? "编辑" : "配置"}${paymentTypeLabel(form.type)}收款`
+);
 
-const resetForm = () => {
+const resetForm = (type: 1 | 2) => {
   form.id = undefined;
   form.terminalId = terminalId.value;
-  form.type = 1;
-  form.channelName = "";
+  form.type = type;
+  form.channelName = defaultChannelName(type);
   form.status = "enabled";
   form.payUrl = "";
-  form.priority = 100;
 };
 
 const loadList = async () => {
   try {
     loading.value = true;
-    const res = await getTerminalChannels({ terminalId: terminalId.value });
-    if (res.code === 1) {
-      list.value = res.data ?? [];
-    } else {
-      message(res.msg || "通道列表加载失败", { type: "error" });
+    const [terminalRes, channelRes] = await Promise.all([
+      getTerminalDetail({ id: terminalId.value }),
+      getTerminalChannels({ terminalId: terminalId.value })
+    ]);
+
+    if (terminalRes.code !== 1) {
+      throw new Error(terminalRes.msg || "终端详情加载失败");
     }
+
+    if (channelRes.code !== 1) {
+      throw new Error(channelRes.msg || "支付配置加载失败");
+    }
+
+    const [card] = buildMonitorOverviewCards([terminalRes.data ?? {}], location.host);
+    monitorCard.value = card ?? null;
+    list.value = buildPaymentSlots(channelRes.data ?? [], terminalId.value);
   } catch (error: any) {
-    message(error?.msg || error?.message || "通道列表加载失败", { type: "error" });
+    message(error?.msg || error?.message || "终端页面加载失败", {
+      type: "error"
+    });
   } finally {
     loading.value = false;
   }
 };
 
-const openCreate = () => {
-  resetForm();
-  dialogVisible.value = true;
+const openTerminalManagement = () => {
+  router.push("/system/terminals");
 };
 
-const openEdit = (row: any) => {
-  form.id = Number(row.id);
-  form.terminalId = Number(row.terminal_id ?? terminalId.value);
-  form.type = Number(row.type ?? 1) as 1 | 2;
-  form.channelName = String(row.channel_name ?? "");
-  form.status = String(row.status ?? "enabled");
-  form.payUrl = String(row.pay_url ?? "");
-  form.priority = Number(row.priority ?? 100);
+const openSlotEditor = (slot: PaymentSlot) => {
+  form.id = slot.id;
+  form.terminalId = slot.terminalId;
+  form.type = slot.type;
+  form.channelName = slot.channelName;
+  form.status = slot.exists ? slot.status : "enabled";
+  form.payUrl = slot.payUrl;
   dialogVisible.value = true;
 };
 
@@ -82,34 +110,40 @@ const submitForm = async () => {
     saving.value = true;
     const res = await saveTerminalChannel(form);
     if (res.code === 1) {
-      message("通道已保存", { type: "success" });
+      message("支付配置已保存", { type: "success" });
       dialogVisible.value = false;
       await loadList();
     } else {
-      message(res.msg || "通道保存失败", { type: "error" });
+      message(res.msg || "支付配置保存失败", { type: "error" });
     }
   } catch (error: any) {
-    message(error?.msg || error?.message || "通道保存失败", { type: "error" });
+    message(error?.msg || error?.message || "支付配置保存失败", {
+      type: "error"
+    });
   } finally {
     saving.value = false;
   }
 };
 
-const handleToggle = async (row: any) => {
-  await ElMessageBox.confirm("确认切换该通道的启用状态？", "提示", {
-    type: "warning"
-  });
-  const res = await toggleTerminalChannel({ id: Number(row.id) });
+const handleToggle = async (slot: PaymentSlot) => {
+  await ElMessageBox.confirm(
+    `确认切换${slot.slotLabel}收款配置的启用状态？`,
+    "提示",
+    {
+      type: "warning"
+    }
+  );
+  const res = await toggleTerminalChannel({ id: Number(slot.id) });
   if (res.code === 1) {
-    message("通道状态已更新", { type: "success" });
+    message(`${slot.slotLabel}收款配置状态已更新`, { type: "success" });
     loadList();
   } else {
-    message(res.msg || "通道状态更新失败", { type: "error" });
+    message(res.msg || "支付配置状态更新失败", { type: "error" });
   }
 };
 
 onMounted(() => {
-  resetForm();
+  resetForm(1);
   loadList();
 });
 </script>
@@ -117,72 +151,117 @@ onMounted(() => {
 <template>
   <div class="p-4 space-y-4">
     <el-card shadow="never">
-      <div class="flex items-center justify-between gap-4">
-        <div class="space-y-1">
-          <h2 class="text-lg font-medium">{{ terminalName }} 通道管理</h2>
-          <p class="text-sm text-gray-500">
-            为当前终端维护微信/支付宝通道，以及该通道下的金额二维码。
-          </p>
-        </div>
-        <el-button type="primary" @click="openCreate">新增通道</el-button>
+      <div class="space-y-1">
+        <h2 class="text-lg font-medium">{{ terminalName }} 支付配置</h2>
+        <p class="text-sm text-gray-500">
+          固定维护微信和支付宝两个支付配置。每个终端只区分设备本身与支付类型，不再开放式新增同类型通道。
+        </p>
       </div>
     </el-card>
 
-    <el-card shadow="hover">
-      <el-table :data="list" v-loading="loading" border>
-        <el-table-column label="通道名称" prop="channel_name" min-width="180" />
-        <el-table-column label="类型" width="100">
-          <template #default="{ row }">
-            {{ Number(row.type) === 1 ? "微信" : "支付宝" }}
-          </template>
-        </el-table-column>
-        <el-table-column label="优先级" prop="priority" width="100" />
-        <el-table-column label="状态" width="100">
-          <template #default="{ row }">
-            <el-tag :type="row.status === 'enabled' ? 'success' : 'info'">
-              {{ row.status === "enabled" ? "启用" : "停用" }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="默认收款地址" prop="pay_url" min-width="220" show-overflow-tooltip />
-        <el-table-column label="操作" width="180" fixed="right">
-          <template #default="{ row }">
-            <el-button size="small" text @click="openEdit(row)">编辑</el-button>
-            <el-button size="small" text type="warning" @click="handleToggle(row)">
-              {{ row.status === "enabled" ? "停用" : "启用" }}
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-    </el-card>
+    <TerminalMonitorCard
+      v-if="monitorCard"
+      :card="monitorCard"
+      :show-payment-config-button="false"
+      @terminal-management="openTerminalManagement"
+    />
 
-    <template v-for="channel in list" :key="channel.id">
-      <QrBatchUploader
-        :type="Number(channel.type) as 1 | 2"
-        :title="`${channel.channel_name} 金额二维码上传`"
-        :scan-hint="'上传该通道的金额二维码，成功后会自动绑定到 channel_id'"
-        :channel-id="Number(channel.id)"
-      />
-      <QrList
-        :type="Number(channel.type) as 1 | 2"
-        :title="`${channel.channel_name} 金额二维码列表`"
-        :channel-id="Number(channel.id)"
-      />
+    <div class="grid gap-4 md:grid-cols-2">
+      <el-card
+        v-for="slot in list"
+        :key="slot.type"
+        shadow="hover"
+        v-loading="loading"
+      >
+        <template #header>
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <div class="font-medium">{{ slot.slotLabel }}收款配置</div>
+              <div class="text-xs text-gray-500">
+                {{ slot.exists ? slot.channelName : `尚未创建${slot.slotLabel}配置` }}
+              </div>
+            </div>
+            <el-tag :type="slot.exists && slot.status === 'enabled' ? 'success' : 'info'">
+              {{
+                slot.exists
+                  ? slot.status === "enabled"
+                    ? "启用"
+                    : "停用"
+                  : "未配置"
+              }}
+            </el-tag>
+          </div>
+        </template>
+
+        <el-descriptions :column="1" border size="small">
+          <el-descriptions-item label="配置名称">
+            {{ slot.channelName }}
+          </el-descriptions-item>
+          <el-descriptions-item label="默认收款地址">
+            <span class="break-all">{{ slot.payUrl || "未设置" }}</span>
+          </el-descriptions-item>
+        </el-descriptions>
+
+        <el-alert
+          v-if="!slot.exists"
+          :title="`先创建${slot.slotLabel}配置，再上传该支付类型的金额二维码。`"
+          type="warning"
+          :closable="false"
+          class="mt-4"
+        />
+
+        <div class="mt-4 flex gap-3">
+          <el-button type="primary" @click="openSlotEditor(slot)">
+            {{ slot.exists ? "编辑配置" : "创建配置" }}
+          </el-button>
+          <el-button
+            v-if="slot.exists"
+            type="warning"
+            plain
+            @click="handleToggle(slot)"
+          >
+            {{ slot.status === "enabled" ? "停用" : "启用" }}
+          </el-button>
+        </div>
+      </el-card>
+    </div>
+
+    <template v-for="slot in list" :key="`${slot.type}-qrcode`">
+      <template v-if="slot.exists && slot.id">
+        <QrBatchUploader
+          :type="slot.type"
+          :title="`${slot.slotLabel}金额二维码上传`"
+          :scan-hint="`上传${slot.slotLabel}金额二维码，成功后会自动绑定到当前支付配置。`"
+          :channel-id="slot.id"
+        />
+        <QrList
+          :type="slot.type"
+          :title="`${slot.slotLabel}金额二维码列表`"
+          :channel-id="slot.id"
+        />
+      </template>
+      <el-card v-else shadow="hover">
+        <template #header>
+          <span>{{ slot.slotLabel }}金额二维码</span>
+        </template>
+        <el-alert
+          :title="`当前终端还没有${slot.slotLabel}支付配置，暂时无法上传金额二维码。`"
+          type="info"
+          :closable="false"
+        />
+      </el-card>
     </template>
 
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="560px">
       <el-form label-width="120px">
-        <el-form-item label="通道名称">
-          <el-input v-model="form.channelName" placeholder="请输入通道名称" />
-        </el-form-item>
         <el-form-item label="支付类型">
-          <el-select v-model="form.type" class="w-full">
-            <el-option label="微信" :value="1" />
-            <el-option label="支付宝" :value="2" />
-          </el-select>
+          <el-input :model-value="paymentTypeLabel(form.type)" readonly />
         </el-form-item>
-        <el-form-item label="优先级">
-          <el-input v-model.number="form.priority" type="number" />
+        <el-form-item label="配置名称">
+          <el-input
+            v-model="form.channelName"
+            :placeholder="defaultChannelName(form.type)"
+          />
         </el-form-item>
         <el-form-item label="默认收款地址">
           <el-input

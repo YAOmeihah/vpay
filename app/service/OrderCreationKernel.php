@@ -5,11 +5,13 @@ namespace app\service;
 
 use app\model\PayOrder;
 use app\model\PayQrcode;
+use app\model\TerminalChannel;
 use app\model\TmpPrice;
 use app\service\cache\OrderCache;
 use app\service\config\SettingSystemConfig;
 use app\service\config\SystemConfig;
 use app\service\order\OrderPayloadFactory;
+use app\service\terminal\ChannelPriceReservationService;
 
 class OrderCreationKernel
 {
@@ -28,27 +30,12 @@ class OrderCreationKernel
 
     public static function reserveUniquePrice(string $price, int $type, string $orderId): string
     {
-        $reallyPrice = bcmul($price, '100');
-        $payQf = static::systemConfig()->getPayQfMode();
-
-        for ($i = 0; $i < 10; $i++) {
-            $tmpPrice = $reallyPrice . '-' . $type;
-
-            try {
-                TmpPrice::create(['price' => $tmpPrice, 'oid' => $orderId]);
-                return (string)bcdiv((string)$reallyPrice, '100', 2);
-            } catch (\Exception $e) {
-                // 价格冲突，继续尝试下一个金额
-            }
-
-            if ($payQf == 1 || $payQf == '1') {
-                $reallyPrice++;
-            } elseif ($payQf == 2 || $payQf == '2') {
-                $reallyPrice--;
-            }
-        }
-
-        throw new \RuntimeException('订单超出负荷，请稍后重试');
+        return static::priceReservation()->reserve(
+            $price,
+            $type,
+            $orderId,
+            static::systemConfig()->getPayQfMode()
+        );
     }
 
     public static function resolvePayUrl(int $type, float|string $reallyPrice): array
@@ -67,6 +54,38 @@ class OrderCreationKernel
                 'payUrl' => (string)$matchedQrcode['pay_url'],
                 'isAuto' => 0,
             ];
+        }
+
+        return [
+            'payUrl' => $payUrl,
+            'isAuto' => 1,
+        ];
+    }
+
+    public static function resolvePayUrlForChannel(int $channelId, int $type, float|string $reallyPrice): array
+    {
+        $matchedQrcode = PayQrcode::where('channel_id', $channelId)
+            ->where('price', $reallyPrice)
+            ->find();
+
+        if ($matchedQrcode) {
+            return [
+                'payUrl' => (string) $matchedQrcode['pay_url'],
+                'isAuto' => 0,
+            ];
+        }
+
+        $channel = TerminalChannel::where('id', $channelId)
+            ->where('type', $type)
+            ->find();
+
+        if (!$channel) {
+            throw new \RuntimeException('当前通道不存在或已被删除');
+        }
+
+        $payUrl = trim((string) $channel['pay_url']);
+        if ($payUrl === '') {
+            throw new \RuntimeException('请您先进入后台配置程序');
         }
 
         return [
@@ -101,7 +120,11 @@ class OrderCreationKernel
         float|string $reallyPrice,
         string $payUrl,
         int $isAuto,
-        int $createDate
+        int $createDate,
+        int $terminalId = 0,
+        int $channelId = 0,
+        string $terminalSnapshot = '',
+        string $channelSnapshot = ''
     ): array {
         $orderInfo = static::payloadFactory()->create(
             $merchantOrderId,
@@ -115,6 +138,11 @@ class OrderCreationKernel
             static::systemConfig()->getOrderCloseRaw(),
             $createDate
         );
+
+        $orderInfo['terminalId'] = $terminalId;
+        $orderInfo['channelId'] = $channelId;
+        $orderInfo['terminalSnapshot'] = $terminalSnapshot;
+        $orderInfo['channelSnapshot'] = $channelSnapshot;
 
         static::orderCache()->cacheOrder($orderId, $orderInfo);
 
@@ -147,5 +175,10 @@ class OrderCreationKernel
     protected static function payloadFactory(): OrderPayloadFactory
     {
         return app()->make(OrderPayloadFactory::class);
+    }
+
+    protected static function priceReservation(): ChannelPriceReservationService
+    {
+        return app()->make(ChannelPriceReservationService::class);
     }
 }

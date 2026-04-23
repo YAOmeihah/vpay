@@ -23,7 +23,22 @@ class OrderCreationServicesTest extends TestCase
         ]);
 
         $this->assertSame(
-            ['payId', 'orderId', 'payType', 'price', 'reallyPrice', 'payUrl', 'isAuto', 'state', 'timeOut', 'date'],
+            [
+                'payId',
+                'orderId',
+                'payType',
+                'price',
+                'reallyPrice',
+                'payUrl',
+                'isAuto',
+                'state',
+                'timeOut',
+                'date',
+                'terminalId',
+                'channelId',
+                'terminalSnapshot',
+                'channelSnapshot',
+            ],
             array_keys($result)
         );
         $this->assertSame('native-order-001', $result['payId']);
@@ -32,12 +47,41 @@ class OrderCreationServicesTest extends TestCase
         $this->assertSame('10.00', $result['reallyPrice']);
         $this->assertSame('weixin://matched-qrcode', $result['payUrl']);
         $this->assertSame(0, $result['isAuto']);
+        $this->assertSame(1, $result['terminalId']);
+        $this->assertSame(1, $result['channelId']);
+        $this->assertSame('默认终端', $result['terminalSnapshot']);
+        $this->assertSame('默认微信通道', $result['channelSnapshot']);
 
         $order = PayOrder::where('pay_id', 'native-order-001')->findOrFail();
         $this->assertSame('native-param', $order->getAttr('param'));
         $this->assertSame('weixin://matched-qrcode', $order->getAttr('pay_url'));
+        $this->assertSame(1, $order->getAttr('terminal_id'));
+        $this->assertSame(1, $order->getAttr('channel_id'));
 
         $this->assertSame($result, CacheService::getOrder($result['orderId']));
+    }
+
+    public function test_native_order_service_assigns_default_terminal_and_channel_metadata(): void
+    {
+        $result = OrderService::createOrder([
+            'payId' => 'native-order-002',
+            'type' => PayOrder::TYPE_WECHAT,
+            'price' => '20.00',
+            'param' => 'native-param-2',
+            'notifyUrl' => 'https://merchant.example/notify/native-2',
+            'returnUrl' => 'https://merchant.example/return/native-2',
+        ]);
+
+        $this->assertSame(1, $result['terminalId']);
+        $this->assertSame(1, $result['channelId']);
+        $this->assertSame('默认终端', $result['terminalSnapshot']);
+        $this->assertSame('默认微信通道', $result['channelSnapshot']);
+
+        $order = PayOrder::where('pay_id', 'native-order-002')->findOrFail();
+        $this->assertSame(1, $order->getAttr('terminal_id'));
+        $this->assertSame(1, $order->getAttr('channel_id'));
+        $this->assertSame('默认终端', $order->getAttr('terminal_snapshot'));
+        $this->assertSame('默认微信通道', $order->getAttr('channel_snapshot'));
     }
 
     public function test_handle_pay_push_can_record_multiple_unmatched_transfers_under_unique_indexes(): void

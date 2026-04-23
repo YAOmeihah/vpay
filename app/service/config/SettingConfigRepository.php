@@ -19,6 +19,7 @@ class SettingConfigRepository
         'monitorKey',
         'close',
         'payQf',
+        'allocationStrategy',
         'wxpay',
         'zfbpay',
         'notify_ssl_verify',

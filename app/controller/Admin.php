@@ -10,7 +10,9 @@ use app\model\TmpPrice;
 use app\service\NotifyService;
 use app\service\admin\AdminPermissionService;
 use app\service\admin\AdminSettingsService;
+use app\service\admin\ChannelAdminService;
 use app\service\admin\DashboardStatsService;
+use app\service\admin\TerminalAdminService;
 use app\service\order\OrderStateManager;
 use chillerlan\QRCode\QRCode;
 use chillerlan\QRCode\QROptions;
@@ -278,6 +280,55 @@ class Admin extends BaseController
     private function adminPermissionService(): AdminPermissionService
     {
         return $this->app->make(AdminPermissionService::class);
+    }
+
+    public function getTerminals()
+    {
+        return json($this->getReturn(1, "成功", $this->terminalAdminService()->paginate($this->request->param())));
+    }
+
+    public function saveTerminal()
+    {
+        return json($this->getReturn(1, "成功", $this->terminalAdminService()->save($this->request->param())));
+    }
+
+    public function toggleTerminal()
+    {
+        $this->terminalAdminService()->toggle((int) $this->request->param('id'));
+        return json($this->getReturn());
+    }
+
+    public function resetTerminalKey()
+    {
+        $key = $this->terminalAdminService()->resetKey((int) $this->request->param('id'));
+        return json($this->getReturn(1, "成功", ['monitorKey' => $key]));
+    }
+
+    public function getTerminalChannels()
+    {
+        $terminalId = (int) $this->request->param('terminalId', $this->request->param('terminal_id', 0));
+        return json($this->getReturn(1, "成功", $this->channelAdminService()->listForTerminal($terminalId)));
+    }
+
+    public function saveTerminalChannel()
+    {
+        return json($this->getReturn(1, "成功", $this->channelAdminService()->save($this->request->param())));
+    }
+
+    public function toggleTerminalChannel()
+    {
+        $this->channelAdminService()->toggle((int) $this->request->param('id'));
+        return json($this->getReturn());
+    }
+
+    private function terminalAdminService(): TerminalAdminService
+    {
+        return $this->app->make(TerminalAdminService::class);
+    }
+
+    private function channelAdminService(): ChannelAdminService
+    {
+        return $this->app->make(ChannelAdminService::class);
     }
 
     /**

@@ -14,25 +14,27 @@ class AdminSettingsService
      */
     public function getSettings(): array
     {
+        $defaultChannelPair = $this->channelAdminService()->legacyDefaultPair();
         $settings = [
             'user' => $this->getConfigValue('user'),
             'pass' => '',
             'notifyUrl' => $this->getConfigValue('notifyUrl'),
             'returnUrl' => $this->getConfigValue('returnUrl'),
             'key' => $this->getConfigValue('key'),
-            'monitorKey' => $this->getConfigValue('monitorKey'),
+            'monitorKey' => $this->terminalAdminService()->legacyDefaultMonitorKey(),
             'notify_ssl_verify' => $this->getConfigValue('notify_ssl_verify', '1'),
             'lastheart' => $this->getConfigValue('lastheart'),
             'lastpay' => $this->getConfigValue('lastpay'),
             'jkstate' => $this->getConfigValue('jkstate'),
             'close' => $this->getConfigValue('close'),
             'payQf' => $this->getConfigValue('payQf'),
-            'wxpay' => $this->getConfigValue('wxpay'),
-            'zfbpay' => $this->getConfigValue('zfbpay'),
+            'allocationStrategy' => $this->getConfigValue('allocationStrategy', 'fixed_priority'),
+            'wxpay' => $defaultChannelPair['wxpay'],
+            'zfbpay' => $defaultChannelPair['zfbpay'],
         ];
 
         $settings['key'] = $this->ensureGeneratedKey('key', $settings['key']);
-        $settings['monitorKey'] = $this->ensureGeneratedKey('monitorKey', $settings['monitorKey']);
+        $settings['monitorKey'] = $this->ensureLegacyMonitorKey($settings['monitorKey']);
 
         return $settings;
     }
@@ -44,7 +46,7 @@ class AdminSettingsService
     {
         $params = [
             'user', 'pass', 'notifyUrl', 'returnUrl', 'key', 'monitorKey',
-            'notify_ssl_verify', 'close', 'payQf', 'wxpay', 'zfbpay',
+            'notify_ssl_verify', 'close', 'payQf', 'allocationStrategy', 'wxpay', 'zfbpay',
         ];
 
         foreach ($params as $param) {
@@ -67,9 +69,25 @@ class AdminSettingsService
 
             if (in_array($param, [
                 'user', 'notifyUrl', 'returnUrl', 'key', 'monitorKey',
-                'notify_ssl_verify', 'close', 'payQf', 'wxpay', 'zfbpay',
+                'notify_ssl_verify', 'close', 'payQf', 'allocationStrategy', 'wxpay', 'zfbpay',
             ], true)) {
                 $value = trim($value);
+            }
+
+            if ($param === 'monitorKey') {
+                $this->terminalAdminService()->updateLegacyDefaultMonitorKey($value);
+                $this->setConfigValue($param, $value);
+                continue;
+            }
+
+            if ($param === 'wxpay') {
+                $this->channelAdminService()->updateLegacyDefaultPayUrl(1, $value);
+                continue;
+            }
+
+            if ($param === 'zfbpay') {
+                $this->channelAdminService()->updateLegacyDefaultPayUrl(2, $value);
+                continue;
             }
 
             $this->setConfigValue($param, $value);
@@ -146,9 +164,32 @@ class AdminSettingsService
         return $generated;
     }
 
+    private function ensureLegacyMonitorKey(string $currentValue): string
+    {
+        if ($currentValue !== '') {
+            return $currentValue;
+        }
+
+        $generated = $this->generateKey();
+        $this->terminalAdminService()->updateLegacyDefaultMonitorKey($generated);
+        $this->setConfigValue('monitorKey', $generated);
+
+        return $generated;
+    }
+
     protected function dashboardStatsService(): DashboardStatsService
     {
         return new DashboardStatsService();
+    }
+
+    protected function terminalAdminService(): TerminalAdminService
+    {
+        return new TerminalAdminService();
+    }
+
+    protected function channelAdminService(): ChannelAdminService
+    {
+        return new ChannelAdminService();
     }
 
     protected function configRepository(): SettingConfigRepository

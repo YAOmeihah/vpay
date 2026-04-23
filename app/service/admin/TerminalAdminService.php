@@ -124,10 +124,11 @@ class TerminalAdminService
             throw new \RuntimeException('终端不存在');
         }
 
-        $openOrder = PayOrder::where('terminal_id', $id)
+        $openOrderId = Db::name('pay_order')
+            ->where('terminal_id', $id)
             ->where('state', PayOrder::STATE_UNPAID)
-            ->find();
-        if ($openOrder !== null) {
+            ->value('id');
+        if ($openOrderId !== null) {
             throw new \RuntimeException('该终端存在未支付订单，不能删除');
         }
 

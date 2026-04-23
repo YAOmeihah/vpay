@@ -131,6 +131,7 @@ class PayPageStaticAssetsTest extends TestCase
         $extensions = ['php', 'html', 'js', 'ts', 'vue', 'css', 'scss', 'md', 'json'];
         $excludedDirs = [
             $this->rootPath . '/.git',
+            $this->rootPath . '/.worktrees',
             $this->rootPath . '/vendor',
             $this->rootPath . '/node_modules',
             $this->rootPath . '/runtime',

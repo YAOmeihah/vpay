@@ -3,7 +3,6 @@ import { ref } from "vue";
 import type { FormInstance, FormRules } from "element-plus";
 
 import type { PaymentSection } from "../sectionState";
-import { generateSettingsKey } from "../keyGenerator";
 
 const props = defineProps<{
   model: PaymentSection;
@@ -29,9 +28,9 @@ const rules: FormRules<PaymentSection> = {
   notifyUrl: [{ required: true, message: "请输入异步回调地址", trigger: "blur" }],
   returnUrl: [{ required: true, message: "请输入同步回调地址", trigger: "blur" }],
   key: [{ required: true, message: "请输入通讯密钥", trigger: "blur" }],
-  monitorKey: [{ required: true, message: "请输入监控签名密钥", trigger: "blur" }],
   close: [{ validator: validatePositiveInteger, trigger: "blur" }],
-  payQf: [{ required: true, message: "请选择区分方式", trigger: "change" }]
+  payQf: [{ required: true, message: "请选择区分方式", trigger: "change" }],
+  allocationStrategy: [{ required: true, message: "请选择分配策略", trigger: "change" }]
 };
 
 const handleSave = async () => {
@@ -39,10 +38,6 @@ const handleSave = async () => {
   const valid = await formRef.value.validate().catch(() => false);
   if (!valid) return;
   emit("save");
-};
-
-const handleGenerateMonitorKey = () => {
-  props.model.monitorKey = generateSettingsKey();
 };
 </script>
 
@@ -94,28 +89,23 @@ const handleGenerateMonitorKey = () => {
         <el-input v-model="props.model.key" placeholder="请输入通讯密钥" />
       </el-form-item>
 
-      <el-form-item label="监控密钥" prop="monitorKey">
-        <div class="w-full space-y-2">
-          <div class="flex w-full gap-2">
-            <el-input
-              v-model="props.model.monitorKey"
-              placeholder="请输入监控端签名密钥"
-            />
-            <el-button plain @click="handleGenerateMonitorKey">
-              自动生成
-            </el-button>
-          </div>
-          <div class="text-xs leading-5 text-gray-500">
-            监控端回调签名专用，和商户通讯密钥分开管理。
-          </div>
-        </div>
-      </el-form-item>
-
       <el-form-item label="区分方式" prop="payQf">
         <el-select v-model="props.model.payQf" class="w-full">
           <el-option label="金额递增" value="1" />
           <el-option label="金额递减" value="2" />
         </el-select>
+      </el-form-item>
+
+      <el-form-item label="分配策略" prop="allocationStrategy">
+        <div class="w-full space-y-2">
+          <el-select v-model="props.model.allocationStrategy" class="w-full">
+            <el-option label="固定优先级" value="fixed_priority" />
+            <el-option label="顺序轮询" value="round_robin" />
+          </el-select>
+          <div class="text-xs leading-5 text-gray-500">
+            固定优先级会优先选择分配顺序最小的在线终端；顺序轮询会在可用终端之间依次切换。
+          </div>
+        </div>
       </el-form-item>
 
       <div class="flex justify-end">

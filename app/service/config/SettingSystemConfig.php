@@ -20,11 +20,6 @@ class SettingSystemConfig implements SystemConfig
         return $this->getConfigValue('key');
     }
 
-    public function getMonitorSignKey(): string
-    {
-        return $this->getConfigValue('monitorKey');
-    }
-
     public function getOrderCloseMinutes(): int
     {
         return (int) $this->getConfigValue('close');
@@ -38,16 +33,6 @@ class SettingSystemConfig implements SystemConfig
     public function getPayQfMode(): string
     {
         return $this->getConfigValue('payQf');
-    }
-
-    public function getWeChatPayUrl(): string
-    {
-        return $this->getConfigValue('wxpay');
-    }
-
-    public function getAlipayPayUrl(): string
-    {
-        return $this->getConfigValue('zfbpay');
     }
 
     public function getNotifySslVerifyEnabled(): bool

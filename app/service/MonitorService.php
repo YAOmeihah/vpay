@@ -3,27 +3,22 @@ declare(strict_types=1);
 
 namespace app\service;
 
+use app\model\MonitorTerminal;
 use app\model\PayOrder;
 use app\model\TmpPrice;
 use app\service\config\SettingSystemConfig;
 use app\service\config\SystemConfig;
 use app\service\order\ExpiredOrderCleanupGate;
 use app\service\order\OrderStateManager;
-use app\service\runtime\MonitorState;
-use app\service\runtime\SettingMonitorState;
 
 class MonitorService
 {
     private const REQUEST_CLEANUP_THROTTLE_SECONDS = 5;
 
-    /**
-     * 更新心跳状态
-     */
-    public static function heartbeat(): void
+    public static function heartbeatForTerminal(int $terminalId, string $ip): void
     {
-        $state = static::monitorState();
-        $state->markHeartbeatAt(time());
-        $state->markOnline();
+        $timestamp = static::currentTimestamp();
+        static::persistTerminalHeartbeat($terminalId, $ip, $timestamp);
     }
 
     /**
@@ -31,9 +26,13 @@ class MonitorService
      */
     public static function checkMonitorTimeout(): void
     {
-        if ((time() - static::monitorState()->getLastHeartbeatAt()) > 90) {
-            static::monitorState()->markOffline();
-        }
+        $threshold = static::currentTimestamp() - 90;
+        MonitorTerminal::where('online_state', 'online')
+            ->where('last_heartbeat_at', '<', $threshold)
+            ->update([
+                'online_state' => 'offline',
+                'updated_at' => static::currentTimestamp(),
+            ]);
     }
 
     /**
@@ -87,9 +86,19 @@ class MonitorService
         }
     }
 
-    protected static function monitorState(): MonitorState
+    protected static function currentTimestamp(): int
     {
-        return app()->make(SettingMonitorState::class);
+        return time();
+    }
+
+    protected static function persistTerminalHeartbeat(int $terminalId, string $ip, int $timestamp): void
+    {
+        MonitorTerminal::where('id', $terminalId)->update([
+            'last_heartbeat_at' => $timestamp,
+            'last_ip' => $ip,
+            'online_state' => 'online',
+            'updated_at' => $timestamp,
+        ]);
     }
 
     protected static function systemConfig(): SystemConfig

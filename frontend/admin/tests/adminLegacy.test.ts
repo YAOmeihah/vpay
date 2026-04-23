@@ -7,7 +7,7 @@ import {
   getMonitorStatus,
   mapDashboardStats,
   normalizePagedList
-} from "../src/utils/adminLegacy.js";
+} from "../src/utils/adminLegacy.ts";
 
 test("mapDashboardStats preserves legacy backend field names", () => {
   const mapped = mapDashboardStats({
@@ -50,12 +50,12 @@ test("getMonitorStatus matches legacy monitor copy", () => {
   });
 });
 
-test("buildMonitorConfigUrl mirrors legacy host/key composition", () => {
+test("buildMonitorConfigUrl mirrors multi-terminal binding payload composition", () => {
   assert.equal(
-    buildMonitorConfigUrl("https://pay.example.com", "abc123"),
-    "https://pay.example.com/abc123"
+    buildMonitorConfigUrl("https://pay.example.com", "term-a", "abc123"),
+    "https://pay.example.com/monitor-bind?terminalCode=term-a&monitorKey=abc123"
   );
-  assert.equal(buildMonitorConfigUrl("https://pay.example.com/", ""), "");
+  assert.equal(buildMonitorConfigUrl("https://pay.example.com/", "term-a", ""), "");
 });
 
 test("normalizePagedList keeps legacy list payloads usable when data is empty or count is missing", () => {

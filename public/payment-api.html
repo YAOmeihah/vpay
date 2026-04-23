@@ -63,9 +63,9 @@
       <section class="steps-section" id="monitor-endpoints" aria-labelledby="monitor-title">
         <h2 id="monitor-title">监控接口</h2>
         <ul class="entry-list">
-          <li><strong>`POST|GET /getState`：</strong> 查询监控端状态，返回 `lastheart`、`lastpay`、`jkstate`。</li>
-          <li><strong>`POST|GET /appHeart`：</strong> 监控端心跳上报，请求参数包含 `t` 和 `sign`。</li>
-          <li><strong>`POST /appPush`：</strong> 监控端上报收款结果，请求参数包含 `type`、`amountCents`、`ts`、`nonce`、`eventId`、`sign`，并带防重放校验。</li>
+          <li><strong>`POST|GET /getState`：</strong> 查询指定监控终端状态。必须提交 `terminalCode`、`t|ts`、`sign`，按该终端返回 `lastheart`、`lastpay`、`jkstate`。</li>
+          <li><strong>`POST|GET /appHeart`：</strong> 指定监控终端心跳上报。必须提交 `terminalCode`、`t|ts`、`sign`，通过后刷新该终端的在线状态与心跳时间。</li>
+          <li><strong>`POST /appPush`：</strong> 监控端上报收款结果。必须提交 `terminalCode`、`type`、`amountCents`、`ts`、`nonce`、`eventId`、`sign`，签名绑定到该终端并只匹配分配给该终端的订单，且带防重放校验。</li>
           <li><strong>`POST|GET /closeEndOrder`：</strong> 清理超时未完成订单。</li>
         </ul>
       </section>

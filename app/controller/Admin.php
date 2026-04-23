@@ -4,14 +4,18 @@ declare(strict_types=1);
 namespace app\controller;
 
 use app\BaseController;
+use app\model\MonitorTerminal;
 use app\model\PayOrder;
 use app\model\PayQrcode;
 use app\model\TmpPrice;
 use app\service\NotifyService;
 use app\service\admin\AdminPermissionService;
 use app\service\admin\AdminSettingsService;
+use app\service\admin\ChannelAdminService;
 use app\service\admin\DashboardStatsService;
+use app\service\admin\TerminalAdminService;
 use app\service\order\OrderStateManager;
+use app\service\payment\PaymentTestLabService;
 use chillerlan\QRCode\QRCode;
 use chillerlan\QRCode\QROptions;
 use think\facade\Db;
@@ -92,11 +96,7 @@ class Admin extends BaseController
         $username = Session::get('admin_user');
 
         if (!$username) {
-            return json([
-                'code' => -1,
-                'msg' => '没有登录',
-                'data' => null,
-            ]);
+            return json($this->getReturn(40101, '没有登录', null), 401);
         }
 
         return json([
@@ -122,6 +122,43 @@ class Admin extends BaseController
             'msg' => '退出成功',
             'data' => null,
         ]);
+    }
+
+    public function createPaymentTestOrder()
+    {
+        try {
+            return json($this->getReturn(
+                1,
+                '成功',
+                $this->paymentTestLabService()->createOrder(
+                    (array)$this->request->param(),
+                    $this->requestBaseUrl()
+                )
+            ));
+        } catch (\RuntimeException $e) {
+            return json($this->getReturn(-1, $e->getMessage()));
+        }
+    }
+
+    public function getPaymentTestOrder()
+    {
+        try {
+            return json($this->getReturn(
+                1,
+                '成功',
+                $this->paymentTestLabService()->getOrderStatus((string)$this->request->param('orderId', ''))
+            ));
+        } catch (\RuntimeException $e) {
+            return json($this->getReturn(-1, $e->getMessage()));
+        }
+    }
+
+    public function getPaymentTestCallback()
+    {
+        return json($this->getReturn(1, '成功', $this->paymentTestLabService()->getLatestCallback(
+            (string)$this->request->param('orderId', ''),
+            (string)$this->request->param('payId', '')
+        )));
     }
 
     /**
@@ -280,12 +317,84 @@ class Admin extends BaseController
         return $this->app->make(AdminPermissionService::class);
     }
 
+    private function requestBaseUrl(): string
+    {
+        return $this->request->scheme() . '://' . $this->request->host(true);
+    }
+
+    public function getTerminals()
+    {
+        return json($this->getReturn(1, "成功", $this->terminalAdminService()->paginate($this->request->param())));
+    }
+
+    public function getTerminal()
+    {
+        return json($this->getReturn(1, "成功", $this->terminalAdminService()->find((int) $this->request->param('id'))));
+    }
+
+    public function saveTerminal()
+    {
+        return json($this->getReturn(1, "成功", $this->terminalAdminService()->save($this->request->param())));
+    }
+
+    public function toggleTerminal()
+    {
+        $this->terminalAdminService()->toggle((int) $this->request->param('id'));
+        return json($this->getReturn());
+    }
+
+    public function deleteTerminal()
+    {
+        try {
+            $this->terminalAdminService()->delete((int) $this->request->param('id'));
+            return json($this->getReturn());
+        } catch (\RuntimeException $e) {
+            return json($this->getReturn(-1, $e->getMessage()));
+        }
+    }
+
+    public function resetTerminalKey()
+    {
+        $key = $this->terminalAdminService()->resetKey((int) $this->request->param('id'));
+        return json($this->getReturn(1, "成功", ['monitorKey' => $key]));
+    }
+
+    public function getTerminalChannels()
+    {
+        $terminalId = (int) $this->request->param('terminalId', $this->request->param('terminal_id', 0));
+        return json($this->getReturn(1, "成功", $this->channelAdminService()->listForTerminal($terminalId)));
+    }
+
+    public function saveTerminalChannel()
+    {
+        return json($this->getReturn(1, "成功", $this->channelAdminService()->save($this->request->param())));
+    }
+
+    public function toggleTerminalChannel()
+    {
+        $this->channelAdminService()->toggle((int) $this->request->param('id'));
+        return json($this->getReturn());
+    }
+
+    private function terminalAdminService(): TerminalAdminService
+    {
+        return $this->app->make(TerminalAdminService::class);
+    }
+
+    private function channelAdminService(): ChannelAdminService
+    {
+        return $this->app->make(ChannelAdminService::class);
+    }
+
     /**
      * 添加支付二维码
      */
     public function addPayQrcode()
     {
         PayQrcode::create([
+            "channel_id" => ($this->request->param("channelId", $this->request->param("channel_id")) !== null)
+                ? (int) $this->request->param("channelId", $this->request->param("channel_id"))
+                : null,
             "type" => (int)$this->request->param("type"),
             "pay_url" => $this->request->param("pay_url"),
             "price" => (float)$this->request->param("price"),
@@ -302,8 +411,12 @@ class Admin extends BaseController
         $page = (int)$this->request->param("page", 1);
         $size = (int)$this->request->param("limit", 10);
         $type = $this->request->param("type");
+        $channelId = $this->request->param("channelId", $this->request->param("channel_id"));
 
         $query = PayQrcode::where("type", (int)$type);
+        if ($channelId !== null && $channelId !== '') {
+            $query = $query->where("channel_id", (int) $channelId);
+        }
         $count = $query->count();
         $array = $query->order("id", "desc")
             ->page($page, $size)
@@ -368,7 +481,7 @@ class Admin extends BaseController
         $type = $this->request->param("type");
         $state = $this->request->param("state");
 
-        $query = PayOrder::order("id", "desc");
+        $query = Db::name('pay_order')->order("id", "desc");
 
         if ($type) {
             $query = $query->where("type", (int)$type);
@@ -379,6 +492,21 @@ class Admin extends BaseController
 
         $count = $query->count();
         $array = $query->page($page, $size)->select()->toArray();
+        $terminalIds = array_values(array_unique(array_filter(array_map(
+            static fn (array $row): int => (int) ($row['terminal_id'] ?? 0),
+            $array
+        ))));
+        $terminalCodes = [];
+        if ($terminalIds !== []) {
+            $terminalCodes = MonitorTerminal::whereIn('id', $terminalIds)->column('terminal_code', 'id');
+        }
+
+        $array = array_map(static function (array $row) use ($terminalCodes): array {
+            $terminalId = (int) ($row['terminal_id'] ?? 0);
+            $row['terminal_code'] = $terminalId > 0 ? (string) ($terminalCodes[$terminalId] ?? '') : '';
+
+            return $row;
+        }, $array);
 
         return json([
             "code" => 1,
@@ -502,6 +630,11 @@ class Admin extends BaseController
     private function orderStateManager(): OrderStateManager
     {
         return $this->app->make(OrderStateManager::class);
+    }
+
+    private function paymentTestLabService(): PaymentTestLabService
+    {
+        return $this->app->make(PaymentTestLabService::class);
     }
 
 }

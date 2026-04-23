@@ -18,10 +18,11 @@ class PayQrcode extends Model
     
     // 设置字段信息
     protected $schema = [
-        'id'      => 'bigint',
-        'pay_url' => 'string',
-        'price'   => 'float',
-        'type'    => 'int',
+        'id'         => 'bigint',
+        'channel_id' => 'bigint',
+        'pay_url'    => 'string',
+        'price'      => 'float',
+        'type'       => 'int',
     ];
     
     // 支付类型常量

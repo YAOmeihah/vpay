@@ -11,7 +11,6 @@ use app\service\admin\AdminSettingsService;
 use app\service\admin\DashboardStatsService;
 use app\service\order\ExpiredOrderCleanupGate;
 use app\service\order\OrderStateManager;
-use app\service\runtime\SettingMonitorState;
 use app\service\security\LoginAttemptLimiter;
 use app\command\CacheManage;
 use chillerlan\QRCode\QRCode;
@@ -137,20 +136,16 @@ class ControllerEdgeServiceRegressionTest extends TestCase
             'notifyUrl' => 'https://merchant.example/notify',
             'returnUrl' => 'https://merchant.example/return',
             'key' => '',
-            'monitorKey' => '',
             'notify_ssl_verify' => '0',
-            'lastheart' => '1712200000',
-            'lastpay' => '1712200300',
-            'jkstate' => '1',
             'close' => '15',
             'payQf' => '0',
-            'wxpay' => 'weixin://default-pay-url',
-            'zfbpay' => 'alipays://default-pay-url',
         ]) extends AdminSettingsService {
             public array $savedSettings = [];
+            public array $settings;
 
-            public function __construct(private array $settings)
+            public function __construct(array $settings)
             {
+                $this->settings = $settings;
             }
 
             protected function getConfigValue(string $key, string $default = ''): string
@@ -174,6 +169,7 @@ class ControllerEdgeServiceRegressionTest extends TestCase
             {
                 return 'generated-sign-key';
             }
+
         };
 
         $settings = $service->getSettings();
@@ -184,23 +180,16 @@ class ControllerEdgeServiceRegressionTest extends TestCase
             'notifyUrl',
             'returnUrl',
             'key',
-            'monitorKey',
             'notify_ssl_verify',
-            'lastheart',
-            'lastpay',
-            'jkstate',
             'close',
             'payQf',
-            'wxpay',
-            'zfbpay',
+            'allocationStrategy',
         ], array_keys($settings));
         $this->assertSame('admin', $settings['user']);
         $this->assertSame('', $settings['pass']);
         $this->assertSame('generated-sign-key', $settings['key']);
-        $this->assertSame('generated-sign-key', $settings['monitorKey']);
         $this->assertSame([
             'key' => 'generated-sign-key',
-            'monitorKey' => 'generated-sign-key',
         ], $service->savedSettings);
     }
 
@@ -210,9 +199,11 @@ class ControllerEdgeServiceRegressionTest extends TestCase
             'key' => '0',
         ]) extends AdminSettingsService {
             public array $savedSettings = [];
+            public array $settings;
 
-            public function __construct(private array $settings)
+            public function __construct(array $settings)
             {
+                $this->settings = $settings;
             }
 
             protected function getConfigValue(string $key, string $default = ''): string
@@ -232,11 +223,14 @@ class ControllerEdgeServiceRegressionTest extends TestCase
             {
                 return 'generated-sign-key';
             }
+
         };
 
         $settings = $service->getSettings();
         $this->assertSame('generated-sign-key', $settings['key']);
-        $this->assertSame(['key' => 'generated-sign-key'], $service->savedSettings);
+        $this->assertSame([
+            'key' => 'generated-sign-key',
+        ], $service->savedSettings);
     }
 
     public function test_admin_settings_service_ignores_zero_password(): void
@@ -268,9 +262,11 @@ class ControllerEdgeServiceRegressionTest extends TestCase
     {
         $service = new class(['key' => '0']) extends AdminSettingsService {
             public array $savedSettings = [];
+            public array $settings;
 
-            public function __construct(private array $settings)
+            public function __construct(array $settings)
             {
+                $this->settings = $settings;
             }
 
             protected function getConfigValue(string $key, string $default = ''): string
@@ -289,12 +285,15 @@ class ControllerEdgeServiceRegressionTest extends TestCase
             {
                 return 'legacy-empty-regenerated-key';
             }
+
         };
 
         $settings = $service->getSettings();
 
         $this->assertSame('legacy-empty-regenerated-key', $settings['key']);
-        $this->assertSame(['key' => 'legacy-empty-regenerated-key'], $service->savedSettings);
+        $this->assertSame([
+            'key' => 'legacy-empty-regenerated-key',
+        ], $service->savedSettings);
     }
 
     public function test_admin_settings_service_ignores_password_value_zero_to_match_legacy_empty_semantics(): void
@@ -348,13 +347,13 @@ class ControllerEdgeServiceRegressionTest extends TestCase
                     }
                 };
             }
+
         };
 
         $service->saveSettings([
             'notifyUrl' => 'https://merchant.example/new-notify',
             'returnUrl' => 'https://merchant.example/new-return',
             'key' => 'next-sign-key',
-            'monitorKey' => 'next-monitor-key',
             'notify_ssl_verify' => '0',
             'close' => '30',
             'payQf' => '2',
@@ -364,7 +363,6 @@ class ControllerEdgeServiceRegressionTest extends TestCase
             'notifyUrl' => 'https://merchant.example/new-notify',
             'returnUrl' => 'https://merchant.example/new-return',
             'key' => 'next-sign-key',
-            'monitorKey' => 'next-monitor-key',
             'notify_ssl_verify' => '0',
             'close' => '30',
             'payQf' => '2',
@@ -384,6 +382,12 @@ class ControllerEdgeServiceRegressionTest extends TestCase
             'settings:view',
             'settings:save',
             'monitor:view',
+            'terminals:view',
+            'terminals:save',
+            'terminals:toggle',
+            'channels:view',
+            'channels:save',
+            'channels:toggle',
             'qrcode:add',
             'qrcode:view',
             'qrcode:delete',
@@ -519,61 +523,16 @@ class ControllerEdgeServiceRegressionTest extends TestCase
         ], $payload);
     }
 
-    public function test_monitor_state_raw_accessors_preserve_empty_string_values(): void
-    {
-        $state = new class extends SettingMonitorState {
-            public array $getKeys = [];
-            public array $setKeys = [];
-
-            /**
-             * @var array<string, string>
-             */
-            private array $values = [
-                'lastheart' => '',
-                'lastpay' => '',
-                'jkstate' => '',
-            ];
-
-            protected function getConfigValue(string $key, string $default = ''): string
-            {
-                $this->getKeys[] = $key;
-                return $this->values[$key] ?? $default;
-            }
-
-            protected function setConfigValue(string $key, string $value): bool
-            {
-                $this->setKeys[] = $key;
-                $this->values[$key] = $value;
-
-                return true;
-            }
-        };
-
-        $this->assertSame('', $state->getLastHeartbeatRaw());
-        $this->assertSame('', $state->getLastPaidRaw());
-        $this->assertSame('', $state->getOnlineFlagRaw());
-        $this->assertSame(0, $state->getLastHeartbeatAt());
-        $this->assertSame(0, $state->getLastPaidAt());
-        $this->assertFalse($state->isOnline());
-        $this->assertSame(['lastheart', 'lastpay', 'jkstate'], array_values(array_unique($state->getKeys)));
-
-        $state->markHeartbeatAt(1712200000);
-        $state->markPaidAt(1712200300);
-        $state->markOnline();
-        $state->markOffline();
-
-        $this->assertSame(['lastheart', 'lastpay', 'jkstate'], array_values(array_unique($state->setKeys)));
-    }
-
-    public function test_monitor_controller_uses_monitor_signature_verifier_for_heartbeat_and_state(): void
+    public function test_monitor_controller_uses_terminal_signature_verifier_for_heartbeat_and_state(): void
     {
         $source = (string) file_get_contents(self::$rootPath . 'app/controller/monitor/Monitor.php');
 
         $this->assertStringContainsString(
-            'verifyMonitorSimpleSignature',
+            'verifyTerminalMonitorSimpleSignature',
             $source,
-            'Monitor controller should route heartbeat/state checks through the monitor-only signer.'
+            'Monitor controller should route heartbeat/state checks through terminal-specific signing.'
         );
+        $this->assertStringNotContainsString('verifyMonitorSimpleSignature', $source);
         $this->assertStringNotContainsString(
             'verifySimpleSign($t, $this->request->param(\'sign\', \'\'))',
             $source,

@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace tests;
 
+use app\model\PaymentEvent;
 use app\model\PayOrder;
 use app\service\CacheService;
 use app\service\OrderService;
@@ -109,5 +110,76 @@ class OrderCreationServicesTest extends TestCase
         $this->assertSame('无订单转账', $secondRow->getAttr('param'));
         $this->assertNotSame($firstRow->getAttr('order_id'), $secondRow->getAttr('order_id'));
         $this->assertNotSame($firstRow->getAttr('pay_id'), $secondRow->getAttr('pay_id'));
+    }
+
+    public function test_handle_pay_push_matches_only_orders_assigned_to_the_target_terminal(): void
+    {
+        $this->assertTrue(
+            method_exists(OrderService::class, 'handleTerminalPayPush'),
+            'Multi-terminal callbacks need a terminal-scoped order matcher.'
+        );
+
+        PayOrder::create([
+            'close_date' => 0,
+            'create_date' => time(),
+            'is_auto' => 0,
+            'notify_url' => 'https://merchant.example/notify/a',
+            'order_id' => 'order-terminal-a',
+            'param' => 'term-a',
+            'pay_date' => 0,
+            'pay_id' => 'merchant-terminal-a',
+            'pay_url' => 'weixin://pay/a',
+            'price' => '30.00',
+            'really_price' => '30.00',
+            'return_url' => 'https://merchant.example/return/a',
+            'terminal_id' => 11,
+            'channel_id' => 21,
+            'terminal_snapshot' => '终端 A',
+            'channel_snapshot' => '微信 A',
+            'state' => PayOrder::STATE_UNPAID,
+            'type' => PayOrder::TYPE_WECHAT,
+        ]);
+        PayOrder::create([
+            'close_date' => 0,
+            'create_date' => time(),
+            'is_auto' => 0,
+            'notify_url' => 'https://merchant.example/notify/b',
+            'order_id' => 'order-terminal-b',
+            'param' => 'term-b',
+            'pay_date' => 0,
+            'pay_id' => 'merchant-terminal-b',
+            'pay_url' => 'weixin://pay/b',
+            'price' => '30.00',
+            'really_price' => '30.00',
+            'return_url' => 'https://merchant.example/return/b',
+            'terminal_id' => 12,
+            'channel_id' => 22,
+            'terminal_snapshot' => '终端 B',
+            'channel_snapshot' => '微信 B',
+            'state' => PayOrder::STATE_UNPAID,
+            'type' => PayOrder::TYPE_WECHAT,
+        ]);
+
+        $result = OrderService::handleTerminalPayPush(
+            12,
+            '30.00',
+            PayOrder::TYPE_WECHAT,
+            'evt-terminal-b',
+            ['terminalCode' => 'term-b']
+        );
+
+        $this->assertTrue($result['matched']);
+        $this->assertFalse($result['alreadyProcessed']);
+
+        $orderA = PayOrder::where('pay_id', 'merchant-terminal-a')->findOrFail();
+        $orderB = PayOrder::where('pay_id', 'merchant-terminal-b')->findOrFail();
+        $event = PaymentEvent::where('event_id', 'evt-terminal-b')->findOrFail();
+
+        $this->assertSame(PayOrder::STATE_UNPAID, $orderA->getAttr('state'));
+        $this->assertContains($orderB->getAttr('state'), [PayOrder::STATE_PAID, PayOrder::STATE_NOTIFY_FAILED]);
+        $this->assertSame(12, $event->getAttr('terminal_id'));
+        $this->assertSame(22, $event->getAttr('channel_id'));
+        $this->assertSame('order-terminal-b', $event->getAttr('matched_order_id'));
+        $this->assertSame('matched', $event->getAttr('result'));
     }
 }

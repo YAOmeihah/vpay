@@ -11,6 +11,7 @@ use app\model\TmpPrice;
 use app\service\config\SettingSystemConfig;
 use app\service\config\SystemConfig;
 use app\service\order\OrderStateManager;
+use app\service\payment\PaymentEventService;
 use app\service\runtime\MonitorState;
 use app\service\runtime\SettingMonitorState;
 use app\service\terminal\ChannelPriceReservationService;
@@ -106,72 +107,24 @@ class OrderService
     {
         static::monitorState()->markPaidAt(time());
 
-        $res = PayOrder::where('really_price', $price)
-            ->where('state', PayOrder::STATE_UNPAID)
-            ->where('type', $type)
-            ->find();
+        return static::processPayPush(null, $price, $type);
+    }
 
-        if (!$res) {
-            static::runTransaction(function () use ($price, $type): void {
-                $suffix = OrderCreationKernel::generatePlatformOrderId();
+    /**
+     * 处理带终端标识的支付推送
+     * @param array<string, mixed> $rawPayload
+     * 返回: ['matched' => bool, 'alreadyProcessed' => bool, 'notifyOk' => bool, 'notifyDetail' => string]
+     */
+    public static function handleTerminalPayPush(
+        int $terminalId,
+        string $price,
+        int $type,
+        string $eventId,
+        array $rawPayload
+    ): array {
+        static::monitorState()->markPaidAt(time());
 
-                PayOrder::create([
-                    'close_date'   => 0,
-                    'create_date'  => time(),
-                    'is_auto'      => 0,
-                    'notify_url'   => '',
-                    'order_id'     => '无订单转账-' . $suffix,
-                    'param'        => '无订单转账',
-                    'pay_date'     => 0,
-                    'pay_id'       => '无订单转账-pay-' . $suffix,
-                    'pay_url'      => '',
-                    'price'        => $price,
-                    'really_price' => $price,
-                    'return_url'   => '',
-                    'state'        => PayOrder::STATE_PAID,
-                    'type'         => $type,
-                ]);
-            });
-
-            return ['matched' => false, 'alreadyProcessed' => false, 'notifyOk' => true, 'notifyDetail' => ''];
-        }
-
-        $affected = static::runTransaction(function () use ($res): int {
-            // 乐观锁更新，防止并发重复处理
-            $affected = PayOrder::where('id', $res['id'])
-                ->where('state', PayOrder::STATE_UNPAID)
-                ->update(['state' => PayOrder::STATE_PAID, 'pay_date' => time(), 'close_date' => time()]);
-
-            if ($affected === 0) {
-                return 0;
-            }
-
-            TmpPrice::where('oid', $res['order_id'])->delete();
-
-            return $affected;
-        });
-
-        if ($affected === 0) {
-            return ['matched' => true, 'alreadyProcessed' => true, 'notifyOk' => true, 'notifyDetail' => ''];
-        }
-
-        static::orderStateManager()->invalidateOrderView((string) $res['order_id']);
-
-        $notifyResult = NotifyService::sendNotifyDetailed($res->toArray());
-        $notifyOk = $notifyResult['ok'];
-        $notifyDetail = $notifyResult['detail'];
-
-        if (!$notifyOk) {
-            PayOrder::where('id', $res['id'])->update(['state' => PayOrder::STATE_NOTIFY_FAILED]);
-            static::orderStateManager()->invalidateOrderView((string) $res['order_id']);
-        }
-
-        return [
-            'matched' => true,
-            'alreadyProcessed' => false,
-            'notifyOk' => $notifyOk,
-            'notifyDetail' => $notifyDetail,
-        ];
+        return static::processPayPush($terminalId, $price, $type, $eventId, $rawPayload);
     }
 
     protected static function systemConfig(): SystemConfig
@@ -192,6 +145,11 @@ class OrderService
     protected static function runTransaction(callable $callback): mixed
     {
         return Db::transaction($callback);
+    }
+
+    protected static function paymentEventService(): PaymentEventService
+    {
+        return app()->make(PaymentEventService::class);
     }
 
     protected static function allocator(): TerminalAllocatorService
@@ -276,5 +234,109 @@ class OrderService
             'last_used_at' => $timestamp,
             'updated_at' => $timestamp,
         ]);
+    }
+
+    /**
+     * @param array<string, mixed> $rawPayload
+     */
+    private static function processPayPush(
+        ?int $terminalId,
+        string $price,
+        int $type,
+        string $eventId = '',
+        array $rawPayload = []
+    ): array {
+        $res = PayOrder::where('really_price', $price)
+            ->where('state', PayOrder::STATE_UNPAID)
+            ->where('type', $type);
+
+        if ($terminalId !== null) {
+            $res->where('terminal_id', $terminalId);
+        }
+
+        $matchedOrder = $res->find();
+
+        if (!$matchedOrder) {
+            if ($terminalId !== null && $eventId !== '') {
+                static::paymentEventService()->recordUnmatched(
+                    $terminalId,
+                    $eventId,
+                    $type,
+                    (int) bcmul($price, '100', 0),
+                    $rawPayload
+                );
+            }
+
+            static::runTransaction(function () use ($price, $type): void {
+                $suffix = OrderCreationKernel::generatePlatformOrderId();
+
+                PayOrder::create([
+                    'close_date'   => 0,
+                    'create_date'  => time(),
+                    'is_auto'      => 0,
+                    'notify_url'   => '',
+                    'order_id'     => '无订单转账-' . $suffix,
+                    'param'        => '无订单转账',
+                    'pay_date'     => 0,
+                    'pay_id'       => '无订单转账-pay-' . $suffix,
+                    'pay_url'      => '',
+                    'price'        => $price,
+                    'really_price' => $price,
+                    'return_url'   => '',
+                    'state'        => PayOrder::STATE_PAID,
+                    'type'         => $type,
+                ]);
+            });
+
+            return ['matched' => false, 'alreadyProcessed' => false, 'notifyOk' => true, 'notifyDetail' => ''];
+        }
+
+        $affected = static::runTransaction(function () use ($matchedOrder): int {
+            $affected = PayOrder::where('id', $matchedOrder['id'])
+                ->where('state', PayOrder::STATE_UNPAID)
+                ->update(['state' => PayOrder::STATE_PAID, 'pay_date' => time(), 'close_date' => time()]);
+
+            if ($affected === 0) {
+                return 0;
+            }
+
+            TmpPrice::where('oid', $matchedOrder['order_id'])->delete();
+
+            return $affected;
+        });
+
+        if ($affected === 0) {
+            return ['matched' => true, 'alreadyProcessed' => true, 'notifyOk' => true, 'notifyDetail' => ''];
+        }
+
+        if ($terminalId !== null && $eventId !== '') {
+            static::paymentEventService()->recordMatched(
+                $terminalId,
+                (int) ($matchedOrder['channel_id'] ?? 0),
+                $eventId,
+                $type,
+                (int) bcmul($price, '100', 0),
+                (string) $matchedOrder['order_id'],
+                $rawPayload
+            );
+        }
+
+        static::orderStateManager()->invalidateOrderView((string) $matchedOrder['order_id']);
+
+        $notifyResult = NotifyService::sendNotifyDetailed($matchedOrder->toArray());
+        $notifyOk = $notifyResult['ok'];
+        $notifyDetail = $notifyResult['detail'];
+
+        if (!$notifyOk) {
+            PayOrder::where('id', $matchedOrder['id'])->update(['state' => PayOrder::STATE_NOTIFY_FAILED]);
+            static::orderStateManager()->invalidateOrderView((string) $matchedOrder['order_id']);
+        }
+
+        return [
+            'matched' => true,
+            'alreadyProcessed' => false,
+            'notifyOk' => $notifyOk,
+            'notifyDetail' => $notifyDetail,
+        ];
     }
 }

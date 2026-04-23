@@ -551,6 +551,39 @@ namespace tests {
             );
         }
 
+        public function test_terminal_monitor_simple_signature_uses_terminal_specific_key(): void
+        {
+            $this->assertTrue(
+                method_exists(SignServiceAdapterProbe::class, 'verifyTerminalMonitorSimpleSign'),
+                'Multi-terminal heartbeat/state checks need a terminal-aware simple signer.'
+            );
+
+            SignServiceAdapterProbe::$credentials = new class extends TerminalCredentialService {
+                public function requireKeyFor(string $terminalCode): string
+                {
+                    return $terminalCode === 'term-a' ? 'terminal-monitor-key' : 'legacy-monitor-key';
+                }
+            };
+
+            $data = '1712300000000';
+
+            $this->assertTrue(
+                SignServiceAdapterProbe::verifyTerminalMonitorSimpleSign(
+                    'term-a',
+                    $data,
+                    md5($data . 'terminal-monitor-key')
+                )
+            );
+
+            $this->assertFalse(
+                SignServiceAdapterProbe::verifyTerminalMonitorSimpleSign(
+                    'term-a',
+                    $data,
+                    md5($data . 'monitor-sign-key')
+                )
+            );
+        }
+
         public function test_monitor_service_writes_runtime_state_through_monitor_state_adapter(): void
         {
             $state = new RecordingMonitorState(lastHeartbeatAt: time() - 300, online: true);

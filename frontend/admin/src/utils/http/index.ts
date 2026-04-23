@@ -76,11 +76,12 @@ class PureHttp {
           PureHttp.initConfig.beforeResponseCallback(response);
           return response.data;
         }
-        // 处理未认证响应
-        if (
-          (response.data as any)?.code === -1 &&
-          !response.config.skipUnauthorizedLogout
-        ) {
+        const responseCode = Number((response.data as any)?.code);
+        const isUnauthorized =
+          (response.status === 401 || responseCode === 40101) &&
+          !response.config.skipUnauthorizedLogout;
+
+        if (isUnauthorized) {
           useUserStoreHook().logOut();
           return Promise.reject(response.data);
         }
@@ -89,6 +90,28 @@ class PureHttp {
       (error: PureHttpError) => {
         const $error = error;
         $error.isCancelRequest = Axios.isCancel($error);
+        const errorConfig = $error.config as PureHttpRequestConfig | undefined;
+        const errorData = ($error.response?.data ?? null) as
+          | Record<string, unknown>
+          | null;
+        const errorMessage = String(
+          errorData?.msg ?? errorData?.message ?? ""
+        ).trim();
+
+        if (errorMessage !== "") {
+          ($error as PureHttpError & { msg?: string }).msg = errorMessage;
+          $error.message = errorMessage;
+        }
+
+        const unauthorizedCode = Number(($error.response?.data as any)?.code);
+        const isUnauthorized =
+          ($error.response?.status === 401 || unauthorizedCode === 40101) &&
+          !errorConfig?.skipUnauthorizedLogout;
+
+        if (isUnauthorized) {
+          useUserStoreHook().logOut();
+        }
+
         // 所有的响应异常 区分来源为取消请求/非取消请求
         return Promise.reject($error);
       }

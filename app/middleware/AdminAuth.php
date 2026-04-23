@@ -27,7 +27,7 @@ class AdminAuth
 
     private function unauthorizedResponse(): Response
     {
-        return json(['code' => -1, 'msg' => '没有登录', 'data' => null]);
+        return json(['code' => 40101, 'msg' => '没有登录', 'data' => null], 401);
     }
 
     private function sessionTtl(): int

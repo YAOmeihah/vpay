@@ -71,7 +71,12 @@ class MonitorControllerMultiTerminalTest extends TestCase
                 return true;
             }
 
-            protected function validateMonitorReplay(string $eventId, string $nonce, int $timestamp): string
+            protected function validateMonitorReplay(
+                string $eventId,
+                string $nonce,
+                int $timestamp,
+                ?string $scope = null
+            ): string
             {
                 return 'accepted';
             }

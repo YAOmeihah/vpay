@@ -550,6 +550,44 @@ namespace tests {
             $this->assertSame([], NotifyHttpProbe::$curlOptions);
         }
 
+        public function test_notify_service_blocks_private_ip_literals_before_http_execution(): void
+        {
+            NotifyServiceAdapterProbe::$config = new FakeSystemConfig(notifySslVerifyEnabled: true);
+            NotifyHttpProbe::enable();
+
+            $result = NotifyServiceAdapterProbe::sendNotifyDetailed([
+                'notify_url' => 'http://127.0.0.1/internal-notify',
+                'pay_id' => 'merchant-local-1001',
+                'param' => 'attach',
+                'type' => PayOrder::TYPE_WECHAT,
+                'price' => '12.34',
+                'really_price' => '12.34',
+            ]);
+
+            $this->assertFalse($result['ok']);
+            $this->assertStringContainsString('通知地址指向内网地址', $result['detail']);
+            $this->assertSame([], NotifyHttpProbe::$curlOptions);
+        }
+
+        public function test_notify_service_blocks_private_ipv6_literals_before_http_execution(): void
+        {
+            NotifyServiceAdapterProbe::$config = new FakeSystemConfig(notifySslVerifyEnabled: true);
+            NotifyHttpProbe::enable();
+
+            $result = NotifyServiceAdapterProbe::sendNotifyDetailed([
+                'notify_url' => 'http://[::1]/internal-notify',
+                'pay_id' => 'merchant-local-ipv6-1001',
+                'param' => 'attach',
+                'type' => PayOrder::TYPE_WECHAT,
+                'price' => '12.34',
+                'really_price' => '12.34',
+            ]);
+
+            $this->assertFalse($result['ok']);
+            $this->assertStringContainsString('通知地址指向内网地址', $result['detail']);
+            $this->assertSame([], NotifyHttpProbe::$curlOptions);
+        }
+
         public function test_notify_service_reads_ssl_verify_flag_through_config_adapter(): void
         {
             $this->seedSettings(['notify_ssl_verify' => '1']);

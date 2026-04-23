@@ -112,11 +112,14 @@ class NotifyService
             ];
         }
 
-        // 防止 SSRF：检查目标 IP 是否为内网地址
-        $host = $parsed['host'] ?? '';
+        // 防止 SSRF：统一检查域名解析结果和 IP 字面量，拦截私网/保留地址。
+        $host = trim((string) ($parsed['host'] ?? ''), '[]');
         if ($host !== '') {
-            $ip = gethostbyname($host);
-            if ($ip !== $host && static::isPrivateIp($ip)) {
+            foreach (static::resolveHostIps($host) as $ip) {
+                if (!static::isPrivateIp($ip)) {
+                    continue;
+                }
+
                 return [
                     'response' => '',
                     'error' => '通知地址指向内网地址，已被安全策略拦截',
@@ -198,6 +201,41 @@ class NotifyService
     private static function isPrivateIp(string $ip): bool
     {
         return filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private static function resolveHostIps(string $host): array
+    {
+        if (filter_var($host, FILTER_VALIDATE_IP)) {
+            return [$host];
+        }
+
+        $ips = [];
+        if (function_exists('dns_get_record')) {
+            $types = DNS_A;
+            if (defined('DNS_AAAA')) {
+                $types |= DNS_AAAA;
+            }
+
+            $records = @dns_get_record($host, $types);
+            if (is_array($records)) {
+                foreach ($records as $record) {
+                    $ip = (string) ($record['ip'] ?? $record['ipv6'] ?? '');
+                    if ($ip !== '' && filter_var($ip, FILTER_VALIDATE_IP)) {
+                        $ips[] = $ip;
+                    }
+                }
+            }
+        }
+
+        $resolved = gethostbyname($host);
+        if ($resolved !== $host && filter_var($resolved, FILTER_VALIDATE_IP)) {
+            $ips[] = $resolved;
+        }
+
+        return array_values(array_unique($ips));
     }
 
     protected static function systemConfig(): SystemConfig

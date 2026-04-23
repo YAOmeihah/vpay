@@ -36,6 +36,12 @@ class Monitor extends BaseController
             return json($this->getReturn(-1, "签名校验不通过"));
         }
 
+        try {
+            $this->validateSimpleMonitorTimestamp((int) $t);
+        } catch (\RuntimeException $e) {
+            return json($this->getReturn(-1, $e->getMessage()));
+        }
+
         return json($this->getReturn(1, "成功", array(
             "lastheart" => (string) $terminal['last_heartbeat_at'],
             "lastpay" => (string) $terminal['last_paid_at'],
@@ -63,6 +69,12 @@ class Monitor extends BaseController
 
         if (!$this->verifyTerminalMonitorSimpleSignature((string) $terminal['terminal_code'], (string) $t, $sign)) {
             return json($this->getReturn(-1, "签名校验不通过"));
+        }
+
+        try {
+            $this->validateHeartbeatReplay((string) $terminal['terminal_code'], (int) $t);
+        } catch (\RuntimeException $e) {
+            return json($this->getReturn(-1, $e->getMessage()));
         }
 
         $this->markTerminalHeartbeat((int) $terminal['id'], (string) $this->request->ip());
@@ -103,7 +115,7 @@ class Monitor extends BaseController
         }
 
         try {
-            $guardResult = $this->validateMonitorReplay($eventId, $nonce, $ts);
+            $guardResult = $this->validateMonitorReplay($eventId, $nonce, $ts, $effectiveTerminalCode);
         } catch (\RuntimeException $e) {
             return json($this->getReturn(-1, $e->getMessage()));
         }
@@ -169,9 +181,28 @@ class Monitor extends BaseController
         return SignService::verifyTerminalMonitorSimpleSign($terminalCode, $data, $sign);
     }
 
-    protected function validateMonitorReplay(string $eventId, string $nonce, int $timestamp): string
+    protected function validateMonitorReplay(string $eventId, string $nonce, int $timestamp, ?string $scope = null): string
     {
-        return $this->monitorReplayGuard()->assertValid($eventId, $nonce, $timestamp);
+        return $this->monitorReplayGuard()->assertValid($eventId, $nonce, $timestamp, (string) ($scope ?? ''));
+    }
+
+    protected function validateSimpleMonitorTimestamp(int $timestamp): void
+    {
+        $this->monitorReplayGuard()->assertFreshTimestamp($timestamp);
+    }
+
+    protected function validateHeartbeatReplay(string $terminalCode, int $timestamp): void
+    {
+        $result = $this->monitorReplayGuard()->assertValid(
+            'app-heart:' . $timestamp,
+            'app-heart:' . $timestamp,
+            $timestamp,
+            'app-heart:' . trim($terminalCode)
+        );
+
+        if ($result === 'duplicate') {
+            throw new \RuntimeException('监控心跳已重放');
+        }
     }
 
     protected function handleTerminalPayPush(

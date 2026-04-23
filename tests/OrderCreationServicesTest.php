@@ -3,8 +3,10 @@ declare(strict_types=1);
 
 namespace tests;
 
+use app\model\MonitorTerminal;
 use app\model\PaymentEvent;
 use app\model\PayOrder;
+use app\model\TerminalChannel;
 use app\service\CacheService;
 use app\service\OrderService;
 
@@ -195,5 +197,56 @@ class OrderCreationServicesTest extends TestCase
         $this->assertSame(22, $event->getAttr('channel_id'));
         $this->assertSame('order-terminal-b', $event->getAttr('matched_order_id'));
         $this->assertSame('matched', $event->getAttr('result'));
+    }
+
+    public function test_create_order_falls_back_to_next_eligible_terminal_when_high_priority_channel_is_unusable(): void
+    {
+        TerminalChannel::where('id', 1)->update([
+            'pay_url' => '',
+            'updated_at' => time(),
+        ]);
+
+        MonitorTerminal::create([
+            'id' => 2,
+            'terminal_code' => 'fallback-terminal',
+            'terminal_name' => '回退终端',
+            'dispatch_priority' => 20,
+            'status' => 'enabled',
+            'online_state' => 'online',
+            'monitor_key' => 'fallback-terminal-key',
+            'last_heartbeat_at' => time(),
+            'last_paid_at' => 0,
+            'last_ip' => '127.0.0.2',
+            'device_meta' => null,
+            'created_at' => time(),
+            'updated_at' => time(),
+        ]);
+
+        TerminalChannel::create([
+            'id' => 3,
+            'terminal_id' => 2,
+            'type' => PayOrder::TYPE_WECHAT,
+            'channel_name' => '回退微信通道',
+            'status' => 'enabled',
+            'pay_url' => 'weixin://fallback-pay-url',
+            'last_used_at' => 0,
+            'created_at' => time(),
+            'updated_at' => time(),
+        ]);
+
+        $result = OrderService::createOrder([
+            'payId' => 'native-order-fallback-001',
+            'type' => PayOrder::TYPE_WECHAT,
+            'price' => '18.00',
+            'param' => 'fallback-check',
+            'notifyUrl' => 'https://merchant.example/notify/fallback',
+            'returnUrl' => 'https://merchant.example/return/fallback',
+        ]);
+
+        $this->assertSame(2, $result['terminalId']);
+        $this->assertSame(3, $result['channelId']);
+        $this->assertSame('回退终端', $result['terminalSnapshot']);
+        $this->assertSame('回退微信通道', $result['channelSnapshot']);
+        $this->assertSame('weixin://fallback-pay-url', $result['payUrl']);
     }
 }

@@ -10,9 +10,9 @@ class TerminalAllocatorService
 {
     /**
      * @param array<int, array<string, mixed>> $channels
-     * @return array<string, mixed>
+     * @return array<int, array<string, mixed>>
      */
-    public function pickChannel(string $strategy, array $channels, int $type, ?int $lastChannelId = null): array
+    public function orderEligibleChannels(string $strategy, array $channels, int $type, ?int $lastChannelId = null): array
     {
         $eligible = array_values(array_filter(
             $channels,
@@ -37,15 +37,27 @@ class TerminalAllocatorService
         ]);
 
         if ($strategy !== 'round_robin' || $lastChannelId === null) {
-            return $eligible[0];
+            return $eligible;
         }
 
         foreach ($eligible as $index => $channel) {
             if ((int) ($channel['id'] ?? 0) === $lastChannelId) {
-                return $eligible[($index + 1) % count($eligible)];
+                return array_merge(
+                    array_slice($eligible, $index + 1),
+                    array_slice($eligible, 0, $index + 1)
+                );
             }
         }
 
-        return $eligible[0];
+        return $eligible;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $channels
+     * @return array<string, mixed>
+     */
+    public function pickChannel(string $strategy, array $channels, int $type, ?int $lastChannelId = null): array
+    {
+        return $this->orderEligibleChannels($strategy, $channels, $type, $lastChannelId)[0];
     }
 }

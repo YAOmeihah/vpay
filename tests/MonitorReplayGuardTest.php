@@ -41,6 +41,18 @@ class MonitorReplayGuardTest extends TestCase
         $guard->assertValid('evt-replay-2', 'nonce-replay-1', $timestamp);
     }
 
+    public function test_scopes_replay_keys_per_terminal(): void
+    {
+        $guard = new MonitorReplayGuardProbe(1712300000000);
+        $timestamp = 1712300000000;
+
+        $first = $guard->assertValid('evt-scope-1', 'nonce-scope-1', $timestamp, 'term-a');
+        $second = $guard->assertValid('evt-scope-1', 'nonce-scope-1', $timestamp, 'term-b');
+
+        $this->assertSame('accepted', $first);
+        $this->assertSame('accepted', $second);
+    }
+
     public function test_rejects_expired_timestamp(): void
     {
         $guard = new MonitorReplayGuardProbe(1712300000000);

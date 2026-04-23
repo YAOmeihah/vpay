@@ -236,7 +236,10 @@ class ControllerEdgeServiceRegressionTest extends TestCase
 
         $settings = $service->getSettings();
         $this->assertSame('generated-sign-key', $settings['key']);
-        $this->assertSame(['key' => 'generated-sign-key'], $service->savedSettings);
+        $this->assertSame([
+            'key' => 'generated-sign-key',
+            'monitorKey' => 'generated-sign-key',
+        ], $service->savedSettings);
     }
 
     public function test_admin_settings_service_ignores_zero_password(): void
@@ -294,7 +297,10 @@ class ControllerEdgeServiceRegressionTest extends TestCase
         $settings = $service->getSettings();
 
         $this->assertSame('legacy-empty-regenerated-key', $settings['key']);
-        $this->assertSame(['key' => 'legacy-empty-regenerated-key'], $service->savedSettings);
+        $this->assertSame([
+            'key' => 'legacy-empty-regenerated-key',
+            'monitorKey' => 'legacy-empty-regenerated-key',
+        ], $service->savedSettings);
     }
 
     public function test_admin_settings_service_ignores_password_value_zero_to_match_legacy_empty_semantics(): void

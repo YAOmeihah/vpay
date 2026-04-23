@@ -5,7 +5,7 @@ import {
   clearChunkReloadMarker,
   isRecoverableChunkLoadError,
   shouldReloadAfterChunkError
-} from "../src/utils/chunkReload.js";
+} from "../src/utils/chunkReload.ts";
 
 class MemoryStorage {
   private readonly store = new Map<string, string>();

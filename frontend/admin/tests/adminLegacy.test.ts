@@ -7,7 +7,7 @@ import {
   getMonitorStatus,
   mapDashboardStats,
   normalizePagedList
-} from "../src/utils/adminLegacy.js";
+} from "../src/utils/adminLegacy.ts";
 
 test("mapDashboardStats preserves legacy backend field names", () => {
   const mapped = mapDashboardStats({

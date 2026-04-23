@@ -376,6 +376,7 @@ namespace tests {
     use app\service\config\SystemConfig;
     use app\service\order\OrderPayloadFactory;
     use app\service\runtime\MonitorState;
+    use app\service\terminal\TerminalCredentialService;
     use PHPUnit\Framework\Attributes\RunClassInSeparateProcess;
     use PHPUnit\Framework\TestCase as BaseTestCase;
 
@@ -398,7 +399,10 @@ namespace tests {
             FakeSetting::reset();
             NotifyHttpProbe::reset();
             SignServiceAdapterProbe::$config = null;
+            SignServiceAdapterProbe::$credentials = null;
             MonitorServiceAdapterProbe::$state = null;
+            MonitorServiceAdapterProbe::$now = null;
+            MonitorServiceAdapterProbe::$terminalHeartbeatWrites = [];
             NotifyServiceAdapterProbe::$config = null;
             OrderCreationKernelProbe::$config = null;
             OrderCreationKernelProbe::$cachedOrders = [];
@@ -476,6 +480,48 @@ namespace tests {
             );
         }
 
+        public function test_terminal_monitor_push_signature_uses_terminal_specific_key_and_terminal_code_payload(): void
+        {
+            $this->assertTrue(
+                method_exists(SignServiceAdapterProbe::class, 'verifyTerminalMonitorPushSign'),
+                'Multi-terminal callbacks need a terminal-aware monitor signature verifier.'
+            );
+
+            SignServiceAdapterProbe::$credentials = new class extends TerminalCredentialService {
+                public function requireKeyFor(string $terminalCode): string
+                {
+                    return $terminalCode === 'term-a' ? 'terminal-sign-key' : 'legacy-sign-key';
+                }
+            };
+
+            $payload = implode('|', ['term-a', 1, 1234, 1712300000, 'nonce-1', 'evt-1']);
+            $sign = hash_hmac('sha256', $payload, 'terminal-sign-key');
+
+            $this->assertTrue(
+                SignServiceAdapterProbe::verifyTerminalMonitorPushSign(
+                    'term-a',
+                    1,
+                    1234,
+                    1712300000,
+                    'nonce-1',
+                    'evt-1',
+                    $sign
+                )
+            );
+
+            $this->assertFalse(
+                SignServiceAdapterProbe::verifyTerminalMonitorPushSign(
+                    'term-a',
+                    1,
+                    1234,
+                    1712300000,
+                    'nonce-1',
+                    'evt-1',
+                    hash_hmac('sha256', $payload, 'monitor-sign-key')
+                )
+            );
+        }
+
         public function test_monitor_simple_signature_uses_dedicated_monitor_key(): void
         {
             $this->assertTrue(
@@ -523,6 +569,28 @@ namespace tests {
 
             $this->assertFalse($state->online);
             $this->assertSame(['offline'], $state->events);
+        }
+
+        public function test_monitor_service_can_write_terminal_heartbeat_with_ip(): void
+        {
+            $this->assertTrue(
+                method_exists(MonitorServiceAdapterProbe::class, 'heartbeatForTerminal'),
+                'Multi-terminal status tracking needs a terminal heartbeat writer.'
+            );
+
+            MonitorServiceAdapterProbe::$now = 1713888000;
+
+            MonitorServiceAdapterProbe::heartbeatForTerminal(7, '127.0.0.1');
+
+            $this->assertSame([
+                [
+                    'terminal_id' => 7,
+                    'last_heartbeat_at' => 1713888000,
+                    'last_ip' => '127.0.0.1',
+                    'online_state' => 'online',
+                    'updated_at' => 1713888000,
+                ],
+            ], MonitorServiceAdapterProbe::$terminalHeartbeatWrites);
         }
 
         public function test_notify_service_returns_empty_string_for_unsupported_schemes_before_http_execution(): void
@@ -744,6 +812,7 @@ namespace tests {
     class SignServiceAdapterProbe extends SignService
     {
         public static ?SystemConfig $config = null;
+        public static ?TerminalCredentialService $credentials = null;
 
         protected static function systemConfig(): SystemConfig
         {
@@ -753,11 +822,22 @@ namespace tests {
 
             return self::$config;
         }
+
+        protected static function terminalCredentialService(): TerminalCredentialService
+        {
+            if (self::$credentials === null) {
+                throw new \RuntimeException('Test terminal credential service was not initialized.');
+            }
+
+            return self::$credentials;
+        }
     }
 
     class MonitorServiceAdapterProbe extends MonitorService
     {
         public static ?MonitorState $state = null;
+        public static ?int $now = null;
+        public static array $terminalHeartbeatWrites = [];
 
         protected static function monitorState(): MonitorState
         {
@@ -766,6 +846,22 @@ namespace tests {
             }
 
             return self::$state;
+        }
+
+        protected static function currentTimestamp(): int
+        {
+            return self::$now ?? time();
+        }
+
+        protected static function persistTerminalHeartbeat(int $terminalId, string $ip, int $timestamp): void
+        {
+            self::$terminalHeartbeatWrites[] = [
+                'terminal_id' => $terminalId,
+                'last_heartbeat_at' => $timestamp,
+                'last_ip' => $ip,
+                'online_state' => 'online',
+                'updated_at' => $timestamp,
+            ];
         }
     }
 

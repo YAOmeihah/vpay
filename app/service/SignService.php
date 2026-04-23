@@ -104,6 +104,12 @@ class SignService
         return hash_equals(md5($data . $key), $sign);
     }
 
+    public static function verifyTerminalMonitorSimpleSign(string $terminalCode, string $data, string $sign): bool
+    {
+        $expected = md5($data . static::terminalCredentialService()->requireKeyFor(trim($terminalCode)));
+        return hash_equals($expected, $sign);
+    }
+
     public static function verifyMonitorPushSign(
         int $type,
         int $amountCents,

@@ -7,6 +7,7 @@ use think\exception\Handle;
 use think\exception\HttpException;
 use think\exception\HttpResponseException;
 use think\exception\ValidateException;
+use think\Request;
 use think\Response;
 use Throwable;
 
@@ -50,9 +51,48 @@ class ExceptionHandle extends Handle
      */
     public function render($request, Throwable $e): Response
     {
-        // 添加自定义异常处理机制
+        if ($this->shouldRenderAdminApiJson($request)) {
+            return $this->renderAdminApiException($e);
+        }
 
         // 其他错误交给系统处理
         return parent::render($request, $e);
+    }
+
+    private function shouldRenderAdminApiJson(Request $request): bool
+    {
+        $path = ltrim($request->pathinfo(), '/');
+
+        if ($path === 'login') {
+            return true;
+        }
+
+        return str_starts_with($path, 'admin/index');
+    }
+
+    private function renderAdminApiException(Throwable $e): Response
+    {
+        $status = $e instanceof HttpException ? $e->getStatusCode() : 500;
+
+        return json([
+            'code' => 0,
+            'msg' => $this->resolveAdminApiMessage($e, $status),
+            'data' => null,
+        ], $status);
+    }
+
+    private function resolveAdminApiMessage(Throwable $e, int $status): string
+    {
+        $message = trim($e->getMessage());
+
+        if ($message !== '' && ($this->app->isDebug() || $e instanceof \RuntimeException || $e instanceof ValidateException)) {
+            return $message;
+        }
+
+        if ($status >= 500) {
+            return (string) $this->app->config->get('app.error_message', '页面错误！请稍后再试～');
+        }
+
+        return $message !== '' ? $message : '请求失败';
     }
 }

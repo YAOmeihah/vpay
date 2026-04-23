@@ -96,11 +96,7 @@ class Admin extends BaseController
         $username = Session::get('admin_user');
 
         if (!$username) {
-            return json([
-                'code' => -1,
-                'msg' => '没有登录',
-                'data' => null,
-            ]);
+            return json($this->getReturn(40101, '没有登录', null), 401);
         }
 
         return json([

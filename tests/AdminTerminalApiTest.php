@@ -12,6 +12,7 @@ final class AdminTerminalApiTest extends TestCase
         self::assertIsString($routes);
         self::assertStringContainsString("Route::any('getTerminals'", $routes);
         self::assertStringContainsString("Route::post('saveTerminal'", $routes);
+        self::assertStringContainsString("Route::post('deleteTerminal'", $routes);
         self::assertStringContainsString("Route::any('getTerminalChannels'", $routes);
     }
 }

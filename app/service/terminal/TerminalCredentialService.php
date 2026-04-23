@@ -15,13 +15,15 @@ class TerminalCredentialService
      */
     public function __construct(
         private readonly ?\Closure $lookupByCode = null,
-        private readonly string $legacyDefaultCode = 'legacy-default',
     ) {
     }
 
     public function requireTerminal(string $terminalCode): MonitorTerminal
     {
-        $normalized = trim($terminalCode) !== '' ? trim($terminalCode) : $this->legacyDefaultCode;
+        $normalized = trim($terminalCode);
+        if ($normalized === '') {
+            throw new \RuntimeException('终端编码不能为空');
+        }
 
         $lookup = $this->lookupByCode
             ?? static fn (string $code): ?MonitorTerminal => MonitorTerminal::where('terminal_code', $code)->find();

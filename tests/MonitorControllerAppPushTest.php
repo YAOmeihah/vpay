@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace tests;
 
 use app\controller\monitor\Monitor;
+use app\model\MonitorTerminal;
 use app\service\CacheService;
 use PHPUnit\Framework\TestCase;
 use think\App;
@@ -37,6 +38,7 @@ class MonitorControllerAppPushTest extends TestCase
                 'ts' => '1712300000000',
                 'nonce' => 'nonce-1',
                 'eventId' => 'evt-1',
+                'terminalCode' => 'term-a',
                 'sign' => 'signed',
             ])
             ->withServer(['REQUEST_METHOD' => 'POST'])
@@ -51,7 +53,17 @@ class MonitorControllerAppPushTest extends TestCase
             {
             }
 
-            protected function verifyMonitorPushSignature(
+            protected function resolveTerminal(string $terminalCode): MonitorTerminal
+            {
+                return new MonitorTerminal([
+                    'id' => 11,
+                    'terminal_code' => $terminalCode,
+                    'terminal_name' => '终端A',
+                ]);
+            }
+
+            protected function verifyTerminalMonitorPushSignature(
+                string $terminalCode,
                 int $type,
                 int $amountCents,
                 int $ts,
@@ -67,9 +79,15 @@ class MonitorControllerAppPushTest extends TestCase
                 return 'accepted';
             }
 
-            protected function handlePayPush(string $price, int $type): array
+            protected function handleTerminalPayPush(
+                int $terminalId,
+                string $price,
+                int $type,
+                string $eventId,
+                array $rawPayload
+            ): array
             {
-                $this->handled = [$price, $type];
+                $this->handled = [$terminalId, $price, $type, $eventId, $rawPayload['terminalCode'] ?? ''];
                 return ['alreadyProcessed' => false, 'notifyOk' => true];
             }
         };
@@ -77,7 +95,7 @@ class MonitorControllerAppPushTest extends TestCase
         $response = $controller->appPush();
         $payload = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
 
-        $this->assertSame(['12.34', 1], $controller->handled);
+        $this->assertSame([11, '12.34', 1, 'evt-1', 'term-a'], $controller->handled);
         $this->assertSame(1, $payload['code']);
     }
 
@@ -90,6 +108,7 @@ class MonitorControllerAppPushTest extends TestCase
                 'ts' => '1712300000000',
                 'nonce' => 'nonce-dup',
                 'eventId' => 'evt-dup',
+                'terminalCode' => 'term-a',
                 'sign' => 'signed',
             ])
             ->withServer(['REQUEST_METHOD' => 'POST'])
@@ -104,7 +123,17 @@ class MonitorControllerAppPushTest extends TestCase
             {
             }
 
-            protected function verifyMonitorPushSignature(
+            protected function resolveTerminal(string $terminalCode): MonitorTerminal
+            {
+                return new MonitorTerminal([
+                    'id' => 11,
+                    'terminal_code' => $terminalCode,
+                    'terminal_name' => '终端A',
+                ]);
+            }
+
+            protected function verifyTerminalMonitorPushSignature(
+                string $terminalCode,
                 int $type,
                 int $amountCents,
                 int $ts,
@@ -120,7 +149,13 @@ class MonitorControllerAppPushTest extends TestCase
                 return 'duplicate';
             }
 
-            protected function handlePayPush(string $price, int $type): array
+            protected function handleTerminalPayPush(
+                int $terminalId,
+                string $price,
+                int $type,
+                string $eventId,
+                array $rawPayload
+            ): array
             {
                 $this->orderHandlerCalled = true;
                 return ['alreadyProcessed' => false, 'notifyOk' => true];
@@ -144,6 +179,7 @@ class MonitorControllerAppPushTest extends TestCase
                 'ts' => '1712300000000',
                 'nonce' => 'nonce-ms',
                 'eventId' => 'evt-ms',
+                'terminalCode' => 'term-a',
                 'sign' => 'signed',
             ])
             ->withServer(['REQUEST_METHOD' => 'POST'])
@@ -156,7 +192,17 @@ class MonitorControllerAppPushTest extends TestCase
             {
             }
 
-            protected function verifyMonitorPushSignature(
+            protected function resolveTerminal(string $terminalCode): MonitorTerminal
+            {
+                return new MonitorTerminal([
+                    'id' => 11,
+                    'terminal_code' => $terminalCode,
+                    'terminal_name' => '终端A',
+                ]);
+            }
+
+            protected function verifyTerminalMonitorPushSignature(
+                string $terminalCode,
                 int $type,
                 int $amountCents,
                 int $ts,
@@ -176,7 +222,13 @@ class MonitorControllerAppPushTest extends TestCase
                 return 'accepted';
             }
 
-            protected function handlePayPush(string $price, int $type): array
+            protected function handleTerminalPayPush(
+                int $terminalId,
+                string $price,
+                int $type,
+                string $eventId,
+                array $rawPayload
+            ): array
             {
                 return ['alreadyProcessed' => false, 'notifyOk' => true];
             }
@@ -197,6 +249,7 @@ class MonitorControllerAppPushTest extends TestCase
                 'ts' => '1712300000',
                 'nonce' => 'nonce-seconds',
                 'eventId' => 'evt-seconds',
+                'terminalCode' => 'term-a',
                 'sign' => 'signed',
             ])
             ->withServer(['REQUEST_METHOD' => 'POST'])
@@ -209,7 +262,17 @@ class MonitorControllerAppPushTest extends TestCase
             {
             }
 
-            protected function verifyMonitorPushSignature(
+            protected function resolveTerminal(string $terminalCode): MonitorTerminal
+            {
+                return new MonitorTerminal([
+                    'id' => 11,
+                    'terminal_code' => $terminalCode,
+                    'terminal_name' => '终端A',
+                ]);
+            }
+
+            protected function verifyTerminalMonitorPushSignature(
+                string $terminalCode,
                 int $type,
                 int $amountCents,
                 int $ts,
@@ -225,7 +288,13 @@ class MonitorControllerAppPushTest extends TestCase
                 throw new \RuntimeException('监控回调时间戳已失效');
             }
 
-            protected function handlePayPush(string $price, int $type): array
+            protected function handleTerminalPayPush(
+                int $terminalId,
+                string $price,
+                int $type,
+                string $eventId,
+                array $rawPayload
+            ): array
             {
                 return ['alreadyProcessed' => false, 'notifyOk' => true];
             }
@@ -247,6 +316,7 @@ class MonitorControllerAppPushTest extends TestCase
                 'ts' => '1712300000000',
                 'nonce' => 'nonce-notify-fail',
                 'eventId' => 'evt-notify-fail',
+                'terminalCode' => 'term-a',
                 'sign' => 'signed',
             ])
             ->withServer(['REQUEST_METHOD' => 'POST'])
@@ -259,7 +329,17 @@ class MonitorControllerAppPushTest extends TestCase
             {
             }
 
-            protected function verifyMonitorPushSignature(
+            protected function resolveTerminal(string $terminalCode): MonitorTerminal
+            {
+                return new MonitorTerminal([
+                    'id' => 11,
+                    'terminal_code' => $terminalCode,
+                    'terminal_name' => '终端A',
+                ]);
+            }
+
+            protected function verifyTerminalMonitorPushSignature(
+                string $terminalCode,
                 int $type,
                 int $amountCents,
                 int $ts,
@@ -275,7 +355,13 @@ class MonitorControllerAppPushTest extends TestCase
                 return 'accepted';
             }
 
-            protected function handlePayPush(string $price, int $type): array
+            protected function handleTerminalPayPush(
+                int $terminalId,
+                string $price,
+                int $type,
+                string $eventId,
+                array $rawPayload
+            ): array
             {
                 return [
                     'alreadyProcessed' => false,

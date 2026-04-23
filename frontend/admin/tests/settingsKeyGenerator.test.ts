@@ -18,13 +18,13 @@ test("generateSettingsKey produces different values across calls", () => {
   assert.notEqual(first, second);
 });
 
-test("payment config card exposes an auto-generate action for monitor key", () => {
+test("payment config card no longer exposes a global monitor-key generator", () => {
   const source = readFileSync(
     resolve("frontend/admin/src/views/system/settings/components/PaymentConfigCard.vue"),
     "utf8"
   );
 
-  assert.match(source, /generateSettingsKey/);
-  assert.match(source, /handleGenerateMonitorKey/);
-  assert.match(source, /自动生成/);
+  assert.doesNotMatch(source, /generateSettingsKey/);
+  assert.doesNotMatch(source, /handleGenerateMonitorKey/);
+  assert.doesNotMatch(source, /自动生成/);
 });

@@ -18,6 +18,7 @@ class TerminalAllocatorService
             $channels,
             static fn (array $channel): bool => (int) ($channel['type'] ?? 0) === $type
                 && (string) ($channel['status'] ?? '') === 'enabled'
+                && (string) ($channel['terminal_status'] ?? '') === 'enabled'
                 && (string) ($channel['online_state'] ?? '') === 'online'
         ));
 
@@ -26,10 +27,12 @@ class TerminalAllocatorService
         }
 
         usort($eligible, static fn (array $left, array $right): int => [
-            (int) ($left['priority'] ?? 0),
+            (int) ($left['dispatch_priority'] ?? 0),
+            (int) ($left['terminal_id'] ?? 0),
             (int) ($left['id'] ?? 0),
         ] <=> [
-            (int) ($right['priority'] ?? 0),
+            (int) ($right['dispatch_priority'] ?? 0),
+            (int) ($right['terminal_id'] ?? 0),
             (int) ($right['id'] ?? 0),
         ]);
 

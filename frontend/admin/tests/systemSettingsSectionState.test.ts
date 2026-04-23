@@ -1,13 +1,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import {
   buildPaymentPayload,
-  buildQrcodePayload,
   buildSecurityPayload,
   createSettingsSections,
   hydrateSettingsSections
 } from "../src/views/system/settings/sectionState.ts";
+
+const testDir = dirname(fileURLToPath(import.meta.url));
 
 test("settings sections hydrate backend payload and emit independent save payloads", () => {
   const sections = createSettingsSections();
@@ -17,22 +21,19 @@ test("settings sections hydrate backend payload and emit independent save payloa
     notifyUrl: "https://merchant.example/notify",
     returnUrl: "https://merchant.example/return",
     key: "sign-key",
-    monitorKey: "monitor-sign-key",
     notify_ssl_verify: "0",
     close: "15",
     payQf: "1",
-    allocationStrategy: "round_robin",
-    wxpay: "weixin://pay",
-    zfbpay: "alipay://pay"
+    allocationStrategy: "round_robin"
   });
 
   assert.equal(sections.security.user, "admin");
   assert.equal(sections.security.newPassword, "");
   assert.equal(sections.payment.notifyUrl, "https://merchant.example/notify");
-  assert.equal(sections.payment.monitorKey, "monitor-sign-key");
   assert.equal(sections.payment.notifySslVerify, "0");
   assert.equal(sections.payment.allocationStrategy, "round_robin");
-  assert.equal(sections.qrcode.wxpay, "weixin://pay");
+  assert.equal("monitorKey" in sections.payment, false);
+  assert.equal("qrcode" in sections, false);
 
   sections.security.newPassword = "next-pass";
   sections.security.confirmPassword = "next-pass";
@@ -45,15 +46,10 @@ test("settings sections hydrate backend payload and emit independent save payloa
     notifyUrl: "https://merchant.example/notify",
     returnUrl: "https://merchant.example/return",
     key: "sign-key",
-    monitorKey: "monitor-sign-key",
     notify_ssl_verify: "0",
     close: "15",
     payQf: "1",
     allocationStrategy: "round_robin"
-  });
-  assert.deepEqual(buildQrcodePayload(sections.qrcode), {
-    wxpay: "weixin://pay",
-    zfbpay: "alipay://pay"
   });
 });
 
@@ -70,4 +66,16 @@ test("hydrateSettingsSections resets password fields after reload", () => {
   assert.equal(sections.security.user, "admin-next");
   assert.equal(sections.security.newPassword, "");
   assert.equal(sections.security.confirmPassword, "");
+});
+
+test("system settings page no longer renders single-terminal monitor key or default qrcode cards", () => {
+  const source = readFileSync(
+    resolve(testDir, "../src/views/system/settings/index.vue"),
+    "utf8"
+  );
+
+  assert.doesNotMatch(source, /QrcodeCard/);
+  assert.doesNotMatch(source, /wxpay|zfbpay/);
+  assert.doesNotMatch(source, /monitorKey/);
+  assert.doesNotMatch(source, /默认终端继承的旧版收款码/);
 });

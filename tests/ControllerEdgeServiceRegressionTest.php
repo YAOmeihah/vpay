@@ -6,14 +6,11 @@ namespace tests;
 use app\controller\Admin;
 use app\controller\merchant\Order as MerchantOrderController;
 use app\service\CacheService;
-use app\service\admin\ChannelAdminService;
 use app\service\admin\AdminPermissionService;
 use app\service\admin\AdminSettingsService;
 use app\service\admin\DashboardStatsService;
-use app\service\admin\TerminalAdminService;
 use app\service\order\ExpiredOrderCleanupGate;
 use app\service\order\OrderStateManager;
-use app\service\runtime\SettingMonitorState;
 use app\service\security\LoginAttemptLimiter;
 use app\command\CacheManage;
 use chillerlan\QRCode\QRCode;
@@ -139,15 +136,9 @@ class ControllerEdgeServiceRegressionTest extends TestCase
             'notifyUrl' => 'https://merchant.example/notify',
             'returnUrl' => 'https://merchant.example/return',
             'key' => '',
-            'monitorKey' => '',
             'notify_ssl_verify' => '0',
-            'lastheart' => '1712200000',
-            'lastpay' => '1712200300',
-            'jkstate' => '1',
             'close' => '15',
             'payQf' => '0',
-            'wxpay' => 'weixin://default-pay-url',
-            'zfbpay' => 'alipays://default-pay-url',
         ]) extends AdminSettingsService {
             public array $savedSettings = [];
             public array $settings;
@@ -179,42 +170,6 @@ class ControllerEdgeServiceRegressionTest extends TestCase
                 return 'generated-sign-key';
             }
 
-            protected function terminalAdminService(): TerminalAdminService
-            {
-                return new class($this) extends TerminalAdminService {
-                    public function __construct(private object $owner)
-                    {
-                    }
-
-                    public function legacyDefaultMonitorKey(): string
-                    {
-                        return (string) ($this->owner->settings['monitorKey'] ?? '');
-                    }
-
-                    public function updateLegacyDefaultMonitorKey(string $monitorKey): void
-                    {
-                        $this->owner->savedSettings['monitorKey'] = $monitorKey;
-                        $this->owner->settings['monitorKey'] = $monitorKey;
-                    }
-                };
-            }
-
-            protected function channelAdminService(): ChannelAdminService
-            {
-                return new class($this) extends ChannelAdminService {
-                    public function __construct(private object $owner)
-                    {
-                    }
-
-                    public function legacyDefaultPair(): array
-                    {
-                        return [
-                            'wxpay' => (string) ($this->owner->settings['wxpay'] ?? ''),
-                            'zfbpay' => (string) ($this->owner->settings['zfbpay'] ?? ''),
-                        ];
-                    }
-                };
-            }
         };
 
         $settings = $service->getSettings();
@@ -225,24 +180,16 @@ class ControllerEdgeServiceRegressionTest extends TestCase
             'notifyUrl',
             'returnUrl',
             'key',
-            'monitorKey',
             'notify_ssl_verify',
-            'lastheart',
-            'lastpay',
-            'jkstate',
             'close',
             'payQf',
             'allocationStrategy',
-            'wxpay',
-            'zfbpay',
         ], array_keys($settings));
         $this->assertSame('admin', $settings['user']);
         $this->assertSame('', $settings['pass']);
         $this->assertSame('generated-sign-key', $settings['key']);
-        $this->assertSame('generated-sign-key', $settings['monitorKey']);
         $this->assertSame([
             'key' => 'generated-sign-key',
-            'monitorKey' => 'generated-sign-key',
         ], $service->savedSettings);
     }
 
@@ -277,42 +224,12 @@ class ControllerEdgeServiceRegressionTest extends TestCase
                 return 'generated-sign-key';
             }
 
-            protected function terminalAdminService(): TerminalAdminService
-            {
-                return new class($this) extends TerminalAdminService {
-                    public function __construct(private object $owner)
-                    {
-                    }
-
-                    public function legacyDefaultMonitorKey(): string
-                    {
-                        return (string) ($this->owner->settings['monitorKey'] ?? '');
-                    }
-
-                    public function updateLegacyDefaultMonitorKey(string $monitorKey): void
-                    {
-                        $this->owner->savedSettings['monitorKey'] = $monitorKey;
-                        $this->owner->settings['monitorKey'] = $monitorKey;
-                    }
-                };
-            }
-
-            protected function channelAdminService(): ChannelAdminService
-            {
-                return new class extends ChannelAdminService {
-                    public function legacyDefaultPair(): array
-                    {
-                        return ['wxpay' => '', 'zfbpay' => ''];
-                    }
-                };
-            }
         };
 
         $settings = $service->getSettings();
         $this->assertSame('generated-sign-key', $settings['key']);
         $this->assertSame([
             'key' => 'generated-sign-key',
-            'monitorKey' => 'generated-sign-key',
         ], $service->savedSettings);
     }
 
@@ -369,35 +286,6 @@ class ControllerEdgeServiceRegressionTest extends TestCase
                 return 'legacy-empty-regenerated-key';
             }
 
-            protected function terminalAdminService(): TerminalAdminService
-            {
-                return new class($this) extends TerminalAdminService {
-                    public function __construct(private object $owner)
-                    {
-                    }
-
-                    public function legacyDefaultMonitorKey(): string
-                    {
-                        return (string) ($this->owner->settings['monitorKey'] ?? '');
-                    }
-
-                    public function updateLegacyDefaultMonitorKey(string $monitorKey): void
-                    {
-                        $this->owner->savedSettings['monitorKey'] = $monitorKey;
-                        $this->owner->settings['monitorKey'] = $monitorKey;
-                    }
-                };
-            }
-
-            protected function channelAdminService(): ChannelAdminService
-            {
-                return new class extends ChannelAdminService {
-                    public function legacyDefaultPair(): array
-                    {
-                        return ['wxpay' => '', 'zfbpay' => ''];
-                    }
-                };
-            }
         };
 
         $settings = $service->getSettings();
@@ -405,7 +293,6 @@ class ControllerEdgeServiceRegressionTest extends TestCase
         $this->assertSame('legacy-empty-regenerated-key', $settings['key']);
         $this->assertSame([
             'key' => 'legacy-empty-regenerated-key',
-            'monitorKey' => 'legacy-empty-regenerated-key',
         ], $service->savedSettings);
     }
 
@@ -461,26 +348,12 @@ class ControllerEdgeServiceRegressionTest extends TestCase
                 };
             }
 
-            protected function terminalAdminService(): TerminalAdminService
-            {
-                return new class($this) extends TerminalAdminService {
-                    public function __construct(private object $owner)
-                    {
-                    }
-
-                    public function updateLegacyDefaultMonitorKey(string $monitorKey): void
-                    {
-                        $this->owner->savedSettings['monitorKey'] = $monitorKey;
-                    }
-                };
-            }
         };
 
         $service->saveSettings([
             'notifyUrl' => 'https://merchant.example/new-notify',
             'returnUrl' => 'https://merchant.example/new-return',
             'key' => 'next-sign-key',
-            'monitorKey' => 'next-monitor-key',
             'notify_ssl_verify' => '0',
             'close' => '30',
             'payQf' => '2',
@@ -490,7 +363,6 @@ class ControllerEdgeServiceRegressionTest extends TestCase
             'notifyUrl' => 'https://merchant.example/new-notify',
             'returnUrl' => 'https://merchant.example/new-return',
             'key' => 'next-sign-key',
-            'monitorKey' => 'next-monitor-key',
             'notify_ssl_verify' => '0',
             'close' => '30',
             'payQf' => '2',
@@ -651,61 +523,16 @@ class ControllerEdgeServiceRegressionTest extends TestCase
         ], $payload);
     }
 
-    public function test_monitor_state_raw_accessors_preserve_empty_string_values(): void
-    {
-        $state = new class extends SettingMonitorState {
-            public array $getKeys = [];
-            public array $setKeys = [];
-
-            /**
-             * @var array<string, string>
-             */
-            private array $values = [
-                'lastheart' => '',
-                'lastpay' => '',
-                'jkstate' => '',
-            ];
-
-            protected function getConfigValue(string $key, string $default = ''): string
-            {
-                $this->getKeys[] = $key;
-                return $this->values[$key] ?? $default;
-            }
-
-            protected function setConfigValue(string $key, string $value): bool
-            {
-                $this->setKeys[] = $key;
-                $this->values[$key] = $value;
-
-                return true;
-            }
-        };
-
-        $this->assertSame('', $state->getLastHeartbeatRaw());
-        $this->assertSame('', $state->getLastPaidRaw());
-        $this->assertSame('', $state->getOnlineFlagRaw());
-        $this->assertSame(0, $state->getLastHeartbeatAt());
-        $this->assertSame(0, $state->getLastPaidAt());
-        $this->assertFalse($state->isOnline());
-        $this->assertSame(['lastheart', 'lastpay', 'jkstate'], array_values(array_unique($state->getKeys)));
-
-        $state->markHeartbeatAt(1712200000);
-        $state->markPaidAt(1712200300);
-        $state->markOnline();
-        $state->markOffline();
-
-        $this->assertSame(['lastheart', 'lastpay', 'jkstate'], array_values(array_unique($state->setKeys)));
-    }
-
-    public function test_monitor_controller_uses_monitor_signature_verifier_for_heartbeat_and_state(): void
+    public function test_monitor_controller_uses_terminal_signature_verifier_for_heartbeat_and_state(): void
     {
         $source = (string) file_get_contents(self::$rootPath . 'app/controller/monitor/Monitor.php');
 
         $this->assertStringContainsString(
-            'verifyMonitorSimpleSignature',
+            'verifyTerminalMonitorSimpleSignature',
             $source,
-            'Monitor controller should route heartbeat/state checks through the monitor-only signer.'
+            'Monitor controller should route heartbeat/state checks through terminal-specific signing.'
         );
+        $this->assertStringNotContainsString('verifyMonitorSimpleSignature', $source);
         $this->assertStringNotContainsString(
             'verifySimpleSign($t, $this->request->param(\'sign\', \'\'))',
             $source,

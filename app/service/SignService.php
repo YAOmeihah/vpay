@@ -98,29 +98,9 @@ class SignService
         return hash_equals(md5($data . $key), $sign);
     }
 
-    public static function verifyMonitorSimpleSign(string $data, string $sign): bool
-    {
-        $key = static::systemConfig()->getMonitorSignKey();
-        return hash_equals(md5($data . $key), $sign);
-    }
-
     public static function verifyTerminalMonitorSimpleSign(string $terminalCode, string $data, string $sign): bool
     {
         $expected = md5($data . static::terminalCredentialService()->requireKeyFor(trim($terminalCode)));
-        return hash_equals($expected, $sign);
-    }
-
-    public static function verifyMonitorPushSign(
-        int $type,
-        int $amountCents,
-        int $ts,
-        string $nonce,
-        string $eventId,
-        string $sign
-    ): bool {
-        $payload = implode('|', [$type, $amountCents, $ts, $nonce, $eventId]);
-        $expected = hash_hmac('sha256', $payload, static::systemConfig()->getMonitorSignKey());
-
         return hash_equals($expected, $sign);
     }
 

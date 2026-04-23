@@ -87,8 +87,20 @@ class OrderCreationServicesTest extends TestCase
 
     public function test_handle_pay_push_can_record_multiple_unmatched_transfers_under_unique_indexes(): void
     {
-        $first = OrderService::handlePayPush('66.66', PayOrder::TYPE_WECHAT);
-        $second = OrderService::handlePayPush('77.77', PayOrder::TYPE_WECHAT);
+        $first = OrderService::handleTerminalPayPush(
+            1,
+            '66.66',
+            PayOrder::TYPE_WECHAT,
+            'evt-unmatched-1',
+            ['terminalCode' => 'default-terminal']
+        );
+        $second = OrderService::handleTerminalPayPush(
+            1,
+            '77.77',
+            PayOrder::TYPE_WECHAT,
+            'evt-unmatched-2',
+            ['terminalCode' => 'default-terminal']
+        );
 
         $this->assertSame([
             'matched' => false,
@@ -108,6 +120,8 @@ class OrderCreationServicesTest extends TestCase
 
         $this->assertSame('无订单转账', $firstRow->getAttr('param'));
         $this->assertSame('无订单转账', $secondRow->getAttr('param'));
+        $this->assertSame(1, $firstRow->getAttr('terminal_id'));
+        $this->assertSame(1, $secondRow->getAttr('terminal_id'));
         $this->assertNotSame($firstRow->getAttr('order_id'), $secondRow->getAttr('order_id'));
         $this->assertNotSame($firstRow->getAttr('pay_id'), $secondRow->getAttr('pay_id'));
     }

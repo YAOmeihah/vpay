@@ -21,7 +21,6 @@ class TerminalChannel extends Model
         'channel_name' => 'string',
         'status' => 'string',
         'pay_url' => 'string',
-        'priority' => 'int',
         'last_used_at' => 'bigint',
         'created_at' => 'bigint',
         'updated_at' => 'bigint',

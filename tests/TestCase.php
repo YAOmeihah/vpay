@@ -182,6 +182,7 @@ abstract class TestCase extends BaseTestCase
                 `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
                 `terminal_code` VARCHAR(64) NOT NULL,
                 `terminal_name` VARCHAR(128) NOT NULL,
+                `dispatch_priority` INT NOT NULL DEFAULT 100,
                 `status` VARCHAR(32) NOT NULL DEFAULT \'enabled\',
                 `online_state` VARCHAR(32) NOT NULL DEFAULT \'offline\',
                 `monitor_key` VARCHAR(128) NOT NULL DEFAULT \'\',
@@ -204,13 +205,12 @@ abstract class TestCase extends BaseTestCase
                 `channel_name` VARCHAR(128) NOT NULL,
                 `status` VARCHAR(32) NOT NULL DEFAULT \'enabled\',
                 `pay_url` VARCHAR(1000) NOT NULL DEFAULT \'\',
-                `priority` INT NOT NULL DEFAULT 100,
                 `last_used_at` BIGINT NOT NULL DEFAULT 0,
                 `created_at` BIGINT NOT NULL DEFAULT 0,
                 `updated_at` BIGINT NOT NULL DEFAULT 0,
                 PRIMARY KEY (`id`),
                 UNIQUE KEY `uniq_terminal_type` (`terminal_id`, `type`),
-                KEY `idx_type_status_priority` (`type`, `status`, `priority`)
+                KEY `idx_type_status_terminal` (`type`, `status`, `terminal_id`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
         );
 
@@ -245,22 +245,19 @@ abstract class TestCase extends BaseTestCase
     private function seedBaseSettings(): void
     {
         $this->seedSettings([
-            'jkstate' => '1',
             'payQf' => '0',
             'allocationStrategy' => 'fixed_priority',
             'close' => '15',
             'notifyUrl' => 'https://merchant.example/notify',
             'returnUrl' => 'https://merchant.example/return',
-            'wxpay' => 'weixin://default-pay-url',
-            'zfbpay' => 'alipays://default-pay-url',
             'key' => 'native-key',
-            'monitorKey' => 'native-monitor-key',
         ]);
 
         MonitorTerminal::create([
             'id' => 1,
-            'terminal_code' => 'legacy-default',
+            'terminal_code' => 'default-terminal',
             'terminal_name' => '默认终端',
+            'dispatch_priority' => 10,
             'status' => 'enabled',
             'online_state' => 'online',
             'monitor_key' => 'native-monitor-key',
@@ -279,7 +276,6 @@ abstract class TestCase extends BaseTestCase
             'channel_name' => '默认微信通道',
             'status' => 'enabled',
             'pay_url' => 'weixin://default-pay-url',
-            'priority' => 10,
             'last_used_at' => 0,
             'created_at' => time(),
             'updated_at' => time(),
@@ -292,7 +288,6 @@ abstract class TestCase extends BaseTestCase
             'channel_name' => '默认支付宝通道',
             'status' => 'enabled',
             'pay_url' => 'alipays://default-pay-url',
-            'priority' => 10,
             'last_used_at' => 0,
             'created_at' => time(),
             'updated_at' => time(),

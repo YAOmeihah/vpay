@@ -138,14 +138,9 @@ INSERT INTO `setting` (`vkey`, `vvalue`) VALUES
 ('notifyUrl', ''),
 ('returnUrl', ''),
 ('key', ''),
-('monitorKey', ''),
-('lastheart', '0'),
-('lastpay', '0'),
-('jkstate', '-1'),
 ('close', '5'),
 ('payQf', '1'),
-('wxpay', ''),
-('zfbpay', '');
+('allocationStrategy', 'fixed_priority');
 
 -- --------------------------------------------------------
 

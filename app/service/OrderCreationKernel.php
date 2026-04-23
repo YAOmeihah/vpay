@@ -8,7 +8,6 @@ use app\model\PayQrcode;
 use app\model\TerminalChannel;
 use app\model\TmpPrice;
 use app\service\cache\OrderCache;
-use app\service\config\SettingSystemConfig;
 use app\service\config\SystemConfig;
 use app\service\order\OrderPayloadFactory;
 use app\service\terminal\ChannelPriceReservationService;
@@ -36,30 +35,6 @@ class OrderCreationKernel
             $orderId,
             static::systemConfig()->getPayQfMode()
         );
-    }
-
-    public static function resolvePayUrl(int $type, float|string $reallyPrice): array
-    {
-        $payUrl = static::getConfigPayUrl($type);
-        if ($payUrl === '') {
-            throw new \RuntimeException('请您先进入后台配置程序');
-        }
-
-        $matchedQrcode = PayQrcode::where('price', $reallyPrice)
-            ->where('type', $type)
-            ->find();
-
-        if ($matchedQrcode) {
-            return [
-                'payUrl' => (string)$matchedQrcode['pay_url'],
-                'isAuto' => 0,
-            ];
-        }
-
-        return [
-            'payUrl' => $payUrl,
-            'isAuto' => 1,
-        ];
     }
 
     public static function resolvePayUrlForChannel(int $channelId, int $type, float|string $reallyPrice): array
@@ -149,22 +124,9 @@ class OrderCreationKernel
         return $orderInfo;
     }
 
-    private static function getConfigPayUrl(int $type): string
-    {
-        if ($type === PayOrder::TYPE_WECHAT) {
-            return static::systemConfig()->getWeChatPayUrl();
-        }
-
-        if ($type === PayOrder::TYPE_ALIPAY) {
-            return static::systemConfig()->getAlipayPayUrl();
-        }
-
-        return '';
-    }
-
     protected static function systemConfig(): SystemConfig
     {
-        return app()->make(SettingSystemConfig::class);
+        return app()->make(SystemConfig::class);
     }
 
     protected static function orderCache(): OrderCache

@@ -6,7 +6,7 @@ import {
   hydrateSettingsSections
 } from "../src/views/system/settings/sectionState.ts";
 
-test("hydrateSettingsSections keeps legacy defaults but exposes terminal strategy state", () => {
+test("hydrateSettingsSections ignores removed single-terminal defaults but keeps terminal strategy state", () => {
   const sections = createSettingsSections();
 
   hydrateSettingsSections(sections, {
@@ -16,6 +16,7 @@ test("hydrateSettingsSections keeps legacy defaults but exposes terminal strateg
     allocationStrategy: "round_robin"
   });
 
-  assert.equal(sections.payment.monitorKey, "legacy-key");
+  assert.equal("monitorKey" in sections.payment, false);
+  assert.equal("qrcode" in sections, false);
   assert.equal(sections.payment.allocationStrategy, "round_robin");
 });

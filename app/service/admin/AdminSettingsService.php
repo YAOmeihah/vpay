@@ -5,7 +5,6 @@ namespace app\service\admin;
 
 use app\service\CacheService;
 use app\service\config\SettingConfigRepository;
-use app\service\runtime\SettingStateRepository;
 
 class AdminSettingsService
 {
@@ -14,27 +13,19 @@ class AdminSettingsService
      */
     public function getSettings(): array
     {
-        $defaultChannelPair = $this->channelAdminService()->legacyDefaultPair();
         $settings = [
             'user' => $this->getConfigValue('user'),
             'pass' => '',
             'notifyUrl' => $this->getConfigValue('notifyUrl'),
             'returnUrl' => $this->getConfigValue('returnUrl'),
             'key' => $this->getConfigValue('key'),
-            'monitorKey' => $this->terminalAdminService()->legacyDefaultMonitorKey(),
             'notify_ssl_verify' => $this->getConfigValue('notify_ssl_verify', '1'),
-            'lastheart' => $this->getConfigValue('lastheart'),
-            'lastpay' => $this->getConfigValue('lastpay'),
-            'jkstate' => $this->getConfigValue('jkstate'),
             'close' => $this->getConfigValue('close'),
             'payQf' => $this->getConfigValue('payQf'),
             'allocationStrategy' => $this->getConfigValue('allocationStrategy', 'fixed_priority'),
-            'wxpay' => $defaultChannelPair['wxpay'],
-            'zfbpay' => $defaultChannelPair['zfbpay'],
         ];
 
         $settings['key'] = $this->ensureGeneratedKey('key', $settings['key']);
-        $settings['monitorKey'] = $this->ensureLegacyMonitorKey($settings['monitorKey']);
 
         return $settings;
     }
@@ -45,8 +36,8 @@ class AdminSettingsService
     public function saveSettings(array $input): void
     {
         $params = [
-            'user', 'pass', 'notifyUrl', 'returnUrl', 'key', 'monitorKey',
-            'notify_ssl_verify', 'close', 'payQf', 'allocationStrategy', 'wxpay', 'zfbpay',
+            'user', 'pass', 'notifyUrl', 'returnUrl', 'key',
+            'notify_ssl_verify', 'close', 'payQf', 'allocationStrategy',
         ];
 
         foreach ($params as $param) {
@@ -68,26 +59,10 @@ class AdminSettingsService
             $value = (string) $value;
 
             if (in_array($param, [
-                'user', 'notifyUrl', 'returnUrl', 'key', 'monitorKey',
-                'notify_ssl_verify', 'close', 'payQf', 'allocationStrategy', 'wxpay', 'zfbpay',
+                'user', 'notifyUrl', 'returnUrl', 'key',
+                'notify_ssl_verify', 'close', 'payQf', 'allocationStrategy',
             ], true)) {
                 $value = trim($value);
-            }
-
-            if ($param === 'monitorKey') {
-                $this->terminalAdminService()->updateLegacyDefaultMonitorKey($value);
-                $this->setConfigValue($param, $value);
-                continue;
-            }
-
-            if ($param === 'wxpay') {
-                $this->channelAdminService()->updateLegacyDefaultPayUrl(1, $value);
-                continue;
-            }
-
-            if ($param === 'zfbpay') {
-                $this->channelAdminService()->updateLegacyDefaultPayUrl(2, $value);
-                continue;
             }
 
             $this->setConfigValue($param, $value);
@@ -127,19 +102,11 @@ class AdminSettingsService
 
     protected function getConfigValue(string $key, string $default = ''): string
     {
-        if ($this->isStateKey($key)) {
-            return $this->stateRepository()->get($key, $default);
-        }
-
         return $this->configRepository()->get($key, $default);
     }
 
     protected function setConfigValue(string $key, string $value): bool
     {
-        if ($this->isStateKey($key)) {
-            return $this->stateRepository()->set($key, $value);
-        }
-
         return $this->configRepository()->set($key, $value);
     }
 
@@ -164,46 +131,13 @@ class AdminSettingsService
         return $generated;
     }
 
-    private function ensureLegacyMonitorKey(string $currentValue): string
-    {
-        if ($currentValue !== '') {
-            return $currentValue;
-        }
-
-        $generated = $this->generateKey();
-        $this->terminalAdminService()->updateLegacyDefaultMonitorKey($generated);
-        $this->setConfigValue('monitorKey', $generated);
-
-        return $generated;
-    }
-
     protected function dashboardStatsService(): DashboardStatsService
     {
         return new DashboardStatsService();
     }
 
-    protected function terminalAdminService(): TerminalAdminService
-    {
-        return new TerminalAdminService();
-    }
-
-    protected function channelAdminService(): ChannelAdminService
-    {
-        return new ChannelAdminService();
-    }
-
     protected function configRepository(): SettingConfigRepository
     {
         return new SettingConfigRepository();
-    }
-
-    protected function stateRepository(): SettingStateRepository
-    {
-        return new SettingStateRepository();
-    }
-
-    private function isStateKey(string $key): bool
-    {
-        return in_array($key, $this->stateRepository()->keys(), true);
     }
 }

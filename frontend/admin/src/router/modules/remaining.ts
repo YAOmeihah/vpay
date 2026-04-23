@@ -20,6 +20,15 @@ export default [
       showLink: false
     }
   },
+  {
+    path: "/payment-lab",
+    name: "PaymentLab",
+    component: () => import("@/views/payment-lab/index.vue"),
+    meta: {
+      title: "支付测试台",
+      showLink: false
+    }
+  },
   // 全屏500（服务器出错）页面
   {
     path: "/server-error",

@@ -3,9 +3,7 @@ declare(strict_types=1);
 
 namespace app\service\admin;
 
-use app\model\MonitorTerminal;
 use app\model\TerminalChannel;
-use app\service\config\SettingConfigRepository;
 
 class ChannelAdminService
 {
@@ -14,10 +12,19 @@ class ChannelAdminService
      */
     public function listForTerminal(int $terminalId): array
     {
-        return TerminalChannel::where('terminal_id', $terminalId)
-            ->order('id', 'desc')
+        $rows = TerminalChannel::where('terminal_id', $terminalId)
             ->select()
             ->toArray();
+
+        $indexed = [];
+        foreach ($rows as $row) {
+            $indexed[(int) ($row['type'] ?? 0)] = $row;
+        }
+
+        return [
+            $this->buildSlot($terminalId, 1, $indexed[1] ?? null),
+            $this->buildSlot($terminalId, 2, $indexed[2] ?? null),
+        ];
     }
 
     /**
@@ -34,17 +41,29 @@ class ChannelAdminService
             'channel_name' => trim((string) ($input['channelName'] ?? $input['channel_name'] ?? '')),
             'status' => trim((string) ($input['status'] ?? 'enabled')) ?: 'enabled',
             'pay_url' => trim((string) ($input['payUrl'] ?? $input['pay_url'] ?? '')),
-            'priority' => (int) ($input['priority'] ?? 100),
             'updated_at' => $timestamp,
         ];
 
-        if ($data['terminal_id'] <= 0 || $data['type'] <= 0 || $data['channel_name'] === '') {
-            throw new \RuntimeException('通道参数不完整');
+        if ($data['terminal_id'] <= 0 || $data['type'] <= 0) {
+            throw new \RuntimeException('支付配置参数不完整');
+        }
+
+        if ($data['channel_name'] === '') {
+            $data['channel_name'] = $this->defaultChannelName($data['type']);
         }
 
         if ($id > 0) {
             TerminalChannel::where('id', $id)->update($data);
             return TerminalChannel::where('id', $id)->findOrFail()->toArray();
+        }
+
+        $existing = TerminalChannel::where('terminal_id', $data['terminal_id'])
+            ->where('type', $data['type'])
+            ->find();
+
+        if ($existing) {
+            TerminalChannel::where('id', $existing['id'])->update($data);
+            return TerminalChannel::where('id', $existing['id'])->findOrFail()->toArray();
         }
 
         $data['created_at'] = $timestamp;
@@ -64,63 +83,62 @@ class ChannelAdminService
     }
 
     /**
-     * @return array{wxpay: string, zfbpay: string}
+     * @param array<string, mixed>|null $channel
+     * @return array<string, mixed>
      */
-    public function legacyDefaultPair(): array
+    private function buildSlot(int $terminalId, int $type, ?array $channel): array
     {
-        $wxpay = $this->getConfigValue('wxpay');
-        $zfbpay = $this->getConfigValue('zfbpay');
+        $meta = $this->slotMeta($type);
+        if ($channel !== null) {
+            $channel['exists'] = true;
+            $channel['slot_key'] = $meta['slot_key'];
+            $channel['slot_label'] = $meta['slot_label'];
 
-        try {
-            $terminal = MonitorTerminal::where('terminal_code', 'legacy-default')->find();
-            if ($terminal) {
-                $wx = TerminalChannel::where('terminal_id', $terminal['id'])->where('type', 1)->find();
-                $zfb = TerminalChannel::where('terminal_id', $terminal['id'])->where('type', 2)->find();
-
-                if ($wx) {
-                    $wxpay = (string) $wx['pay_url'];
-                }
-                if ($zfb) {
-                    $zfbpay = (string) $zfb['pay_url'];
-                }
-            }
-        } catch (\Throwable) {
-            // Legacy tests may not have multi-terminal tables yet.
+            return $channel;
         }
 
         return [
-            'wxpay' => $wxpay,
-            'zfbpay' => $zfbpay,
+            'id' => null,
+            'terminal_id' => $terminalId,
+            'type' => $type,
+            'channel_name' => $meta['default_channel_name'],
+            'status' => 'disabled',
+            'pay_url' => '',
+            'last_used_at' => 0,
+            'created_at' => 0,
+            'updated_at' => 0,
+            'exists' => false,
+            'slot_key' => $meta['slot_key'],
+            'slot_label' => $meta['slot_label'],
         ];
     }
 
-    public function updateLegacyDefaultPayUrl(int $type, string $payUrl): void
+    private function defaultChannelName(int $type): string
     {
-        try {
-            $terminal = MonitorTerminal::where('terminal_code', 'legacy-default')->find();
-            if ($terminal) {
-                $channel = TerminalChannel::where('terminal_id', $terminal['id'])->where('type', $type)->find();
-                if ($channel) {
-                    TerminalChannel::where('id', $channel['id'])->update([
-                        'pay_url' => $payUrl,
-                        'updated_at' => time(),
-                    ]);
-                }
-            }
-        } catch (\Throwable) {
-            // Fall back to the legacy config storage when terminal tables are unavailable.
-        }
-
-        $this->configRepository()->set($type === 1 ? 'wxpay' : 'zfbpay', $payUrl);
+        return $this->slotMeta($type)['default_channel_name'];
     }
 
-    protected function getConfigValue(string $key, string $default = ''): string
+    /**
+     * @return array{slot_key: string, slot_label: string, default_channel_name: string}
+     */
+    private function slotMeta(int $type): array
     {
-        return $this->configRepository()->get($key, $default);
-    }
-
-    protected function configRepository(): SettingConfigRepository
-    {
-        return new SettingConfigRepository();
+        return match ($type) {
+            1 => [
+                'slot_key' => 'wechat',
+                'slot_label' => '微信',
+                'default_channel_name' => '微信收款',
+            ],
+            2 => [
+                'slot_key' => 'alipay',
+                'slot_label' => '支付宝',
+                'default_channel_name' => '支付宝收款',
+            ],
+            default => [
+                'slot_key' => 'unknown',
+                'slot_label' => '未知',
+                'default_channel_name' => '支付配置',
+            ],
+        };
     }
 }

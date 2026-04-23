@@ -8,22 +8,15 @@ export type PaymentSection = {
   notifyUrl: string;
   returnUrl: string;
   key: string;
-  monitorKey: string;
   notifySslVerify: string;
   close: string;
   payQf: string;
   allocationStrategy: "fixed_priority" | "round_robin";
 };
 
-export type QrcodeSection = {
-  wxpay: string;
-  zfbpay: string;
-};
-
 export type SettingsSections = {
   security: SecuritySection;
   payment: PaymentSection;
-  qrcode: QrcodeSection;
 };
 
 export function createSettingsSections(): SettingsSections {
@@ -37,15 +30,10 @@ export function createSettingsSections(): SettingsSections {
       notifyUrl: "",
       returnUrl: "",
       key: "",
-      monitorKey: "",
       notifySslVerify: "1",
       close: "",
       payQf: "1",
       allocationStrategy: "fixed_priority"
-    },
-    qrcode: {
-      wxpay: "",
-      zfbpay: ""
     }
   };
 }
@@ -61,16 +49,12 @@ export function hydrateSettingsSections(
   sections.payment.notifyUrl = String(payload.notifyUrl ?? "");
   sections.payment.returnUrl = String(payload.returnUrl ?? "");
   sections.payment.key = String(payload.key ?? "");
-  sections.payment.monitorKey = String(payload.monitorKey ?? "");
   sections.payment.notifySslVerify = String(payload.notify_ssl_verify ?? "1");
   sections.payment.close = String(payload.close ?? "");
   sections.payment.payQf = String(payload.payQf ?? "1");
   sections.payment.allocationStrategy = (payload.allocationStrategy === "round_robin"
     ? "round_robin"
     : "fixed_priority");
-
-  sections.qrcode.wxpay = String(payload.wxpay ?? "");
-  sections.qrcode.zfbpay = String(payload.zfbpay ?? "");
 }
 
 export function buildSecurityPayload(
@@ -94,19 +78,9 @@ export function buildPaymentPayload(
     notifyUrl: section.notifyUrl,
     returnUrl: section.returnUrl,
     key: section.key,
-    monitorKey: section.monitorKey,
     notify_ssl_verify: section.notifySslVerify,
     close: section.close,
     payQf: section.payQf,
     allocationStrategy: section.allocationStrategy
-  };
-}
-
-export function buildQrcodePayload(
-  section: QrcodeSection
-) {
-  return {
-    wxpay: section.wxpay,
-    zfbpay: section.zfbpay
   };
 }

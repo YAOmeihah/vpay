@@ -18,6 +18,7 @@ class MonitorTerminal extends Model
         'id' => 'bigint',
         'terminal_code' => 'string',
         'terminal_name' => 'string',
+        'dispatch_priority' => 'int',
         'status' => 'string',
         'online_state' => 'string',
         'monitor_key' => 'string',

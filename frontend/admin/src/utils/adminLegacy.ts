@@ -68,12 +68,19 @@ export function getMonitorStatus(jkstate?: string | number | null): {
   return { text: "未知状态", type: "warning" };
 }
 
-export function buildMonitorConfigUrl(base: string, key?: string | null): string {
+export function buildMonitorConfigUrl(
+  base: string,
+  terminalCode?: string | null,
+  key?: string | null
+): string {
   const normalizedBase = String(base ?? "").replace(/\/+$/, "");
+  const normalizedTerminalCode = String(terminalCode ?? "").trim();
   const normalizedKey = String(key ?? "").trim();
 
-  if (!normalizedBase || !normalizedKey) return "";
-  return `${normalizedBase}/${normalizedKey}`;
+  if (!normalizedBase || !normalizedTerminalCode || !normalizedKey) return "";
+  return `${normalizedBase}/monitor-bind?terminalCode=${encodeURIComponent(
+    normalizedTerminalCode
+  )}&monitorKey=${encodeURIComponent(normalizedKey)}`;
 }
 
 export function buildQrcodePreviewUrl(url?: string | null): string {

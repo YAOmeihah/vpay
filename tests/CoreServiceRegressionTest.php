@@ -375,7 +375,7 @@ namespace tests {
     use app\service\cache\OrderCache;
     use app\service\config\SystemConfig;
     use app\service\order\OrderPayloadFactory;
-    use app\service\runtime\MonitorState;
+    use app\service\terminal\TerminalCredentialService;
     use PHPUnit\Framework\Attributes\RunClassInSeparateProcess;
     use PHPUnit\Framework\TestCase as BaseTestCase;
 
@@ -398,7 +398,9 @@ namespace tests {
             FakeSetting::reset();
             NotifyHttpProbe::reset();
             SignServiceAdapterProbe::$config = null;
-            MonitorServiceAdapterProbe::$state = null;
+            SignServiceAdapterProbe::$credentials = null;
+            MonitorServiceAdapterProbe::$now = null;
+            MonitorServiceAdapterProbe::$terminalHeartbeatWrites = [];
             NotifyServiceAdapterProbe::$config = null;
             OrderCreationKernelProbe::$config = null;
             OrderCreationKernelProbe::$cachedOrders = [];
@@ -443,18 +445,26 @@ namespace tests {
             );
         }
 
-        public function test_monitor_push_signature_uses_dedicated_monitor_key_and_amount_cents_payload(): void
+        public function test_terminal_monitor_push_signature_uses_terminal_specific_key_and_terminal_code_payload(): void
         {
-            SignServiceAdapterProbe::$config = new FakeSystemConfig(
-                signKey: 'merchant-sign-key',
-                monitorSignKey: 'monitor-sign-key'
+            $this->assertTrue(
+                method_exists(SignServiceAdapterProbe::class, 'verifyTerminalMonitorPushSign'),
+                'Multi-terminal callbacks need a terminal-aware monitor signature verifier.'
             );
 
-            $payload = implode('|', [1, 1234, 1712300000, 'nonce-1', 'evt-1']);
-            $sign = hash_hmac('sha256', $payload, 'monitor-sign-key');
+            SignServiceAdapterProbe::$credentials = new class extends TerminalCredentialService {
+                public function requireKeyFor(string $terminalCode): string
+                {
+                    return $terminalCode === 'term-a' ? 'terminal-sign-key' : 'legacy-sign-key';
+                }
+            };
+
+            $payload = implode('|', ['term-a', 1, 1234, 1712300000, 'nonce-1', 'evt-1']);
+            $sign = hash_hmac('sha256', $payload, 'terminal-sign-key');
 
             $this->assertTrue(
-                SignServiceAdapterProbe::verifyMonitorPushSign(
+                SignServiceAdapterProbe::verifyTerminalMonitorPushSign(
+                    'term-a',
                     1,
                     1234,
                     1712300000,
@@ -465,64 +475,71 @@ namespace tests {
             );
 
             $this->assertFalse(
-                SignServiceAdapterProbe::verifyMonitorPushSign(
+                SignServiceAdapterProbe::verifyTerminalMonitorPushSign(
+                    'term-a',
                     1,
                     1234,
                     1712300000,
                     'nonce-1',
                     'evt-1',
-                    hash_hmac('sha256', $payload, 'merchant-sign-key')
+                    hash_hmac('sha256', $payload, 'monitor-sign-key')
                 )
             );
         }
 
-        public function test_monitor_simple_signature_uses_dedicated_monitor_key(): void
+        public function test_terminal_monitor_simple_signature_uses_terminal_specific_key(): void
         {
             $this->assertTrue(
-                method_exists(SignServiceAdapterProbe::class, 'verifyMonitorSimpleSign'),
-                'Monitor heartbeat/state endpoints must verify with a dedicated monitor-key helper.'
+                method_exists(SignServiceAdapterProbe::class, 'verifyTerminalMonitorSimpleSign'),
+                'Multi-terminal heartbeat/state checks need a terminal-aware simple signer.'
             );
 
-            SignServiceAdapterProbe::$config = new FakeSystemConfig(
-                signKey: 'merchant-sign-key',
-                monitorSignKey: 'monitor-sign-key'
-            );
+            SignServiceAdapterProbe::$credentials = new class extends TerminalCredentialService {
+                public function requireKeyFor(string $terminalCode): string
+                {
+                    return $terminalCode === 'term-a' ? 'terminal-monitor-key' : 'legacy-monitor-key';
+                }
+            };
 
-            $data = '1775395079917';
+            $data = '1712300000000';
 
             $this->assertTrue(
-                SignServiceAdapterProbe::verifyMonitorSimpleSign(
+                SignServiceAdapterProbe::verifyTerminalMonitorSimpleSign(
+                    'term-a',
                     $data,
-                    md5($data . 'monitor-sign-key')
+                    md5($data . 'terminal-monitor-key')
                 )
             );
 
             $this->assertFalse(
-                SignServiceAdapterProbe::verifyMonitorSimpleSign(
+                SignServiceAdapterProbe::verifyTerminalMonitorSimpleSign(
+                    'term-a',
                     $data,
-                    md5($data . 'merchant-sign-key')
+                    md5($data . 'monitor-sign-key')
                 )
             );
         }
 
-        public function test_monitor_service_writes_runtime_state_through_monitor_state_adapter(): void
+        public function test_monitor_service_can_write_terminal_heartbeat_with_ip(): void
         {
-            $state = new RecordingMonitorState(lastHeartbeatAt: time() - 300, online: true);
-            MonitorServiceAdapterProbe::$state = $state;
+            $this->assertTrue(
+                method_exists(MonitorServiceAdapterProbe::class, 'heartbeatForTerminal'),
+                'Multi-terminal status tracking needs a terminal heartbeat writer.'
+            );
 
-            MonitorServiceAdapterProbe::heartbeat();
+            MonitorServiceAdapterProbe::$now = 1713888000;
 
-            $this->assertNotSame(0, $state->lastHeartbeatAt);
-            $this->assertTrue($state->online);
-            $this->assertSame(['heartbeat', 'online'], $state->events);
+            MonitorServiceAdapterProbe::heartbeatForTerminal(7, '127.0.0.1');
 
-            $state->events = [];
-            $state->lastHeartbeatAt = time() - 120;
-
-            MonitorServiceAdapterProbe::checkMonitorTimeout();
-
-            $this->assertFalse($state->online);
-            $this->assertSame(['offline'], $state->events);
+            $this->assertSame([
+                [
+                    'terminal_id' => 7,
+                    'last_heartbeat_at' => 1713888000,
+                    'last_ip' => '127.0.0.1',
+                    'online_state' => 'online',
+                    'updated_at' => 1713888000,
+                ],
+            ], MonitorServiceAdapterProbe::$terminalHeartbeatWrites);
         }
 
         public function test_notify_service_returns_empty_string_for_unsupported_schemes_before_http_execution(): void
@@ -600,7 +617,7 @@ namespace tests {
             $this->assertSame($payload, OrderCreationKernelProbe::$cachedOrders['order-002'] ?? null);
         }
 
-        public function test_order_service_handle_pay_push_first_match_returns_notify_ok_shape(): void
+        public function test_order_service_handle_terminal_pay_push_first_match_returns_notify_ok_shape(): void
         {
             // Ensure the notify path is deterministic and doesn't touch real network.
             NotifyHttpProbe::enable(
@@ -628,14 +645,14 @@ namespace tests {
                 'price' => '12.34',
                 'really_price' => '12.34',
                 'return_url' => 'https://merchant.example/return',
+                'terminal_id' => 1,
+                'channel_id' => 1,
                 'state' => PayOrder::STATE_UNPAID,
                 'type' => PayOrder::TYPE_WECHAT,
             ]);
             \app\model\TmpPrice::seed('order-1001', '1234-1');
 
-            OrderServiceAdapterProbe::$state = new RecordingMonitorState();
-
-            $result = OrderServiceAdapterProbe::handlePayPush('12.34', PayOrder::TYPE_WECHAT);
+            $result = OrderServiceAdapterProbe::handleTerminalPayPush(1, '12.34', PayOrder::TYPE_WECHAT, '', []);
 
             $this->assertSame([
                 'matched' => true,
@@ -645,7 +662,7 @@ namespace tests {
             ], $result);
         }
 
-        public function test_order_service_handle_pay_push_returns_notify_failure_detail(): void
+        public function test_order_service_handle_terminal_pay_push_returns_notify_failure_detail(): void
         {
             NotifyHttpProbe::enable(
                 hostMap: ['merchant.example' => '93.184.216.34'],
@@ -669,14 +686,14 @@ namespace tests {
                 'price' => '12.34',
                 'really_price' => '12.34',
                 'return_url' => 'https://merchant.example/return',
+                'terminal_id' => 1,
+                'channel_id' => 1,
                 'state' => PayOrder::STATE_UNPAID,
                 'type' => PayOrder::TYPE_WECHAT,
             ]);
             \app\model\TmpPrice::seed('order-notify-fail-1001', '1234-1');
 
-            OrderServiceAdapterProbe::$state = new RecordingMonitorState();
-
-            $result = OrderServiceAdapterProbe::handlePayPush('12.34', PayOrder::TYPE_WECHAT);
+            $result = OrderServiceAdapterProbe::handleTerminalPayPush(1, '12.34', PayOrder::TYPE_WECHAT, '', []);
 
             $this->assertSame([
                 'matched' => true,
@@ -686,7 +703,7 @@ namespace tests {
             ], $result);
         }
 
-        public function test_order_service_handle_pay_push_rolls_back_state_when_tmp_price_cleanup_fails(): void
+        public function test_order_service_handle_terminal_pay_push_rolls_back_state_when_tmp_price_cleanup_fails(): void
         {
             NotifyHttpProbe::enable(
                 hostMap: ['merchant.example' => '93.184.216.34'],
@@ -710,16 +727,16 @@ namespace tests {
                 'price' => '45.67',
                 'really_price' => '45.67',
                 'return_url' => 'https://merchant.example/return',
+                'terminal_id' => 1,
+                'channel_id' => 1,
                 'state' => PayOrder::STATE_UNPAID,
                 'type' => PayOrder::TYPE_WECHAT,
             ]);
             \app\model\TmpPrice::seed('order-rollback-1001', '4567-1');
             \app\model\TmpPrice::$throwOnDelete = true;
 
-            OrderServiceAdapterProbe::$state = new RecordingMonitorState();
-
             try {
-                OrderServiceAdapterProbe::handlePayPush('45.67', PayOrder::TYPE_WECHAT);
+                OrderServiceAdapterProbe::handleTerminalPayPush(1, '45.67', PayOrder::TYPE_WECHAT, '', []);
                 $this->fail('Expected tmp_price cleanup failure to bubble up.');
             } catch (\RuntimeException $e) {
                 $this->assertSame('tmp price delete failed', $e->getMessage());
@@ -744,6 +761,7 @@ namespace tests {
     class SignServiceAdapterProbe extends SignService
     {
         public static ?SystemConfig $config = null;
+        public static ?TerminalCredentialService $credentials = null;
 
         protected static function systemConfig(): SystemConfig
         {
@@ -753,19 +771,36 @@ namespace tests {
 
             return self::$config;
         }
+
+        protected static function terminalCredentialService(): TerminalCredentialService
+        {
+            if (self::$credentials === null) {
+                throw new \RuntimeException('Test terminal credential service was not initialized.');
+            }
+
+            return self::$credentials;
+        }
     }
 
     class MonitorServiceAdapterProbe extends MonitorService
     {
-        public static ?MonitorState $state = null;
+        public static ?int $now = null;
+        public static array $terminalHeartbeatWrites = [];
 
-        protected static function monitorState(): MonitorState
+        protected static function currentTimestamp(): int
         {
-            if (self::$state === null) {
-                throw new \RuntimeException('Test monitor state was not initialized.');
-            }
+            return self::$now ?? time();
+        }
 
-            return self::$state;
+        protected static function persistTerminalHeartbeat(int $terminalId, string $ip, int $timestamp): void
+        {
+            self::$terminalHeartbeatWrites[] = [
+                'terminal_id' => $terminalId,
+                'last_heartbeat_at' => $timestamp,
+                'last_ip' => $ip,
+                'online_state' => 'online',
+                'updated_at' => $timestamp,
+            ];
         }
     }
 
@@ -816,17 +851,6 @@ namespace tests {
 
     class OrderServiceAdapterProbe extends OrderService
     {
-        public static ?MonitorState $state = null;
-
-        protected static function monitorState(): MonitorState
-        {
-            if (self::$state === null) {
-                throw new \RuntimeException('Test monitor state was not initialized.');
-            }
-
-            return self::$state;
-        }
-
         protected static function runTransaction(callable $callback): mixed
         {
             $rows = PayOrder::allRows();
@@ -840,56 +864,9 @@ namespace tests {
                 throw $e;
             }
         }
-    }
 
-    final class RecordingMonitorState implements MonitorState
-    {
-        public array $events = [];
-
-        public function __construct(
-            public int $lastHeartbeatAt = 0,
-            public int $lastPaidAt = 0,
-            public bool $online = false
-        ) {
-        }
-
-        public function getLastHeartbeatAt(): int
+        protected static function markTerminalPaid(int $terminalId, int $timestamp): void
         {
-            return $this->lastHeartbeatAt;
-        }
-
-        public function getLastPaidAt(): int
-        {
-            return $this->lastPaidAt;
-        }
-
-        public function markHeartbeatAt(int $timestamp): void
-        {
-            $this->lastHeartbeatAt = $timestamp;
-            $this->events[] = 'heartbeat';
-        }
-
-        public function markPaidAt(int $timestamp): void
-        {
-            $this->lastPaidAt = $timestamp;
-            $this->events[] = 'paid';
-        }
-
-        public function markOnline(): void
-        {
-            $this->online = true;
-            $this->events[] = 'online';
-        }
-
-        public function markOffline(): void
-        {
-            $this->online = false;
-            $this->events[] = 'offline';
-        }
-
-        public function isOnline(): bool
-        {
-            return $this->online;
         }
     }
 
@@ -899,12 +876,9 @@ namespace tests {
             private readonly string $notifyUrl = '',
             private readonly string $returnUrl = '',
             private readonly string $signKey = '',
-            private readonly string $monitorSignKey = '',
             private readonly int $orderCloseMinutes = 15,
             private readonly string $orderCloseRaw = '15',
             private readonly string $payQfMode = '0',
-            private readonly string $weChatPayUrl = '',
-            private readonly string $alipayPayUrl = '',
             private readonly bool $notifySslVerifyEnabled = true
         ) {
         }
@@ -924,11 +898,6 @@ namespace tests {
             return $this->signKey;
         }
 
-        public function getMonitorSignKey(): string
-        {
-            return $this->monitorSignKey;
-        }
-
         public function getOrderCloseMinutes(): int
         {
             return $this->orderCloseMinutes;
@@ -942,16 +911,6 @@ namespace tests {
         public function getPayQfMode(): string
         {
             return $this->payQfMode;
-        }
-
-        public function getWeChatPayUrl(): string
-        {
-            return $this->weChatPayUrl;
-        }
-
-        public function getAlipayPayUrl(): string
-        {
-            return $this->alipayPayUrl;
         }
 
         public function getNotifySslVerifyEnabled(): bool

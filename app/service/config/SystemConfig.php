@@ -11,17 +11,11 @@ interface SystemConfig
 
     public function getSignKey(): string;
 
-    public function getMonitorSignKey(): string;
-
     public function getOrderCloseMinutes(): int;
 
     public function getOrderCloseRaw(): string;
 
     public function getPayQfMode(): string;
-
-    public function getWeChatPayUrl(): string;
-
-    public function getAlipayPayUrl(): string;
 
     public function getNotifySslVerifyEnabled(): bool;
 }

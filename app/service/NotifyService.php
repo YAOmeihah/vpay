@@ -5,6 +5,7 @@ namespace app\service;
 
 use app\service\config\SettingSystemConfig;
 use app\service\config\SystemConfig;
+use app\service\payment\PaymentTestLabService;
 
 class NotifyService
 {
@@ -40,6 +41,17 @@ class NotifyService
             trim((string)$order['notify_url']),
             $order
         );
+
+        if (static::isPaymentTestLabNotifyUrl($url)) {
+            parse_str((string)(parse_url($url, PHP_URL_QUERY) ?? ''), $payload);
+            static::paymentTestLabService()->recordCallback('notify', $payload);
+
+            return [
+                'ok' => true,
+                'detail' => '',
+                'response' => 'success',
+            ];
+        }
 
         $httpResult = static::httpGetDetailed($url);
         $response = trim($httpResult['response']);
@@ -191,5 +203,22 @@ class NotifyService
     protected static function systemConfig(): SystemConfig
     {
         return app()->make(SettingSystemConfig::class);
+    }
+
+    protected static function paymentTestLabService(): PaymentTestLabService
+    {
+        return app()->make(PaymentTestLabService::class);
+    }
+
+    private static function isPaymentTestLabNotifyUrl(string $url): bool
+    {
+        $path = (string)(parse_url($url, PHP_URL_PATH) ?? '');
+        if ($path !== '/payment-test/notify') {
+            return false;
+        }
+
+        parse_str((string)(parse_url($url, PHP_URL_QUERY) ?? ''), $query);
+
+        return (string)($query['vpayPaymentLab'] ?? '') === '1';
     }
 }

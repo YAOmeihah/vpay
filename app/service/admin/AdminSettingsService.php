@@ -5,7 +5,6 @@ namespace app\service\admin;
 
 use app\service\CacheService;
 use app\service\config\SettingConfigRepository;
-use app\service\runtime\SettingStateRepository;
 
 class AdminSettingsService
 {
@@ -20,19 +19,13 @@ class AdminSettingsService
             'notifyUrl' => $this->getConfigValue('notifyUrl'),
             'returnUrl' => $this->getConfigValue('returnUrl'),
             'key' => $this->getConfigValue('key'),
-            'monitorKey' => $this->getConfigValue('monitorKey'),
             'notify_ssl_verify' => $this->getConfigValue('notify_ssl_verify', '1'),
-            'lastheart' => $this->getConfigValue('lastheart'),
-            'lastpay' => $this->getConfigValue('lastpay'),
-            'jkstate' => $this->getConfigValue('jkstate'),
             'close' => $this->getConfigValue('close'),
             'payQf' => $this->getConfigValue('payQf'),
-            'wxpay' => $this->getConfigValue('wxpay'),
-            'zfbpay' => $this->getConfigValue('zfbpay'),
+            'allocationStrategy' => $this->getConfigValue('allocationStrategy', 'fixed_priority'),
         ];
 
         $settings['key'] = $this->ensureGeneratedKey('key', $settings['key']);
-        $settings['monitorKey'] = $this->ensureGeneratedKey('monitorKey', $settings['monitorKey']);
 
         return $settings;
     }
@@ -43,8 +36,8 @@ class AdminSettingsService
     public function saveSettings(array $input): void
     {
         $params = [
-            'user', 'pass', 'notifyUrl', 'returnUrl', 'key', 'monitorKey',
-            'notify_ssl_verify', 'close', 'payQf', 'wxpay', 'zfbpay',
+            'user', 'pass', 'notifyUrl', 'returnUrl', 'key',
+            'notify_ssl_verify', 'close', 'payQf', 'allocationStrategy',
         ];
 
         foreach ($params as $param) {
@@ -66,8 +59,8 @@ class AdminSettingsService
             $value = (string) $value;
 
             if (in_array($param, [
-                'user', 'notifyUrl', 'returnUrl', 'key', 'monitorKey',
-                'notify_ssl_verify', 'close', 'payQf', 'wxpay', 'zfbpay',
+                'user', 'notifyUrl', 'returnUrl', 'key',
+                'notify_ssl_verify', 'close', 'payQf', 'allocationStrategy',
             ], true)) {
                 $value = trim($value);
             }
@@ -109,19 +102,11 @@ class AdminSettingsService
 
     protected function getConfigValue(string $key, string $default = ''): string
     {
-        if ($this->isStateKey($key)) {
-            return $this->stateRepository()->get($key, $default);
-        }
-
         return $this->configRepository()->get($key, $default);
     }
 
     protected function setConfigValue(string $key, string $value): bool
     {
-        if ($this->isStateKey($key)) {
-            return $this->stateRepository()->set($key, $value);
-        }
-
         return $this->configRepository()->set($key, $value);
     }
 
@@ -154,15 +139,5 @@ class AdminSettingsService
     protected function configRepository(): SettingConfigRepository
     {
         return new SettingConfigRepository();
-    }
-
-    protected function stateRepository(): SettingStateRepository
-    {
-        return new SettingStateRepository();
-    }
-
-    private function isStateKey(string $key): bool
-    {
-        return in_array($key, $this->stateRepository()->keys(), true);
     }
 }

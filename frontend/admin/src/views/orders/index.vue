@@ -25,6 +25,17 @@ const STATE_MAP: Record<number, { label: string; type: TagType }> = {
 
 const TYPE_MAP: Record<number, string> = { 1: "微信", 2: "支付宝" };
 
+const formatTerminalOwnership = (row: any) => {
+  const name = String(row.terminal_snapshot ?? "").trim();
+  const code = String(row.terminal_code ?? "").trim();
+
+  if (name !== "" && code !== "") {
+    return `${name} / ${code}`;
+  }
+
+  return name || code || "-";
+};
+
 const loading = ref(false);
 const list = ref<any[]>([]);
 const total = ref(0);
@@ -190,6 +201,11 @@ onMounted(loadList);
         </el-table-column>
         <el-table-column label="商户订单号" prop="pay_id" min-width="160" show-overflow-tooltip />
         <el-table-column label="云端订单号" prop="order_id" min-width="160" show-overflow-tooltip />
+        <el-table-column label="所属终端" min-width="220" show-overflow-tooltip>
+          <template #default="{ row }">
+            {{ formatTerminalOwnership(row) }}
+          </template>
+        </el-table-column>
         <el-table-column label="类型" width="80">
           <template #default="{ row }">{{ TYPE_MAP[row.type] ?? row.type }}</template>
         </el-table-column>

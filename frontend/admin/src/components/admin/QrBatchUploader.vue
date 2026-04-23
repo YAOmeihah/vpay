@@ -2,42 +2,58 @@
 import { ref, reactive } from "vue";
 import { message } from "@/utils/message";
 import { addPayQrcode } from "@/api/admin/qrcode";
-import type { UploadFile } from "element-plus";
 import { decodeQrFromFile } from "@/utils/qrcode";
 import { isValidMoneyInput } from "@/utils/adminLegacy";
+import { buildPendingQrRow, type QrRow } from "./qrBatchUploaderState";
 
 const props = defineProps<{
   type: 1 | 2;
   title: string;
   scanHint: string;
+  channelId?: number;
 }>();
-
-interface QrRow {
-  file: File;
-  previewUrl: string;
-  decodedUrl: string;
-  price: string;
-  status: "pending" | "ok" | "error";
-  errMsg: string;
-}
 
 const rows = ref<QrRow[]>([]);
 const submitting = ref(false);
+const fileInputRef = ref<HTMLInputElement | null>(null);
 
-const handleFileChange = async (uploadFile: UploadFile) => {
-  const file = uploadFile.raw!;
-  const previewUrl = URL.createObjectURL(file);
-  const decodedUrl = await decodeQrFromFile(file);
-  rows.value.push(
-    reactive({
-      file,
-      previewUrl,
-      decodedUrl,
-      price: "",
-      status: "pending",
-      errMsg: ""
-    })
-  );
+const appendPendingRow = async (file: File) => {
+  const result = await buildPendingQrRow({ raw: file }, {
+    createPreviewUrl: file => URL.createObjectURL(file),
+    decodeQr: decodeQrFromFile
+  });
+
+  if (!result.row) {
+    message(result.warning, { type: "error" });
+    return;
+  }
+
+  rows.value.push(reactive(result.row));
+  if (result.warning) {
+    message(result.warning, { type: "warning" });
+  }
+};
+
+const triggerFileDialog = () => {
+  if (!fileInputRef.value) return;
+  fileInputRef.value.value = "";
+  fileInputRef.value.click();
+};
+
+const handleNativeFileChange = async (event: Event) => {
+  const input = event.target as HTMLInputElement | null;
+  const files = input?.files ? Array.from(input.files) : [];
+  if (files.length === 0) {
+    return;
+  }
+
+  for (const file of files) {
+    await appendPendingRow(file);
+  }
+
+  if (input) {
+    input.value = "";
+  }
 };
 
 const removeRow = (index: number) => {
@@ -69,7 +85,8 @@ const submitAll = async () => {
       const res = await addPayQrcode({
         type: props.type,
         pay_url: row.decodedUrl,
-        price: row.price
+        price: row.price,
+        channelId: props.channelId
       });
       if (res.code === 1) {
         row.status = "ok";
@@ -100,15 +117,15 @@ const submitAll = async () => {
 
       <el-alert :title="scanHint" type="info" :closable="false" class="mb-4" />
 
-      <el-upload
+      <input
+        ref="fileInputRef"
         multiple
-        :auto-upload="false"
+        type="file"
         accept="image/*"
-        :show-file-list="false"
-        :on-change="handleFileChange"
-      >
-        <el-button type="primary">选择图片</el-button>
-      </el-upload>
+        class="hidden"
+        @change="handleNativeFileChange"
+      />
+      <el-button type="primary" @click="triggerFileDialog">选择图片</el-button>
 
       <el-table v-if="rows.length" :data="rows" class="mt-4" border>
         <el-table-column label="预览" width="100">

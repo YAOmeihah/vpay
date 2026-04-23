@@ -6,9 +6,11 @@ namespace tests;
 use app\controller\Admin;
 use app\controller\merchant\Order as MerchantOrderController;
 use app\service\CacheService;
+use app\service\admin\ChannelAdminService;
 use app\service\admin\AdminPermissionService;
 use app\service\admin\AdminSettingsService;
 use app\service\admin\DashboardStatsService;
+use app\service\admin\TerminalAdminService;
 use app\service\order\ExpiredOrderCleanupGate;
 use app\service\order\OrderStateManager;
 use app\service\runtime\SettingMonitorState;
@@ -148,9 +150,11 @@ class ControllerEdgeServiceRegressionTest extends TestCase
             'zfbpay' => 'alipays://default-pay-url',
         ]) extends AdminSettingsService {
             public array $savedSettings = [];
+            public array $settings;
 
-            public function __construct(private array $settings)
+            public function __construct(array $settings)
             {
+                $this->settings = $settings;
             }
 
             protected function getConfigValue(string $key, string $default = ''): string
@@ -174,6 +178,43 @@ class ControllerEdgeServiceRegressionTest extends TestCase
             {
                 return 'generated-sign-key';
             }
+
+            protected function terminalAdminService(): TerminalAdminService
+            {
+                return new class($this) extends TerminalAdminService {
+                    public function __construct(private object $owner)
+                    {
+                    }
+
+                    public function legacyDefaultMonitorKey(): string
+                    {
+                        return (string) ($this->owner->settings['monitorKey'] ?? '');
+                    }
+
+                    public function updateLegacyDefaultMonitorKey(string $monitorKey): void
+                    {
+                        $this->owner->savedSettings['monitorKey'] = $monitorKey;
+                        $this->owner->settings['monitorKey'] = $monitorKey;
+                    }
+                };
+            }
+
+            protected function channelAdminService(): ChannelAdminService
+            {
+                return new class($this) extends ChannelAdminService {
+                    public function __construct(private object $owner)
+                    {
+                    }
+
+                    public function legacyDefaultPair(): array
+                    {
+                        return [
+                            'wxpay' => (string) ($this->owner->settings['wxpay'] ?? ''),
+                            'zfbpay' => (string) ($this->owner->settings['zfbpay'] ?? ''),
+                        ];
+                    }
+                };
+            }
         };
 
         $settings = $service->getSettings();
@@ -191,6 +232,7 @@ class ControllerEdgeServiceRegressionTest extends TestCase
             'jkstate',
             'close',
             'payQf',
+            'allocationStrategy',
             'wxpay',
             'zfbpay',
         ], array_keys($settings));
@@ -210,9 +252,11 @@ class ControllerEdgeServiceRegressionTest extends TestCase
             'key' => '0',
         ]) extends AdminSettingsService {
             public array $savedSettings = [];
+            public array $settings;
 
-            public function __construct(private array $settings)
+            public function __construct(array $settings)
             {
+                $this->settings = $settings;
             }
 
             protected function getConfigValue(string $key, string $default = ''): string
@@ -231,6 +275,36 @@ class ControllerEdgeServiceRegressionTest extends TestCase
             protected function generateKey(): string
             {
                 return 'generated-sign-key';
+            }
+
+            protected function terminalAdminService(): TerminalAdminService
+            {
+                return new class($this) extends TerminalAdminService {
+                    public function __construct(private object $owner)
+                    {
+                    }
+
+                    public function legacyDefaultMonitorKey(): string
+                    {
+                        return (string) ($this->owner->settings['monitorKey'] ?? '');
+                    }
+
+                    public function updateLegacyDefaultMonitorKey(string $monitorKey): void
+                    {
+                        $this->owner->savedSettings['monitorKey'] = $monitorKey;
+                        $this->owner->settings['monitorKey'] = $monitorKey;
+                    }
+                };
+            }
+
+            protected function channelAdminService(): ChannelAdminService
+            {
+                return new class extends ChannelAdminService {
+                    public function legacyDefaultPair(): array
+                    {
+                        return ['wxpay' => '', 'zfbpay' => ''];
+                    }
+                };
             }
         };
 
@@ -271,9 +345,11 @@ class ControllerEdgeServiceRegressionTest extends TestCase
     {
         $service = new class(['key' => '0']) extends AdminSettingsService {
             public array $savedSettings = [];
+            public array $settings;
 
-            public function __construct(private array $settings)
+            public function __construct(array $settings)
             {
+                $this->settings = $settings;
             }
 
             protected function getConfigValue(string $key, string $default = ''): string
@@ -291,6 +367,36 @@ class ControllerEdgeServiceRegressionTest extends TestCase
             protected function generateKey(): string
             {
                 return 'legacy-empty-regenerated-key';
+            }
+
+            protected function terminalAdminService(): TerminalAdminService
+            {
+                return new class($this) extends TerminalAdminService {
+                    public function __construct(private object $owner)
+                    {
+                    }
+
+                    public function legacyDefaultMonitorKey(): string
+                    {
+                        return (string) ($this->owner->settings['monitorKey'] ?? '');
+                    }
+
+                    public function updateLegacyDefaultMonitorKey(string $monitorKey): void
+                    {
+                        $this->owner->savedSettings['monitorKey'] = $monitorKey;
+                        $this->owner->settings['monitorKey'] = $monitorKey;
+                    }
+                };
+            }
+
+            protected function channelAdminService(): ChannelAdminService
+            {
+                return new class extends ChannelAdminService {
+                    public function legacyDefaultPair(): array
+                    {
+                        return ['wxpay' => '', 'zfbpay' => ''];
+                    }
+                };
             }
         };
 
@@ -354,6 +460,20 @@ class ControllerEdgeServiceRegressionTest extends TestCase
                     }
                 };
             }
+
+            protected function terminalAdminService(): TerminalAdminService
+            {
+                return new class($this) extends TerminalAdminService {
+                    public function __construct(private object $owner)
+                    {
+                    }
+
+                    public function updateLegacyDefaultMonitorKey(string $monitorKey): void
+                    {
+                        $this->owner->savedSettings['monitorKey'] = $monitorKey;
+                    }
+                };
+            }
         };
 
         $service->saveSettings([
@@ -390,6 +510,12 @@ class ControllerEdgeServiceRegressionTest extends TestCase
             'settings:view',
             'settings:save',
             'monitor:view',
+            'terminals:view',
+            'terminals:save',
+            'terminals:toggle',
+            'channels:view',
+            'channels:save',
+            'channels:toggle',
             'qrcode:add',
             'qrcode:view',
             'qrcode:delete',

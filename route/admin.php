@@ -9,6 +9,13 @@ Route::group('admin/index', function () {
     Route::any('checkUpdate', 'admin/checkUpdate');
     Route::any('getSettings', 'admin/getSettings');
     Route::any('saveSetting', 'admin/saveSetting');
+    Route::any('getTerminals', 'admin/getTerminals');
+    Route::post('saveTerminal', 'admin/saveTerminal');
+    Route::post('toggleTerminal', 'admin/toggleTerminal');
+    Route::post('resetTerminalKey', 'admin/resetTerminalKey');
+    Route::any('getTerminalChannels', 'admin/getTerminalChannels');
+    Route::post('saveTerminalChannel', 'admin/saveTerminalChannel');
+    Route::post('toggleTerminalChannel', 'admin/toggleTerminalChannel');
     Route::any('addPayQrcode', 'admin/addPayQrcode');
     Route::any('getPayQrcodes', 'admin/getPayQrcodes');
     Route::any('delPayQrcode', 'admin/delPayQrcode');

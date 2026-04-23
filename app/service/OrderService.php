@@ -3,13 +3,18 @@ declare(strict_types=1);
 
 namespace app\service;
 
+use app\model\MonitorTerminal;
 use app\model\PayOrder;
+use app\model\Setting;
+use app\model\TerminalChannel;
 use app\model\TmpPrice;
 use app\service\config\SettingSystemConfig;
 use app\service\config\SystemConfig;
 use app\service\order\OrderStateManager;
 use app\service\runtime\MonitorState;
 use app\service\runtime\SettingMonitorState;
+use app\service\terminal\ChannelPriceReservationService;
+use app\service\terminal\TerminalAllocatorService;
 use think\facade\Db;
 
 class OrderService
@@ -34,10 +39,16 @@ class OrderService
         }
 
         $orderId = OrderCreationKernel::generatePlatformOrderId();
-        $reallyPrice = OrderCreationKernel::reserveUniquePrice($price, $type, $orderId);
+        $channel = static::selectChannel($type);
+        $reallyPrice = static::priceReservation()->reserve(
+            $price,
+            (int) $channel['id'],
+            $orderId,
+            static::systemConfig()->getPayQfMode()
+        );
 
         try {
-            $payConfig = OrderCreationKernel::resolvePayUrl($type, $reallyPrice);
+            $payConfig = OrderCreationKernel::resolvePayUrlForChannel((int) $channel['id'], $type, $reallyPrice);
             OrderCreationKernel::assertMerchantOrderNotExists($payId);
 
             $createDate = time();
@@ -54,11 +65,18 @@ class OrderService
                 'price'        => $price,
                 'really_price' => $reallyPrice,
                 'return_url'   => $returnUrl,
+                'terminal_id'  => (int) $channel['terminal_id'],
+                'channel_id'   => (int) $channel['id'],
+                'assign_status' => 'assigned',
+                'assign_reason' => '',
+                'terminal_snapshot' => (string) $channel['terminal_name'],
+                'channel_snapshot' => (string) $channel['channel_name'],
                 'state'        => PayOrder::STATE_UNPAID,
                 'type'         => $type,
             ];
 
             OrderCreationKernel::createOrderRecord($data);
+            static::markChannelUsed((int) $channel['id'], $createDate);
         } catch (\Throwable $e) {
             OrderCreationKernel::rollbackReservedPrice($orderId);
             throw $e;
@@ -72,7 +90,11 @@ class OrderService
             $reallyPrice,
             $payConfig['payUrl'],
             $payConfig['isAuto'],
-            $createDate
+            $createDate,
+            (int) $channel['terminal_id'],
+            (int) $channel['id'],
+            (string) $channel['terminal_name'],
+            (string) $channel['channel_name']
         );
     }
 
@@ -170,5 +192,89 @@ class OrderService
     protected static function runTransaction(callable $callback): mixed
     {
         return Db::transaction($callback);
+    }
+
+    protected static function allocator(): TerminalAllocatorService
+    {
+        return app()->make(TerminalAllocatorService::class);
+    }
+
+    protected static function priceReservation(): ChannelPriceReservationService
+    {
+        return app()->make(ChannelPriceReservationService::class);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected static function selectChannel(int $type): array
+    {
+        $channels = static::loadChannelsForType($type);
+        $lastChannelId = static::lastUsedChannelId($channels);
+
+        return static::allocator()->pickChannel(static::allocationStrategy(), $channels, $type, $lastChannelId);
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    protected static function loadChannelsForType(int $type): array
+    {
+        $rows = [];
+        foreach (TerminalChannel::where('type', $type)->select() as $channel) {
+            $terminal = MonitorTerminal::where('id', (int) $channel['terminal_id'])->find();
+            if (!$terminal) {
+                continue;
+            }
+
+            $rows[] = [
+                'id' => (int) $channel['id'],
+                'terminal_id' => (int) $channel['terminal_id'],
+                'type' => (int) $channel['type'],
+                'channel_name' => (string) $channel['channel_name'],
+                'status' => (string) $channel['status'],
+                'pay_url' => (string) $channel['pay_url'],
+                'priority' => (int) $channel['priority'],
+                'last_used_at' => (int) $channel['last_used_at'],
+                'terminal_name' => (string) $terminal['terminal_name'],
+                'online_state' => (string) $terminal['online_state'],
+            ];
+        }
+
+        return $rows;
+    }
+
+    protected static function allocationStrategy(): string
+    {
+        return Setting::getConfigValue('allocationStrategy', 'fixed_priority');
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $channels
+     */
+    protected static function lastUsedChannelId(array $channels): ?int
+    {
+        usort($channels, static fn (array $left, array $right): int => [
+            (int) ($right['last_used_at'] ?? 0),
+            (int) ($right['id'] ?? 0),
+        ] <=> [
+            (int) ($left['last_used_at'] ?? 0),
+            (int) ($left['id'] ?? 0),
+        ]);
+
+        $channel = $channels[0] ?? null;
+        if ($channel === null || (int) ($channel['last_used_at'] ?? 0) <= 0) {
+            return null;
+        }
+
+        return (int) $channel['id'];
+    }
+
+    protected static function markChannelUsed(int $channelId, int $timestamp): void
+    {
+        TerminalChannel::where('id', $channelId)->update([
+            'last_used_at' => $timestamp,
+            'updated_at' => $timestamp,
+        ]);
     }
 }

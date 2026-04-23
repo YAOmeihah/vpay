@@ -33,18 +33,10 @@ class OrderService
         $returnUrl = $params['returnUrl'] ?? static::systemConfig()->getReturnUrl();
 
         $orderId = OrderCreationKernel::generatePlatformOrderId();
-        $channel = static::selectChannel($type);
-        $reallyPrice = static::priceReservation()->reserve(
-            $price,
-            (int) $channel['id'],
-            $orderId,
-            static::systemConfig()->getPayQfMode()
-        );
+        OrderCreationKernel::assertMerchantOrderNotExists($payId);
+        [$channel, $payConfig, $reallyPrice] = static::selectAvailableChannelForOrder($type, $price, $orderId);
 
         try {
-            $payConfig = OrderCreationKernel::resolvePayUrlForChannel((int) $channel['id'], $type, $reallyPrice);
-            OrderCreationKernel::assertMerchantOrderNotExists($payId);
-
             $createDate = time();
             $data = [
                 'close_date'   => 0,
@@ -150,6 +142,50 @@ class OrderService
     }
 
     /**
+     * @return array{0: array<string, mixed>, 1: array{payUrl: string, isAuto: int}, 2: string}
+     */
+    protected static function selectAvailableChannelForOrder(int $type, string $price, string $orderId): array
+    {
+        $orderedChannels = static::orderedChannels($type);
+        $lastException = null;
+
+        foreach ($orderedChannels as $channel) {
+            try {
+                $reallyPrice = static::priceReservation()->reserve(
+                    $price,
+                    (int) $channel['id'],
+                    $orderId,
+                    static::systemConfig()->getPayQfMode()
+                );
+                $payConfig = OrderCreationKernel::resolvePayUrlForChannel((int) $channel['id'], $type, $reallyPrice);
+
+                return [$channel, $payConfig, $reallyPrice];
+            } catch (\RuntimeException $e) {
+                OrderCreationKernel::rollbackReservedPrice($orderId);
+
+                if (!static::shouldTryNextChannel($e)) {
+                    throw $e;
+                }
+
+                $lastException = $e;
+            }
+        }
+
+        throw $lastException ?? new \RuntimeException($type === 1 ? '当前无可用微信收款终端' : '当前无可用支付宝收款终端');
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    protected static function orderedChannels(int $type): array
+    {
+        $channels = static::loadChannelsForType($type);
+        $lastChannelId = static::lastUsedChannelId($channels);
+
+        return static::allocator()->orderEligibleChannels(static::allocationStrategy(), $channels, $type, $lastChannelId);
+    }
+
+    /**
      * @return array<int, array<string, mixed>>
      */
     protected static function loadChannelsForType(int $type): array
@@ -182,6 +218,14 @@ class OrderService
     protected static function allocationStrategy(): string
     {
         return Setting::getConfigValue('allocationStrategy', 'fixed_priority');
+    }
+
+    protected static function shouldTryNextChannel(\RuntimeException $e): bool
+    {
+        return in_array($e->getMessage(), [
+            '请您先进入后台配置程序',
+            '当前通道不存在或已被删除',
+        ], true);
     }
 
     /**

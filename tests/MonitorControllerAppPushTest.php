@@ -74,7 +74,12 @@ class MonitorControllerAppPushTest extends TestCase
                 return true;
             }
 
-            protected function validateMonitorReplay(string $eventId, string $nonce, int $timestamp): string
+            protected function validateMonitorReplay(
+                string $eventId,
+                string $nonce,
+                int $timestamp,
+                ?string $scope = null
+            ): string
             {
                 return 'accepted';
             }
@@ -144,7 +149,12 @@ class MonitorControllerAppPushTest extends TestCase
                 return true;
             }
 
-            protected function validateMonitorReplay(string $eventId, string $nonce, int $timestamp): string
+            protected function validateMonitorReplay(
+                string $eventId,
+                string $nonce,
+                int $timestamp,
+                ?string $scope = null
+            ): string
             {
                 return 'duplicate';
             }
@@ -213,7 +223,12 @@ class MonitorControllerAppPushTest extends TestCase
                 return true;
             }
 
-            protected function validateMonitorReplay(string $eventId, string $nonce, int $timestamp): string
+            protected function validateMonitorReplay(
+                string $eventId,
+                string $nonce,
+                int $timestamp,
+                ?string $scope = null
+            ): string
             {
                 if ($timestamp !== 1712300000000) {
                     throw new \RuntimeException('unexpected timestamp');
@@ -283,7 +298,12 @@ class MonitorControllerAppPushTest extends TestCase
                 return true;
             }
 
-            protected function validateMonitorReplay(string $eventId, string $nonce, int $timestamp): string
+            protected function validateMonitorReplay(
+                string $eventId,
+                string $nonce,
+                int $timestamp,
+                ?string $scope = null
+            ): string
             {
                 throw new \RuntimeException('监控回调时间戳已失效');
             }
@@ -350,7 +370,12 @@ class MonitorControllerAppPushTest extends TestCase
                 return true;
             }
 
-            protected function validateMonitorReplay(string $eventId, string $nonce, int $timestamp): string
+            protected function validateMonitorReplay(
+                string $eventId,
+                string $nonce,
+                int $timestamp,
+                ?string $scope = null
+            ): string
             {
                 return 'accepted';
             }
@@ -377,5 +402,79 @@ class MonitorControllerAppPushTest extends TestCase
         $this->assertSame(-1, $payload['code']);
         $this->assertSame('异步通知失败', $payload['msg']);
         $this->assertSame('通知接口返回: gateway error', $payload['data']);
+    }
+
+    public function test_app_push_passes_terminal_scope_into_replay_validation(): void
+    {
+        $request = (clone self::$app->request)
+            ->withPost([
+                'type' => '1',
+                'amountCents' => '1234',
+                'ts' => '1712300000000',
+                'nonce' => 'nonce-scope',
+                'eventId' => 'evt-scope',
+                'terminalCode' => 'term-a',
+                'sign' => 'signed',
+            ])
+            ->withServer(['REQUEST_METHOD' => 'POST'])
+            ->setMethod('POST');
+
+        self::$app->instance('request', $request);
+
+        $controller = new class(self::$app) extends Monitor {
+            public ?string $replayScope = null;
+
+            protected function closeExpiredOrders(): void
+            {
+            }
+
+            protected function resolveTerminal(string $terminalCode): MonitorTerminal
+            {
+                return new MonitorTerminal([
+                    'id' => 11,
+                    'terminal_code' => $terminalCode,
+                    'terminal_name' => '终端A',
+                ]);
+            }
+
+            protected function verifyTerminalMonitorPushSignature(
+                string $terminalCode,
+                int $type,
+                int $amountCents,
+                int $ts,
+                string $nonce,
+                string $eventId,
+                string $sign
+            ): bool {
+                return true;
+            }
+
+            protected function validateMonitorReplay(
+                string $eventId,
+                string $nonce,
+                int $timestamp,
+                ?string $scope = null
+            ): string {
+                $this->replayScope = $scope;
+                return 'accepted';
+            }
+
+            protected function handleTerminalPayPush(
+                int $terminalId,
+                string $price,
+                int $type,
+                string $eventId,
+                array $rawPayload
+            ): array
+            {
+                return ['alreadyProcessed' => false, 'notifyOk' => true];
+            }
+        };
+
+        $response = $controller->appPush();
+        $payload = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertSame(1, $payload['code']);
+        $this->assertSame('term-a', $controller->replayScope);
     }
 }

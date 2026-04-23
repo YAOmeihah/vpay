@@ -337,6 +337,9 @@ class Admin extends BaseController
     public function addPayQrcode()
     {
         PayQrcode::create([
+            "channel_id" => ($this->request->param("channelId", $this->request->param("channel_id")) !== null)
+                ? (int) $this->request->param("channelId", $this->request->param("channel_id"))
+                : null,
             "type" => (int)$this->request->param("type"),
             "pay_url" => $this->request->param("pay_url"),
             "price" => (float)$this->request->param("price"),
@@ -353,8 +356,12 @@ class Admin extends BaseController
         $page = (int)$this->request->param("page", 1);
         $size = (int)$this->request->param("limit", 10);
         $type = $this->request->param("type");
+        $channelId = $this->request->param("channelId", $this->request->param("channel_id"));
 
         $query = PayQrcode::where("type", (int)$type);
+        if ($channelId !== null && $channelId !== '') {
+            $query = $query->where("channel_id", (int) $channelId);
+        }
         $count = $query->count();
         $array = $query->order("id", "desc")
             ->page($page, $size)

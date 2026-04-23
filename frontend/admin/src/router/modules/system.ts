@@ -22,6 +22,18 @@ export default {
       name: "MonitorSettings",
       component: () => import("@/views/system/monitor/index.vue"),
       meta: { title: "监控端设置" }
+    },
+    {
+      path: "/system/terminals",
+      name: "TerminalManagement",
+      component: () => import("@/views/system/terminals/index.vue"),
+      meta: { title: "终端管理" }
+    },
+    {
+      path: "/system/terminals/:terminalId",
+      name: "TerminalChannels",
+      component: () => import("@/views/system/terminals/detail.vue"),
+      meta: { title: "通道管理", showLink: false }
     }
   ]
 } satisfies RouteConfigsTable;

@@ -110,7 +110,7 @@ onMounted(loadSettings);
       <div class="space-y-1">
         <h2 class="text-lg font-medium">系统设置</h2>
         <p class="text-sm text-gray-500">
-          按功能分区维护后台安全、支付基础配置和默认收款码。
+          按功能分区维护后台安全、支付基础配置，以及默认终端继承的旧版收款码。
         </p>
       </div>
     </el-card>

@@ -49,6 +49,12 @@ onMounted(loadSettings);
   <div class="p-4">
     <el-card shadow="hover" v-loading="loading">
       <template #header><span>监控端状态</span></template>
+      <el-alert
+        title="多终端监控请前往终端管理页逐个绑定；此页面保留默认终端的旧版绑定方式。"
+        type="info"
+        :closable="false"
+        class="mb-4"
+      />
 
         <el-descriptions :column="1" border>
         <el-descriptions-item label="运行状态">
@@ -89,6 +95,9 @@ onMounted(loadSettings);
       />
 
       <div class="mt-4 flex gap-3 justify-end">
+        <el-button @click="$router.push('/system/terminals')">
+          打开终端管理
+        </el-button>
         <el-button @click="openLocalAppDownload">下载监控端</el-button>
         <el-button @click="openLatestAppDownload">
           最新版监控端下载

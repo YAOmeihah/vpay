@@ -12,6 +12,7 @@ export type PaymentSection = {
   notifySslVerify: string;
   close: string;
   payQf: string;
+  allocationStrategy: "fixed_priority" | "round_robin";
 };
 
 export type QrcodeSection = {
@@ -39,7 +40,8 @@ export function createSettingsSections(): SettingsSections {
       monitorKey: "",
       notifySslVerify: "1",
       close: "",
-      payQf: "1"
+      payQf: "1",
+      allocationStrategy: "fixed_priority"
     },
     qrcode: {
       wxpay: "",
@@ -63,6 +65,9 @@ export function hydrateSettingsSections(
   sections.payment.notifySslVerify = String(payload.notify_ssl_verify ?? "1");
   sections.payment.close = String(payload.close ?? "");
   sections.payment.payQf = String(payload.payQf ?? "1");
+  sections.payment.allocationStrategy = (payload.allocationStrategy === "round_robin"
+    ? "round_robin"
+    : "fixed_priority");
 
   sections.qrcode.wxpay = String(payload.wxpay ?? "");
   sections.qrcode.zfbpay = String(payload.zfbpay ?? "");
@@ -92,7 +97,8 @@ export function buildPaymentPayload(
     monitorKey: section.monitorKey,
     notify_ssl_verify: section.notifySslVerify,
     close: section.close,
-    payQf: section.payQf
+    payQf: section.payQf,
+    allocationStrategy: section.allocationStrategy
   };
 }
 

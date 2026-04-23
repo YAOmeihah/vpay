@@ -10,6 +10,7 @@ const props = defineProps<{
   type: 1 | 2;
   title: string;
   scanHint: string;
+  channelId?: number;
 }>();
 
 interface QrRow {
@@ -69,7 +70,8 @@ const submitAll = async () => {
       const res = await addPayQrcode({
         type: props.type,
         pay_url: row.decodedUrl,
-        price: row.price
+        price: row.price,
+        channelId: props.channelId
       });
       if (res.code === 1) {
         row.status = "ok";

@@ -31,6 +31,12 @@ class PayOrder extends Model
         'price'       => 'float',
         'really_price'=> 'float',
         'return_url'  => 'string',
+        'terminal_id' => 'bigint',
+        'channel_id'  => 'bigint',
+        'assign_status' => 'string',
+        'assign_reason' => 'string',
+        'terminal_snapshot' => 'string',
+        'channel_snapshot' => 'string',
         'state'       => 'int',
         'type'        => 'int',
     ];
@@ -40,6 +46,8 @@ class PayOrder extends Model
     const STATE_PAID = 1;      // 已支付
     const STATE_NOTIFY_FAILED = 2; // 通知失败
     const STATE_EXPIRED = -1;  // 已过期
+    const STATE_CANCELLED = -2; // 已取消
+    const STATE_ASSIGN_FAILED = -3; // 分配失败
     
     // 支付类型常量
     const TYPE_WECHAT = 1;     // 微信支付
@@ -55,6 +63,8 @@ class PayOrder extends Model
             self::STATE_PAID => '已支付',
             self::STATE_NOTIFY_FAILED => '通知失败',
             self::STATE_EXPIRED => '已过期',
+            self::STATE_CANCELLED => '已取消',
+            self::STATE_ASSIGN_FAILED => '分配失败',
         ];
         return $status[$data['state']] ?? '未知状态';
     }

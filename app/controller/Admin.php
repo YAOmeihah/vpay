@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace app\controller;
 
 use app\BaseController;
+use app\model\MonitorTerminal;
 use app\model\PayOrder;
 use app\model\PayQrcode;
 use app\model\TmpPrice;
@@ -484,7 +485,7 @@ class Admin extends BaseController
         $type = $this->request->param("type");
         $state = $this->request->param("state");
 
-        $query = PayOrder::order("id", "desc");
+        $query = Db::name('pay_order')->order("id", "desc");
 
         if ($type) {
             $query = $query->where("type", (int)$type);
@@ -495,6 +496,21 @@ class Admin extends BaseController
 
         $count = $query->count();
         $array = $query->page($page, $size)->select()->toArray();
+        $terminalIds = array_values(array_unique(array_filter(array_map(
+            static fn (array $row): int => (int) ($row['terminal_id'] ?? 0),
+            $array
+        ))));
+        $terminalCodes = [];
+        if ($terminalIds !== []) {
+            $terminalCodes = MonitorTerminal::whereIn('id', $terminalIds)->column('terminal_code', 'id');
+        }
+
+        $array = array_map(static function (array $row) use ($terminalCodes): array {
+            $terminalId = (int) ($row['terminal_id'] ?? 0);
+            $row['terminal_code'] = $terminalId > 0 ? (string) ($terminalCodes[$terminalId] ?? '') : '';
+
+            return $row;
+        }, $array);
 
         return json([
             "code" => 1,

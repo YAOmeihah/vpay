@@ -7,6 +7,7 @@ use app\model\MonitorTerminal;
 use app\model\PayOrder;
 use app\model\TerminalChannel;
 use app\service\admin\TerminalAdminService;
+use think\facade\Db;
 
 class TerminalAdminServiceTest extends TestCase
 {
@@ -115,7 +116,7 @@ class TerminalAdminServiceTest extends TestCase
         ]);
         $terminalId = (int) $saved['id'];
 
-        PayOrder::create([
+        Db::name('pay_order')->insert([
             'order_id' => 'open-order-delete-block',
             'pay_id' => 'pay-open-order-delete-block',
             'type' => PayOrder::TYPE_WECHAT,

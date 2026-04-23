@@ -68,6 +68,7 @@ CREATE TABLE `monitor_terminal` (
   `id` bigint(20) NOT NULL,
   `terminal_code` varchar(64) NOT NULL,
   `terminal_name` varchar(128) NOT NULL,
+  `dispatch_priority` int(11) NOT NULL DEFAULT 100,
   `status` varchar(32) NOT NULL DEFAULT 'enabled',
   `online_state` varchar(32) NOT NULL DEFAULT 'offline',
   `monitor_key` varchar(128) NOT NULL,
@@ -92,7 +93,6 @@ CREATE TABLE `terminal_channel` (
   `channel_name` varchar(128) NOT NULL,
   `status` varchar(32) NOT NULL DEFAULT 'enabled',
   `pay_url` varchar(1000) NOT NULL DEFAULT '',
-  `priority` int(11) NOT NULL DEFAULT 100,
   `last_used_at` bigint(20) NOT NULL DEFAULT 0,
   `created_at` bigint(20) NOT NULL,
   `updated_at` bigint(20) NOT NULL
@@ -194,7 +194,7 @@ ALTER TABLE `monitor_terminal`
 ALTER TABLE `terminal_channel`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `uniq_terminal_type` (`terminal_id`,`type`),
-  ADD INDEX `idx_type_status_priority` (`type`,`status`,`priority`);
+  ADD INDEX `idx_type_status_terminal` (`type`,`status`,`terminal_id`);
 
 --
 -- 表的索引 `payment_event`

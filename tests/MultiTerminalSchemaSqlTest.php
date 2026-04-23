@@ -29,9 +29,13 @@ final class MultiTerminalSchemaSqlTest extends TestCase
         self::assertStringContainsString('CREATE TABLE `monitor_terminal`', $bootstrapSql);
         self::assertStringContainsString('CREATE TABLE `terminal_channel`', $bootstrapSql);
         self::assertStringContainsString('CREATE TABLE `payment_event`', $bootstrapSql);
+        self::assertStringContainsString('`dispatch_priority` int(11) NOT NULL DEFAULT 100', $bootstrapSql);
         self::assertStringContainsString('`terminal_id` bigint(20) DEFAULT NULL', $bootstrapSql);
         self::assertStringContainsString('`channel_id` bigint(20) DEFAULT NULL', $bootstrapSql);
         self::assertStringContainsString('ADD UNIQUE KEY `uniq_channel_price` (`channel_id`,`price`)', $bootstrapSql);
+        self::assertStringContainsString('ADD INDEX `idx_type_status_terminal` (`type`,`status`,`terminal_id`)', $bootstrapSql);
+        self::assertStringNotContainsString('`priority` int(11) NOT NULL DEFAULT 100', $bootstrapSql);
+        self::assertStringNotContainsString('idx_type_status_priority', $bootstrapSql);
 
         $payOrderSource = file_get_contents(__DIR__ . '/../app/model/PayOrder.php');
         self::assertIsString($payOrderSource);

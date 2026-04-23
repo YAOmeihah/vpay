@@ -5,6 +5,7 @@ namespace app\service;
 
 use app\service\config\SettingSystemConfig;
 use app\service\config\SystemConfig;
+use app\service\terminal\TerminalCredentialService;
 
 class SignService
 {
@@ -117,8 +118,33 @@ class SignService
         return hash_equals($expected, $sign);
     }
 
+    public static function verifyTerminalMonitorPushSign(
+        string $terminalCode,
+        int $type,
+        int $amountCents,
+        int $ts,
+        string $nonce,
+        string $eventId,
+        string $sign
+    ): bool {
+        $normalizedTerminalCode = trim($terminalCode);
+        $payload = implode('|', [$normalizedTerminalCode, $type, $amountCents, $ts, $nonce, $eventId]);
+        $expected = hash_hmac(
+            'sha256',
+            $payload,
+            static::terminalCredentialService()->requireKeyFor($normalizedTerminalCode)
+        );
+
+        return hash_equals($expected, $sign);
+    }
+
     protected static function systemConfig(): SystemConfig
     {
         return new SettingSystemConfig();
+    }
+
+    protected static function terminalCredentialService(): TerminalCredentialService
+    {
+        return app()->make(TerminalCredentialService::class);
     }
 }

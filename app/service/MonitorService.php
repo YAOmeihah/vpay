@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace app\service;
 
+use app\model\MonitorTerminal;
 use app\model\PayOrder;
 use app\model\TmpPrice;
 use app\service\config\SettingSystemConfig;
@@ -24,6 +25,12 @@ class MonitorService
         $state = static::monitorState();
         $state->markHeartbeatAt(time());
         $state->markOnline();
+    }
+
+    public static function heartbeatForTerminal(int $terminalId, string $ip): void
+    {
+        $timestamp = static::currentTimestamp();
+        static::persistTerminalHeartbeat($terminalId, $ip, $timestamp);
     }
 
     /**
@@ -90,6 +97,21 @@ class MonitorService
     protected static function monitorState(): MonitorState
     {
         return app()->make(SettingMonitorState::class);
+    }
+
+    protected static function currentTimestamp(): int
+    {
+        return time();
+    }
+
+    protected static function persistTerminalHeartbeat(int $terminalId, string $ip, int $timestamp): void
+    {
+        MonitorTerminal::where('id', $terminalId)->update([
+            'last_heartbeat_at' => $timestamp,
+            'last_ip' => $ip,
+            'online_state' => 'online',
+            'updated_at' => $timestamp,
+        ]);
     }
 
     protected static function systemConfig(): SystemConfig

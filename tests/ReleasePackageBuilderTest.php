@@ -71,6 +71,7 @@ final class ReleasePackageBuilderTest extends TestCase
         self::assertFileExists($packageDir . DIRECTORY_SEPARATOR . 'runtime/install/.keep');
 
         self::assertFileDoesNotExist($packageDir . DIRECTORY_SEPARATOR . '.env');
+        self::assertFileDoesNotExist($packageDir . DIRECTORY_SEPARATOR . 'public/index.html');
         self::assertFileDoesNotExist($packageDir . DIRECTORY_SEPARATOR . 'tests/ExampleTest.php');
         self::assertFileDoesNotExist($packageDir . DIRECTORY_SEPARATOR . 'frontend/admin/src/main.ts');
         self::assertFileDoesNotExist($packageDir . DIRECTORY_SEPARATOR . 'frontend/admin/node_modules/pkg/index.js');

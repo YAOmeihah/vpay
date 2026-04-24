@@ -25,6 +25,18 @@ final class ReleaseWorkflowTest extends TestCase
         self::assertStringContainsString('gh release', $workflow);
     }
 
+    public function test_install_documentation_prioritizes_php_index_for_domain_root(): void
+    {
+        $readmePath = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'README-INSTALL.md';
+
+        self::assertFileExists($readmePath);
+
+        $readme = (string) file_get_contents($readmePath);
+
+        self::assertStringContainsString('index index.php;', $readme);
+        self::assertStringNotContainsString('index index.php index.html;', $readme);
+    }
+
     public function test_release_workflow_falls_back_to_app_version_for_manual_branch_runs(): void
     {
         $workflowPath = dirname(__DIR__) . DIRECTORY_SEPARATOR . '.github/workflows/release.yml';

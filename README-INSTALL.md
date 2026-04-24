@@ -1,6 +1,6 @@
 # VPay 安装与升级说明
 
-本文档适用于 GitHub Release 中的完整免构建发布包，例如 `vpay-v2.1.1.zip`。
+本文档适用于 GitHub Release 中的完整免构建发布包，例如 `vpay-v2.1.2.zip`。
 
 发布包已经包含：
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace app\controller\install;
 
 use app\BaseController;
+use app\service\install\InstallStepService;
 use app\service\install\InstallStateService;
 use think\Response;
 use think\facade\View;
@@ -32,10 +33,33 @@ class Wizard extends BaseController
 
     public function run(): Response
     {
-        return $this->htmlResponse(View::fetch('install/progress', [
-            'title' => '执行中',
-            'steps' => [],
-            'message' => '执行尚未接入',
+        if (!$this->request->isPost()) {
+            return $this->htmlResponse(View::fetch('install/progress', [
+                'title' => '执行中',
+                'steps' => [],
+                'message' => '执行尚未接入',
+            ]));
+        }
+
+        $result = $this->app->make(InstallStepService::class)->install([
+            'env' => (array) $this->request->post('env', []),
+            'admin_user' => (string) $this->request->post('admin_user', ''),
+            'admin_pass' => (string) $this->request->post('admin_pass', ''),
+        ]);
+
+        if (($result['installed'] ?? false) === true) {
+            return $this->htmlResponse(View::fetch('install/success', [
+                'title' => '完成',
+                'result' => $result,
+            ]));
+        }
+
+        return $this->htmlResponse(View::fetch('install/recover', [
+            'title' => '恢复',
+            'context' => [
+                'step' => 'write-env',
+                'message' => '配置文件写入失败，请按提示手工复制后重试。',
+            ],
         ]));
     }
 

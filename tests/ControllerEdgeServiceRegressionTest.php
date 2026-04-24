@@ -595,6 +595,9 @@ class ControllerEdgeServiceRegressionTest extends TestCase
         $this->assertStringContainsString('`vvalue` text', $schema);
         $this->assertStringContainsString('`price` decimal(10,2) not null', $schema);
         $this->assertStringContainsString('`really_price` decimal(10,2) not null', $schema);
+        $this->assertStringContainsString('install_status', $schema);
+        $this->assertStringContainsString('schema_version', $schema);
+        $this->assertStringContainsString('app_version', $schema);
         $this->assertStringContainsString('add unique key `uniq_pay_id` (`pay_id`)', $schema);
         $this->assertStringContainsString('add unique key `uniq_order_id` (`order_id`)', $schema);
         $this->assertStringContainsString('add unique key `uniq_type_price` (`type`,`price`)', $schema);

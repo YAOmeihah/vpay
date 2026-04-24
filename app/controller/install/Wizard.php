@@ -17,7 +17,7 @@ class Wizard extends BaseController
     {
         $state = $this->state();
 
-        return $this->htmlResponse(View::fetch('install/entry', [
+        return $this->htmlResponse(View::fetch('install@/entry', [
             'title' => '安装向导',
             'state' => $state['state'],
             'message' => $state['message'],
@@ -27,7 +27,7 @@ class Wizard extends BaseController
 
     public function check(): Response
     {
-        return $this->htmlResponse(View::fetch('install/check', [
+        return $this->htmlResponse(View::fetch('install@/check', [
             'title' => '环境检查',
             'checks' => $this->environmentChecks(),
         ]));
@@ -36,7 +36,7 @@ class Wizard extends BaseController
     public function run(): Response
     {
         if (!$this->request->isPost()) {
-            return $this->htmlResponse(View::fetch('install/progress', [
+            return $this->htmlResponse(View::fetch('install@/progress', [
                 'title' => '执行中',
                 'steps' => [],
                 'message' => '执行尚未接入',
@@ -47,13 +47,13 @@ class Wizard extends BaseController
             $result = $this->handleRun();
 
             if (($result['installed'] ?? false) === true) {
-                return $this->htmlResponse(View::fetch('install/success', [
+                return $this->htmlResponse(View::fetch('install@/success', [
                     'title' => '完成',
                     'result' => $result,
                 ]));
             }
 
-            return $this->htmlResponse(View::fetch('install/recover', [
+            return $this->htmlResponse(View::fetch('install@/recover', [
                 'title' => '恢复',
                 'context' => [
                     'step' => 'write-env',
@@ -75,7 +75,7 @@ class Wizard extends BaseController
                 json_encode($context, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)
             );
 
-            return $this->htmlResponse(View::fetch('install/recover', [
+            return $this->htmlResponse(View::fetch('install@/recover', [
                 'title' => '恢复',
                 'context' => $context,
             ]));
@@ -84,7 +84,7 @@ class Wizard extends BaseController
 
     public function recover(): Response
     {
-        return $this->htmlResponse(View::fetch('install/recover', [
+        return $this->htmlResponse(View::fetch('install@/recover', [
             'title' => '恢复',
             'context' => $this->recoveryContext(),
         ]));

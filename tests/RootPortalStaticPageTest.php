@@ -7,24 +7,19 @@ use PHPUnit\Framework\TestCase;
 
 final class RootPortalStaticPageTest extends TestCase
 {
-    private string $html;
-
-    protected function setUp(): void
-    {
-        $this->html = (string) file_get_contents(dirname(__DIR__) . '/public/index.html');
-    }
-
     public function test_root_page_is_now_a_portal_and_not_a_redirect_shell(): void
     {
-        $this->assertStringNotContainsString('http-equiv="refresh"', $this->html);
-        $this->assertStringNotContainsString('window.location.replace("/console/")', $this->html);
-        $this->assertStringContainsString('支付处理与后台协同平台', $this->html);
-        $this->assertStringNotContainsString('/console/', $this->html);
-        $this->assertStringNotContainsString('/payment-api.html', $this->html);
-        $this->assertStringNotContainsString('/createOrder', $this->html);
+        $html = $this->readProjectFile('public/index.html');
+
+        $this->assertStringNotContainsString('http-equiv="refresh"', $html);
+        $this->assertStringNotContainsString('window.location.replace("/console/")', $html);
+        $this->assertStringContainsString('支付处理与后台协同平台', $html);
+        $this->assertStringNotContainsString('/console/', $html);
+        $this->assertStringNotContainsString('/payment-api.html', $html);
+        $this->assertStringNotContainsString('/createOrder', $html);
     }
 
-    public function test_release_package_excludes_root_static_index_to_allow_install_bootstrap(): void
+    public function test_release_package_keeps_root_static_index_for_installed_homepage(): void
     {
         $builderPath = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'build/release/ReleasePackageBuilder.php';
         self::assertFileExists($builderPath);
@@ -48,11 +43,19 @@ final class RootPortalStaticPageTest extends TestCase
             $packageDir = $builder->stage('v2.1.0', $outputRoot);
 
             self::assertFileExists($packageDir . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'index.php');
-            self::assertFileDoesNotExist($packageDir . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'index.html');
+            self::assertFileExists($packageDir . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'index.html');
             self::assertFileExists($packageDir . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'console' . DIRECTORY_SEPARATOR . 'index.html');
         } finally {
             $this->removeTree($base);
         }
+    }
+
+    public function test_payment_api_page_links_back_to_root_entrypoint_not_excluded_static_index(): void
+    {
+        $html = $this->readProjectFile('public/payment-api.html');
+
+        self::assertStringNotContainsString('/index.html', $html);
+        self::assertStringContainsString('href="/"', $html);
     }
 
     public function test_apache_default_index_prefers_php_entrypoint_over_static_portal(): void
@@ -71,6 +74,14 @@ final class RootPortalStaticPageTest extends TestCase
         }
 
         file_put_contents($path, $contents);
+    }
+
+    private function readProjectFile(string $relativePath): string
+    {
+        $path = dirname(__DIR__) . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relativePath);
+        self::assertFileExists($path);
+
+        return (string) file_get_contents($path);
     }
 
     private function removeTree(string $path): void

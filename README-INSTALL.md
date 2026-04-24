@@ -58,6 +58,7 @@
 
 发布包的 `public/.htaccess` 已内置 Apache 伪静态规则。请确保站点开启 `mod_rewrite`，并允许 `.htaccess` 生效。
 其中默认首页顺序会优先执行 `index.php`，避免首次安装时被静态首页拦截。
+安装或升级完成后，访问域名根路径会由 `index.php` 判断状态；未安装或需要升级时进入安装向导，已安装时渲染发布包内的 `public/index.html` 作为系统首页。
 
 ## Nginx 伪静态示例
 

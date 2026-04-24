@@ -32,12 +32,15 @@ final class UpdatePreflightService
         $checks[] = $this->checkBool('没有安装锁', !is_file($root . 'runtime' . DIRECTORY_SEPARATOR . 'install' . DIRECTORY_SEPARATOR . 'lock.json'), '安装或升级正在执行');
         $checks[] = $this->checkBool('没有安装恢复错误', !is_file($root . 'runtime' . DIRECTORY_SEPARATOR . 'install' . DIRECTORY_SEPARATOR . 'last-error.json'), '安装或升级失败状态需要先处理');
 
-        $zipSize = (int) ($release['zip_size'] ?? 0);
+        $zipSize = $this->releaseZipSize($release);
         $free = @disk_free_space($root);
         $checks[] = $this->checkBool('磁盘空间充足', $free === false || $zipSize <= 0 || $free >= ($zipSize * 3), '磁盘剩余空间不足');
 
+        $ok = count(array_filter($checks, static fn (array $check): bool => $check['ok'] !== true)) === 0;
+
         return [
-            'ok' => count(array_filter($checks, static fn (array $check): bool => $check['ok'] !== true)) === 0,
+            'ok' => $ok,
+            'can_update' => $ok,
             'checks' => $checks,
         ];
     }
@@ -54,6 +57,16 @@ final class UpdatePreflightService
         }
 
         return is_dir($path) && is_writable($path);
+    }
+
+    private function releaseZipSize(array $release): int
+    {
+        $direct = (int) ($release['zip_size'] ?? 0);
+        if ($direct > 0) {
+            return $direct;
+        }
+
+        return (int) ($release['assets']['zip']['size'] ?? 0);
     }
 
     private function root(): string

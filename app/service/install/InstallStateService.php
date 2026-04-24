@@ -34,10 +34,10 @@ class InstallStateService
         $schemaVersion = Setting::getConfigValue('schema_version');
         $appVersion = (string) config('app.ver', '');
 
-        if ($installStatus === '') {
+        if ($installStatus === '' || $installStatus === 'pending') {
             return [
                 'state' => $enableFlag ? 'not_installed' : 'recovery_required',
-                'message' => '系统尚未安装',
+                'message' => $installStatus === 'pending' ? '系统安装未完成' : '系统尚未安装',
             ];
         }
 

@@ -36,6 +36,19 @@ final class MigrationRunnerTest extends TestCase
         self::assertNotEmpty(Db::name('system_migration_log')->select()->toArray());
     }
 
+    public function test_runner_updates_versions_when_patch_release_has_no_sql_migrations(): void
+    {
+        Setting::setConfigValue('schema_version', '2.1.0');
+        Setting::setConfigValue('app_version', '2.1.0');
+        Setting::setConfigValue('install_status', 'installed');
+
+        $runner = new MigrationRunner();
+        $runner->runPending('2.1.0', '2.1.1');
+
+        self::assertSame('2.1.1', Setting::getConfigValue('schema_version'));
+        self::assertSame('2.1.1', Setting::getConfigValue('app_version'));
+    }
+
     public function test_runner_statement_parser_skips_utf8_comment_lines(): void
     {
         $runner = new MigrationRunner();

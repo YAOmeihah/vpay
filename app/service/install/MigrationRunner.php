@@ -12,8 +12,15 @@ class MigrationRunner
     {
         $scanner = new MigrationScanner();
         $logger = new MigrationLogService();
+        $migrations = $scanner->between($current, $target);
 
-        foreach ($scanner->between($current, $target) as $migration) {
+        if ($migrations === [] && version_compare($current, $target, '<')) {
+            Setting::setConfigValue('schema_version', $target);
+            Setting::setConfigValue('app_version', $target);
+            return;
+        }
+
+        foreach ($migrations as $migration) {
             $fromVersion = $current;
             $logger->started($migration, $fromVersion);
 

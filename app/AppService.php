@@ -8,6 +8,8 @@ use app\service\cache\OrderCache;
 use app\service\admin\AdminPermissionService;
 use app\service\config\SettingConfigRepository;
 use app\service\config\SettingSystemConfig;
+use app\service\install\InstallGuardService;
+use app\service\install\InstallStateService;
 use app\service\config\SystemConfig;
 use app\service\order\OrderPayloadFactory;
 use think\Service;
@@ -25,6 +27,8 @@ class AppService extends Service
         $this->app->bind(OrderCache::class, OrderCache::class);
         $this->app->bind(DashboardStatsCache::class, DashboardStatsCache::class);
         $this->app->bind(OrderPayloadFactory::class, OrderPayloadFactory::class);
+        $this->app->bind(InstallStateService::class, InstallStateService::class);
+        $this->app->bind(InstallGuardService::class, InstallGuardService::class);
     }
 
     public function boot()

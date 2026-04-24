@@ -8,7 +8,7 @@
 <body>
   <main>
     <h1><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></h1>
-    <p><?= htmlspecialchars($message, ENT_QUOTES, 'UTF-8') ?></p>
+    <p>当前状态：<?= htmlspecialchars($message, ENT_QUOTES, 'UTF-8') ?></p>
     <?php if ($steps !== []): ?>
       <ul>
         <?php foreach ($steps as $step): ?>

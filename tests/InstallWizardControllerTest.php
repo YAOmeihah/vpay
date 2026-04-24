@@ -7,6 +7,16 @@ use app\controller\install\Wizard;
 
 final class InstallWizardControllerTest extends TestCase
 {
+    protected function tearDown(): void
+    {
+        $path = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'runtime' . DIRECTORY_SEPARATOR . 'install' . DIRECTORY_SEPARATOR . 'last-error.json';
+        if (is_file($path)) {
+            @unlink($path);
+        }
+
+        parent::tearDown();
+    }
+
     public function test_index_renders_entry_page_for_not_installed_state(): void
     {
         $this->app->view->forgetDriver();
@@ -40,5 +50,28 @@ final class InstallWizardControllerTest extends TestCase
 
         self::assertStringContainsString('恢复', $html);
         self::assertStringContainsString('SQL 导入失败', $html);
+    }
+
+    public function test_run_renders_recovery_page_when_install_step_throws(): void
+    {
+        $this->app->view->forgetDriver();
+
+        $request = (clone $this->app->request)
+            ->withServer(['REQUEST_METHOD' => 'POST'])
+            ->setMethod('POST');
+
+        $this->app->instance('request', $request);
+
+        $controller = new class($this->app) extends Wizard {
+            protected function handleRun(): array
+            {
+                throw new \RuntimeException('写入 .env 失败');
+            }
+        };
+
+        $html = (string) $controller->run()->getContent();
+
+        self::assertStringContainsString('恢复', $html);
+        self::assertStringContainsString('写入 .env 失败', $html);
     }
 }

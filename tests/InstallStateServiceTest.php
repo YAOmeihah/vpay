@@ -63,7 +63,16 @@ final class InstallStateServiceTest extends TestCase
             'app_version' => '1.9.9',
         ]);
 
-        $service = new InstallStateService();
+        $service = new class($this->runtimeDir) extends InstallStateService {
+            public function __construct(private readonly string $runtimeDir)
+            {
+            }
+
+            protected function installRuntimePath(): string
+            {
+                return $this->runtimeDir;
+            }
+        };
 
         self::assertSame('upgrade_required', $service->status()['state']);
     }

@@ -103,6 +103,26 @@ final class ReleasePackageBuilderTest extends TestCase
         $builder->stage('v2.1.0', $this->outputRoot);
     }
 
+    public function test_stage_reads_app_version_without_bootstrapping_thinkphp(): void
+    {
+        $builderPath = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'build/release/ReleasePackageBuilder.php';
+        self::assertFileExists($builderPath);
+        require_once $builderPath;
+
+        $this->writeFixtureFile(
+            'config/app.php',
+            "<?php return ['exception_tmpl' => release_builder_should_not_execute_config(), 'ver' => '9.8.8'];"
+        );
+
+        $builder = new \VPay\Build\ReleasePackageBuilder($this->fixtureRoot);
+        $packageDir = $builder->stage('v2.1.0', $this->outputRoot);
+        $manifestPath = $packageDir . DIRECTORY_SEPARATOR . 'release-manifest.json';
+        $manifest = json_decode((string) file_get_contents($manifestPath), true);
+
+        self::assertIsArray($manifest);
+        self::assertSame('9.8.8', $manifest['app_version'] ?? null);
+    }
+
     private function writeFixtureFile(string $relativePath, string $contents): void
     {
         $path = $this->fixtureRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relativePath);

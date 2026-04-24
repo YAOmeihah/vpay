@@ -8,6 +8,8 @@ use think\facade\Db;
 
 class InstallStateService
 {
+    private const LEGACY_BASELINE_VERSION = '2.0.0';
+
     public function status(): array
     {
         $runtimePath = $this->installRuntimePath();
@@ -34,6 +36,15 @@ class InstallStateService
         $schemaVersion = Setting::getConfigValue('schema_version');
         $appVersion = (string) config('app.ver', '');
 
+        if ($installStatus === '' && !$enableFlag && $this->looksLikeLegacyInstalledSystem()) {
+            return [
+                'state' => 'upgrade_required',
+                'message' => '检测到旧版系统，需要升级',
+                'current_version' => self::LEGACY_BASELINE_VERSION,
+                'target_version' => $appVersion,
+            ];
+        }
+
         if ($installStatus === '' || $installStatus === 'pending') {
             return [
                 'state' => $enableFlag ? 'not_installed' : 'recovery_required',
@@ -42,7 +53,12 @@ class InstallStateService
         }
 
         if ($schemaVersion !== '' && $appVersion !== '' && version_compare($schemaVersion, $appVersion, '<')) {
-            return ['state' => 'upgrade_required', 'message' => '系统待升级'];
+            return [
+                'state' => 'upgrade_required',
+                'message' => '系统待升级',
+                'current_version' => $schemaVersion,
+                'target_version' => $appVersion,
+            ];
         }
 
         return ['state' => 'installed', 'message' => '系统已安装'];
@@ -60,5 +76,22 @@ class InstallStateService
         } catch (\Throwable) {
             return false;
         }
+    }
+
+    private function looksLikeLegacyInstalledSystem(): bool
+    {
+        $markers = [
+            Setting::getConfigValue('user'),
+            Setting::getConfigValue('pass'),
+            Setting::getConfigValue('key'),
+        ];
+
+        foreach ($markers as $marker) {
+            if (trim($marker) !== '') {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

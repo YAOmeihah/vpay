@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace tests;
 
 use app\controller\install\Wizard;
+use app\service\install\MigrationRunner;
 
 final class InstallWizardControllerTest extends TestCase
 {
@@ -84,5 +85,50 @@ final class InstallWizardControllerTest extends TestCase
 
         self::assertStringContainsString('恢复', $html);
         self::assertStringContainsString('写入 .env 失败', $html);
+    }
+
+    public function test_run_uses_legacy_schema_baseline_when_upgrade_state_has_no_schema_version(): void
+    {
+        $this->app->view->forgetDriver();
+        $this->seedSettings([
+            'user' => 'admin',
+            'pass' => '$2y$10$legacy-placeholder',
+            'key' => 'legacy-sign-key',
+            'notify_ssl_verify' => '1',
+        ]);
+
+        $runner = new class extends MigrationRunner {
+            public string $fromVersion = '';
+            public string $toVersion = '';
+
+            public function runPending(string $current, string $target): void
+            {
+                $this->fromVersion = $current;
+                $this->toVersion = $target;
+            }
+        };
+        $this->app->instance(MigrationRunner::class, $runner);
+
+        $request = (clone $this->app->request)
+            ->withServer(['REQUEST_METHOD' => 'POST'])
+            ->setMethod('POST');
+        $this->app->instance('request', $request);
+
+        $controller = new class($this->app) extends Wizard {
+            protected function state(): array
+            {
+                return [
+                    'state' => 'upgrade_required',
+                    'message' => '检测到旧版系统，需要升级',
+                    'current_version' => '2.0.0',
+                ];
+            }
+        };
+
+        $html = (string) $controller->run()->getContent();
+
+        self::assertStringContainsString('完成', $html);
+        self::assertSame('2.0.0', $runner->fromVersion);
+        self::assertSame('2.1.0', $runner->toVersion);
     }
 }

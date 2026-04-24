@@ -21,6 +21,14 @@ final class InstallWizardControllerTest extends TestCase
     {
         $this->app->view->forgetDriver();
 
+        $request = (clone $this->app->request)
+            ->withServer(['REQUEST_METHOD' => 'GET'])
+            ->setMethod('GET');
+        $request->setLayer('install');
+        $request->setController('Wizard');
+
+        $this->app->instance('request', $request);
+
         $controller = new class($this->app) extends Wizard {
             protected function state(): array
             {
@@ -33,6 +41,9 @@ final class InstallWizardControllerTest extends TestCase
         self::assertStringContainsString('安装向导', $html);
         self::assertStringContainsString('系统尚未安装', $html);
         self::assertStringContainsString('/install/check', $html);
+
+        $this->app->request->setLayer('');
+        $this->app->request->setController('');
     }
 
     public function test_recover_renders_last_error_details(): void

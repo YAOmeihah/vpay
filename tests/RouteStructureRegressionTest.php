@@ -40,6 +40,12 @@ final class RouteStructureRegressionTest extends TestCase
         $this->assertRouteMapping($output, 'closeEndOrder', 'monitor.Monitor/closeEndOrder', '\*');
         $this->assertRouteMapping($output, 'admin/index/profile', 'admin/profile', '\*');
         $this->assertRouteMapping($output, 'admin/index/logout', 'admin/logout', 'post');
+
+        $installRoutes = (string) file_get_contents(dirname(__DIR__) . DIRECTORY_SEPARATOR . 'route' . DIRECTORY_SEPARATOR . 'install.php');
+        $this->assertLessThan(
+            strpos($installRoutes, "Route::any('install', 'install.Wizard/index');"),
+            strpos($installRoutes, "Route::any('install/check', 'install.Wizard/check');")
+        );
     }
 
     private function assertRouteMapping(string $output, string $rule, string $route, string $methodPattern): void

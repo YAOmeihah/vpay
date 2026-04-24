@@ -38,22 +38,22 @@ final class UpdateReleaseService
             return $this->failed('Release tag 格式不正确', $current, $tag);
         }
 
-        $zipName = 'vpay-' . $tag . '.zip';
-        $shaName = $zipName . '.sha256';
-        $zip = $this->assetByName((array) ($release['assets'] ?? []), $zipName);
-        $sha = $this->assetByName((array) ($release['assets'] ?? []), $shaName);
-        if ($zip === null) {
-            return $this->failed('Release 缺少安装包: ' . $zipName, $current, $tag);
-        }
-        if ($sha === null) {
-            return $this->failed('Release 缺少 sha256 校验文件: ' . $shaName, $current, $tag);
-        }
-
         $status = 'update_available';
         if (version_compare($current, $latest, '=')) {
             $status = 'up_to_date';
         } elseif (version_compare($current, $latest, '>')) {
             $status = 'ahead';
+        }
+
+        $zipName = 'vpay-' . $tag . '.zip';
+        $shaName = $zipName . '.sha256';
+        $zip = $this->assetByName((array) ($release['assets'] ?? []), $zipName);
+        $sha = $this->assetByName((array) ($release['assets'] ?? []), $shaName);
+        if ($status === 'update_available' && $zip === null) {
+            return $this->failed('Release 缺少安装包: ' . $zipName, $current, $tag);
+        }
+        if ($status === 'update_available' && $sha === null) {
+            return $this->failed('Release 缺少 sha256 校验文件: ' . $shaName, $current, $tag);
         }
 
         return [
@@ -65,10 +65,10 @@ final class UpdateReleaseService
             'release_url' => (string) ($release['html_url'] ?? ''),
             'published_at' => (string) ($release['published_at'] ?? ''),
             'body' => (string) ($release['body'] ?? ''),
-            'assets' => [
+            'assets' => $zip !== null && $sha !== null ? [
                 'zip' => $this->assetPayload($zip),
                 'sha256' => $this->assetPayload($sha),
-            ],
+            ] : [],
         ];
     }
 

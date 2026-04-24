@@ -38,6 +38,18 @@ final class UpdateReleaseServiceTest extends TestCase
         self::assertSame('ahead', $service->checkFromRelease($this->release('v2.1.0'))['status']);
     }
 
+    public function test_does_not_require_assets_when_latest_release_is_current_version(): void
+    {
+        $service = new UpdateReleaseService('2.1.1');
+        $release = $this->release('v2.1.1');
+        $release['assets'] = [];
+
+        $result = $service->checkFromRelease($release);
+
+        self::assertSame('up_to_date', $result['status']);
+        self::assertSame('程序是最新版', $result['message']);
+    }
+
     public function test_requires_zip_and_sha256_assets(): void
     {
         $service = new UpdateReleaseService('2.1.1');

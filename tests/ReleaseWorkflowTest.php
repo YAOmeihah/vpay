@@ -35,6 +35,7 @@ final class ReleaseWorkflowTest extends TestCase
 
         self::assertStringContainsString('index index.php;', $readme);
         self::assertStringNotContainsString('index index.php index.html;', $readme);
+        self::assertStringContainsString('public/index.html', $readme);
     }
 
     public function test_release_workflow_falls_back_to_app_version_for_manual_branch_runs(): void

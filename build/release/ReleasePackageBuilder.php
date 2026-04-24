@@ -135,7 +135,6 @@ final class ReleasePackageBuilder
 
         return $relativePath === 'public/runtime'
             || str_starts_with($relativePath, 'public/runtime/')
-            || $relativePath === 'public/index.html'
             || $relativePath === 'runtime/install/enable.flag';
     }
 

@@ -26,6 +26,7 @@ final class ReleasePackageBuilderTest extends TestCase
         $this->writeFixtureFile('database/migrations/2.1.0/001.sql', 'SELECT 1;');
         $this->writeFixtureFile('extend/.keep', '');
         $this->writeFixtureFile('public/index.php', '<?php');
+        $this->writeFixtureFile('public/index.html', '<h1>静态首页</h1>');
         $this->writeFixtureFile('public/.htaccess', 'RewriteEngine On');
         $this->writeFixtureFile('public/console/index.html', '<div id="app"></div>');
         $this->writeFixtureFile('public/console/static/js/index.js', 'console.log("ok");');
@@ -65,13 +66,13 @@ final class ReleasePackageBuilderTest extends TestCase
 
         self::assertSame('vpay-v2.1.0', basename($packageDir));
         self::assertFileExists($packageDir . DIRECTORY_SEPARATOR . 'vendor/autoload.php');
+        self::assertFileExists($packageDir . DIRECTORY_SEPARATOR . 'public/index.html');
         self::assertFileExists($packageDir . DIRECTORY_SEPARATOR . 'public/console/index.html');
         self::assertFileExists($packageDir . DIRECTORY_SEPARATOR . '.example.env');
         self::assertFileExists($packageDir . DIRECTORY_SEPARATOR . 'README-INSTALL.md');
         self::assertFileExists($packageDir . DIRECTORY_SEPARATOR . 'runtime/install/.keep');
 
         self::assertFileDoesNotExist($packageDir . DIRECTORY_SEPARATOR . '.env');
-        self::assertFileDoesNotExist($packageDir . DIRECTORY_SEPARATOR . 'public/index.html');
         self::assertFileDoesNotExist($packageDir . DIRECTORY_SEPARATOR . 'tests/ExampleTest.php');
         self::assertFileDoesNotExist($packageDir . DIRECTORY_SEPARATOR . 'frontend/admin/src/main.ts');
         self::assertFileDoesNotExist($packageDir . DIRECTORY_SEPARATOR . 'frontend/admin/node_modules/pkg/index.js');

@@ -115,6 +115,13 @@ final class InstallWizardControllerTest extends TestCase
         self::assertStringContainsString('确认升级并执行', $html);
         self::assertStringContainsString('name="upgrade_admin_user"', $html);
         self::assertStringContainsString('name="upgrade_admin_pass"', $html);
+        self::assertStringContainsString('升级前请先完成备份', $html);
+        self::assertStringContainsString('2.0.0', $html);
+        self::assertStringContainsString('2.1.0', $html);
+        self::assertStringContainsString('data-install-form', $html);
+        self::assertStringContainsString('data-loading-text="正在升级，请勿刷新"', $html);
+        self::assertStringContainsString('data-password-toggle="upgrade-admin-pass"', $html);
+        self::assertStringContainsString('待执行 Migration', $html);
     }
 
     public function test_check_renders_first_install_form_for_not_installed_state(): void
@@ -172,6 +179,42 @@ final class InstallWizardControllerTest extends TestCase
         self::assertStringContainsString('name="admin_pass_confirm"', $html);
         self::assertStringContainsString('action="/install/run"', $html);
         self::assertStringContainsString('确认安装并执行', $html);
+        self::assertStringContainsString('环境检查', $html);
+        self::assertStringContainsString('数据库连接', $html);
+        self::assertStringContainsString('管理员账号', $html);
+        self::assertStringContainsString('data-install-form', $html);
+        self::assertStringContainsString('data-loading-text="正在安装，请勿刷新"', $html);
+        self::assertStringContainsString('data-password-toggle="install-db-pass"', $html);
+        self::assertStringContainsString('服务器环境已满足执行条件', $html);
+    }
+
+    public function test_check_renders_failed_environment_guidance_for_install_state(): void
+    {
+        $this->app->view->forgetDriver();
+
+        $controller = new class($this->app) extends Wizard {
+            protected function state(): array
+            {
+                return [
+                    'state' => 'not_installed',
+                    'message' => '系统尚未安装',
+                ];
+            }
+
+            protected function environmentChecks(): array
+            {
+                return [
+                    ['label' => 'PHP >= 8.2', 'ok' => true],
+                    ['label' => 'pdo_mysql', 'ok' => false],
+                ];
+            }
+        };
+
+        $html = (string) $controller->check()->getContent();
+
+        self::assertStringContainsString('存在未通过的环境项，修复后刷新此页重新检查。', $html);
+        self::assertStringContainsString('请先修复失败的 PHP 扩展或版本要求', $html);
+        self::assertStringContainsString('disabled', $html);
     }
 
     public function test_check_does_not_resolve_upgrade_context_for_first_install_state(): void
@@ -284,6 +327,9 @@ final class InstallWizardControllerTest extends TestCase
         self::assertStringContainsString('安装流程已完成', $html);
         self::assertStringContainsString('owner', $html);
         self::assertStringContainsString('/var/www/vpay/.env', $html);
+        self::assertStringContainsString('进入管理后台', $html);
+        self::assertStringContainsString('/console/', $html);
+        self::assertStringContainsString('安装已完成', $html);
         self::assertFileDoesNotExist($runtimePath . DIRECTORY_SEPARATOR . 'enable.flag');
         self::assertFileDoesNotExist($runtimePath . DIRECTORY_SEPARATOR . 'last-error.json');
     }
@@ -373,6 +419,10 @@ final class InstallWizardControllerTest extends TestCase
         self::assertStringContainsString('手工写入以下内容', $html);
         self::assertStringContainsString('/var/www/vpay/.env', $html);
         self::assertStringContainsString('DB_NAME = vmq_install_check', $html);
+        self::assertStringContainsString('复制配置内容', $html);
+        self::assertStringContainsString('data-copy-target="manual-env-content"', $html);
+        self::assertStringContainsString('返回检查页', $html);
+        self::assertStringContainsString('/install/check', $html);
     }
 
     public function test_run_uses_legacy_schema_baseline_when_upgrade_state_has_no_schema_version(): void

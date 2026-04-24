@@ -22,6 +22,10 @@ final class RouteStructureRegressionTest extends TestCase
         }
 
         $this->assertIsString($output);
+        $this->assertRouteMapping($output, 'install', 'install.Wizard/index', '\*');
+        $this->assertRouteMapping($output, 'install/check', 'install.Wizard/check', '\*');
+        $this->assertRouteMapping($output, 'install/run', 'install.Wizard/run', 'post');
+        $this->assertRouteMapping($output, 'install/recover', 'install.Wizard/recover', '\*');
         $this->assertRouteMapping($output, 'login', 'admin.Auth/login', '\*');
         $this->assertDoesNotMatchRegularExpression('/\|\s+getMenu\s+\|/', $output);
         $this->assertRouteMapping($output, 'admin/index/getMain', 'admin/getMain', '\*');

@@ -42,5 +42,10 @@ final class InstallWizardViewTest extends TestCase
         self::assertStringContainsString('系统尚未安装', $html);
         self::assertStringContainsString('开始安装', $html);
         self::assertStringContainsString('安装前会先检查服务器环境', $html);
+        self::assertStringContainsString('@media (prefers-reduced-motion: reduce)', $html);
+        self::assertStringContainsString('@media (max-width: 760px)', $html);
+        self::assertStringContainsString('querySelectorAll', $html);
+        self::assertStringContainsString('data-password-toggle', $html);
+        self::assertStringContainsString('data-copy-target', $html);
     }
 }

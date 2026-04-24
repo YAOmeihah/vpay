@@ -1,0 +1,227 @@
+<?php
+declare(strict_types=1);
+
+namespace tests;
+
+use app\controller\admin\Update;
+use app\service\update\UpdateApplyService;
+use app\service\update\UpdateBackupService;
+use app\service\update\UpdatePackageService;
+use app\service\update\UpdatePreflightService;
+use app\service\update\UpdateReleaseService;
+use app\service\update\UpdateStateStore;
+
+final class AdminUpdateControllerTest extends TestCase
+{
+    public function test_check_returns_release_service_payload(): void
+    {
+        $this->bindFresh(UpdateReleaseService::class, fn () => new class {
+            public function check(): array
+            {
+                return [
+                    'status' => 'up_to_date',
+                    'current_version' => '2.1.1',
+                ];
+            }
+        });
+
+        $payload = $this->decode((new Update($this->app))->check());
+
+        self::assertSame(1, $payload['code']);
+        self::assertSame('up_to_date', $payload['data']['status']);
+        self::assertSame('2.1.1', $payload['data']['current_version']);
+    }
+
+    public function test_preflight_passes_release_payload_to_service(): void
+    {
+        $this->withPostRequest([
+            'release' => [
+                'tag_name' => 'v2.1.2',
+                'assets' => [],
+            ],
+        ]);
+
+        $this->bindFresh(UpdatePreflightService::class, fn () => new class {
+            public function check(array $release): array
+            {
+                return [
+                    'can_update' => $release['tag_name'] === 'v2.1.2',
+                    'checks' => [
+                        ['label' => 'ZipArchive', 'ok' => true, 'message' => '可用'],
+                    ],
+                ];
+            }
+        });
+
+        $payload = $this->decode((new Update($this->app))->preflight());
+
+        self::assertSame(1, $payload['code']);
+        self::assertTrue($payload['data']['can_update']);
+        self::assertSame('ZipArchive', $payload['data']['checks'][0]['label']);
+    }
+
+    public function test_start_downloads_backs_up_and_applies_release(): void
+    {
+        $this->withPostRequest([
+            'release' => [
+                'tag_name' => 'v2.1.2',
+                'assets' => [
+                    ['name' => 'vpay-v2.1.2.zip', 'browser_download_url' => 'https://example.test/vpay.zip'],
+                ],
+            ],
+        ]);
+        $log = (object) ['steps' => []];
+
+        $this->bindFresh(UpdatePackageService::class, fn () => new class($log) {
+            public function __construct(private readonly object $log)
+            {
+            }
+
+            public function download(array $assets, string $tagName): array
+            {
+                $this->log->steps[] = ['download', $tagName, $assets[0]['name'] ?? null];
+
+                return [
+                    'tag_name' => $tagName,
+                    'package_root' => sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'vpay-package',
+                ];
+            }
+        });
+        $this->bindFresh(UpdateBackupService::class, fn () => new class($log) {
+            public function __construct(private readonly object $log)
+            {
+            }
+
+            public function backup(string $fromVersion, string $targetVersion): array
+            {
+                $this->log->steps[] = ['backup', $fromVersion, $targetVersion];
+
+                return ['path' => sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'vpay-backup.zip'];
+            }
+        });
+        $this->bindFresh(UpdateApplyService::class, fn () => new class($log) {
+            public function __construct(private readonly object $log)
+            {
+            }
+
+            public function apply(array $context): array
+            {
+                $this->log->steps[] = [
+                    'apply',
+                    $context['from_version'] ?? '',
+                    $context['target_version'] ?? '',
+                    $context['backup_path'] ?? '',
+                    $context['package_root'] ?? '',
+                ];
+
+                return [
+                    'status' => 'updated',
+                    'from_version' => (string) ($context['from_version'] ?? ''),
+                    'target_version' => (string) ($context['target_version'] ?? ''),
+                    'backup_path' => (string) ($context['backup_path'] ?? ''),
+                ];
+            }
+        });
+
+        $payload = $this->decode((new Update($this->app))->start());
+
+        self::assertSame(1, $payload['code']);
+        self::assertSame('更新完成', $payload['msg']);
+        self::assertSame('updated', $payload['data']['status']);
+        self::assertSame('2.1.2', $payload['data']['target_version']);
+        self::assertSame([
+            ['download', 'v2.1.2', 'vpay-v2.1.2.zip'],
+            ['backup', '2.1.1', '2.1.2'],
+            [
+                'apply',
+                '2.1.1',
+                '2.1.2',
+                sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'vpay-backup.zip',
+                sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'vpay-package',
+            ],
+        ], $log->steps);
+    }
+
+    public function test_start_returns_api_error_when_update_fails(): void
+    {
+        $this->withPostRequest([
+            'release' => [
+                'tag_name' => 'v2.1.2',
+                'assets' => [],
+            ],
+        ]);
+
+        $this->bindFresh(UpdatePackageService::class, fn () => new class {
+            public function download(array $assets, string $tagName): array
+            {
+                throw new \RuntimeException('下载失败');
+            }
+        });
+
+        $payload = $this->decode((new Update($this->app))->start());
+
+        self::assertSame(-1, $payload['code']);
+        self::assertSame('下载失败', $payload['msg']);
+        self::assertNull($payload['data']);
+    }
+
+    public function test_status_and_recover_return_state_store_payloads(): void
+    {
+        $this->bindFresh(UpdateStateStore::class, fn () => new class {
+            public function status(): array
+            {
+                return ['stage' => 'copy', 'message' => '正在覆盖程序文件'];
+            }
+
+            public function lastError(): array
+            {
+                return ['stage' => 'migrate', 'message' => 'SQL 执行失败'];
+            }
+        });
+
+        $statusPayload = $this->decode((new Update($this->app))->status());
+        $recoverPayload = $this->decode((new Update($this->app))->recover());
+
+        self::assertSame(1, $statusPayload['code']);
+        self::assertSame('copy', $statusPayload['data']['stage']);
+        self::assertSame(1, $recoverPayload['code']);
+        self::assertSame('SQL 执行失败', $recoverPayload['data']['message']);
+    }
+
+    public function test_admin_routes_point_to_update_controller(): void
+    {
+        $routes = file_get_contents(dirname(__DIR__) . DIRECTORY_SEPARATOR . 'route' . DIRECTORY_SEPARATOR . 'admin.php');
+
+        self::assertIsString($routes);
+        self::assertStringContainsString("Route::any('checkUpdate', 'admin.Update/check');", $routes);
+        self::assertStringContainsString("Route::post('preflightUpdate', 'admin.Update/preflight');", $routes);
+        self::assertStringContainsString("Route::post('startUpdate', 'admin.Update/start');", $routes);
+        self::assertStringContainsString("Route::any('getUpdateStatus', 'admin.Update/status');", $routes);
+        self::assertStringContainsString("Route::any('getUpdateRecovery', 'admin.Update/recover');", $routes);
+        self::assertStringNotContainsString("Route::any('checkUpdate', 'admin/checkUpdate');", $routes);
+    }
+
+    private function withPostRequest(array $post): void
+    {
+        $request = (clone $this->app->request)
+            ->withPost($post)
+            ->withServer(['REQUEST_METHOD' => 'POST'])
+            ->setMethod('POST');
+
+        $this->app->instance('request', $request);
+    }
+
+    private function bindFresh(string $abstract, callable $factory): void
+    {
+        $this->app->delete($abstract);
+        $this->app->bind($abstract, $factory);
+    }
+
+    /**
+     * @return array{code:int,msg:string,data:mixed}
+     */
+    private function decode(\think\response\Json $response): array
+    {
+        return json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
+    }
+}

@@ -256,30 +256,10 @@ class Admin extends BaseController
 
     /**
      * 检查程序更新
-     * Hrlni二改关闭更新
      */
     public function checkUpdate()
     {
-        // 直接返回最新版本，不进行网络请求
-        return json($this->getReturn(0, "程序是最新版"));
-
-        // 原始更新检查代码（已禁用）
-        /*
-        try {
-            // 尝试获取最新版本信息
-            $ver = $this->getCurl("https://raw.githubusercontent.com/szvone/vmqphp/master/ver");
-            $ver = explode("|", $ver);
-
-            if (count($ver) == 2 && $ver[0] != config('app.ver')) {
-                return json($this->getReturn(1, "[v" . $ver[0] . "已于" . $ver[1] . "发布]", "https://github.com/szvone/vmqphp"));
-            } else {
-                return json($this->getReturn(0, "程序是最新版"));
-            }
-        } catch (\Exception $e) {
-            // 如果网络请求失败，返回当前版本信息
-            return json($this->getReturn(0, "程序是最新版"));
-        }
-        */
+        return (new \app\controller\admin\Update($this->app))->check();
     }
 
     /**

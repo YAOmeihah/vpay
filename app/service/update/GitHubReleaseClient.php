@@ -9,8 +9,7 @@ final class GitHubReleaseClient
 {
     public function __construct(
         private readonly string $repository = 'YAOmeihah/vpay',
-        private readonly int $timeoutSeconds = 10,
-        private readonly string $token = ''
+        private readonly int $timeoutSeconds = 10
     ) {
     }
 
@@ -21,9 +20,6 @@ final class GitHubReleaseClient
             'Accept: application/vnd.github+json',
             'User-Agent: VPay-Updater',
         ];
-        if ($this->token !== '') {
-            $headers[] = 'Authorization: Bearer ' . $this->token;
-        }
 
         $body = $this->request($url, $headers);
         $decoded = json_decode($body, true);

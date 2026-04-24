@@ -22,7 +22,7 @@ final class ReleasePackageBuilderTest extends TestCase
         @mkdir($this->outputRoot, 0777, true);
 
         $this->writeFixtureFile('app/AppService.php', '<?php');
-        $this->writeFixtureFile('config/app.php', '<?php return [];');
+        $this->writeFixtureFile('config/app.php', "<?php return ['ver' => '9.8.7'];");
         $this->writeFixtureFile('database/migrations/2.1.0/001.sql', 'SELECT 1;');
         $this->writeFixtureFile('extend/.keep', '');
         $this->writeFixtureFile('public/index.php', '<?php');
@@ -71,6 +71,13 @@ final class ReleasePackageBuilderTest extends TestCase
         self::assertFileExists($packageDir . DIRECTORY_SEPARATOR . '.example.env');
         self::assertFileExists($packageDir . DIRECTORY_SEPARATOR . 'README-INSTALL.md');
         self::assertFileExists($packageDir . DIRECTORY_SEPARATOR . 'runtime/install/.keep');
+
+        $manifestPath = $packageDir . DIRECTORY_SEPARATOR . 'release-manifest.json';
+        self::assertFileExists($manifestPath);
+        $manifest = json_decode((string) file_get_contents($manifestPath), true);
+        self::assertIsArray($manifest);
+        self::assertSame('v2.1.0', $manifest['version'] ?? null);
+        self::assertSame('9.8.7', $manifest['app_version'] ?? null);
 
         self::assertFileDoesNotExist($packageDir . DIRECTORY_SEPARATOR . '.env');
         self::assertFileDoesNotExist($packageDir . DIRECTORY_SEPARATOR . 'tests/ExampleTest.php');

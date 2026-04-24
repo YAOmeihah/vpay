@@ -76,4 +76,31 @@ final class InstallStateServiceTest extends TestCase
 
         self::assertSame('upgrade_required', $service->status()['state']);
     }
+
+    public function test_reports_upgrade_required_for_legacy_installed_database_without_lifecycle_keys(): void
+    {
+        $this->seedSettings([
+            'user' => 'admin',
+            'pass' => '$2y$10$legacy-placeholder',
+            'key' => 'legacy-sign-key',
+            'notify_ssl_verify' => '1',
+        ]);
+
+        $service = new class($this->runtimeDir) extends InstallStateService {
+            public function __construct(private readonly string $runtimeDir)
+            {
+            }
+
+            protected function installRuntimePath(): string
+            {
+                return $this->runtimeDir;
+            }
+        };
+
+        $status = $service->status();
+
+        self::assertSame('upgrade_required', $status['state']);
+        self::assertSame('检测到旧版系统，需要升级', $status['message']);
+        self::assertSame('2.0.0', $status['current_version']);
+    }
 }

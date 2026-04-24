@@ -135,9 +135,10 @@ class Wizard extends BaseController
 
     protected function handleRun(): array
     {
-        if (($this->state()['state'] ?? '') === 'upgrade_required') {
-            $currentVersion = Setting::getConfigValue('schema_version');
-            $targetVersion = (string) config('app.ver');
+        $state = $this->state();
+        if (($state['state'] ?? '') === 'upgrade_required') {
+            $currentVersion = (string) ($state['current_version'] ?? Setting::getConfigValue('schema_version'));
+            $targetVersion = (string) ($state['target_version'] ?? config('app.ver'));
 
             $this->app->make(MigrationRunner::class)->runPending($currentVersion, $targetVersion);
 

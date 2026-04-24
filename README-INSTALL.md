@@ -26,7 +26,7 @@
 3. 配置伪静态。
 4. 创建一个空 MySQL 数据库。
 5. 确保项目根目录可创建 `.env`，并确保 `runtime/` 可写。
-6. 浏览器访问 `http://你的域名/install`。
+6. 浏览器访问 `http://你的域名/`，系统会自动进入安装向导；也可以直接访问 `http://你的域名/install`。
 7. 填写数据库配置和管理员账号密码。
 8. 安装完成后进入 `http://你的域名/console/` 登录后台。
 
@@ -46,7 +46,7 @@
 2. 保留旧系统的 `.env`，不要用 `.example.env` 覆盖。
 3. 用新版代码覆盖旧代码，或者解压到新目录后复制旧 `.env` 到新目录。
 4. 确保站点运行目录仍然指向 `public/`。
-5. 浏览器访问 `http://你的域名/install`。
+5. 浏览器访问 `http://你的域名/`，系统会自动进入升级向导；也可以直接访问 `http://你的域名/install`。
 6. 如果系统检测到需要升级，会进入升级确认页。
 7. 输入旧系统管理员账号和密码。
 8. 系统执行 `database/migrations/` 中的升级 SQL。
@@ -57,6 +57,7 @@
 ## Apache 伪静态
 
 发布包的 `public/.htaccess` 已内置 Apache 伪静态规则。请确保站点开启 `mod_rewrite`，并允许 `.htaccess` 生效。
+其中默认首页顺序会优先执行 `index.php`，避免首次安装时被静态首页拦截。
 
 ## Nginx 伪静态示例
 
@@ -67,7 +68,7 @@ server {
     listen 80;
     server_name example.com;
     root /path/to/vpay/public;
-    index index.php index.html;
+    index index.php;
 
     location / {
         try_files $uri $uri/ /index.php?s=$uri&$args;

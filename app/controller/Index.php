@@ -4,12 +4,28 @@ declare(strict_types=1);
 namespace app\controller;
 
 use app\BaseController;
+use app\service\install\InstallStateService;
+use think\Response;
 
 class Index extends BaseController
 {
     public function index()
     {
-        return 'ThinkPHP 8 支付系统已成功运行！';
+        $state = (string) ($this->installState()['state'] ?? 'installed');
+        if (in_array($state, ['not_installed', 'upgrade_required'], true)) {
+            return $this->redirectTo('/install');
+        }
+
+        if (in_array($state, ['locked', 'recovery_required'], true)) {
+            return $this->redirectTo('/install/recover');
+        }
+
+        $portal = $this->app->getRootPath() . 'public' . DIRECTORY_SEPARATOR . 'index.html';
+        if (is_file($portal)) {
+            return response((string) file_get_contents($portal))->contentType('text/html');
+        }
+
+        return response('ThinkPHP 8 支付系统已成功运行！')->contentType('text/plain');
     }
 
     public function test()
@@ -64,5 +80,15 @@ class Index extends BaseController
 
         // Most controller actions use $this->request (from App) and take no args.
         return $controller->{$method}();
+    }
+
+    protected function installState(): array
+    {
+        return $this->app->make(InstallStateService::class)->status();
+    }
+
+    private function redirectTo(string $target): Response
+    {
+        return response('', 302, ['Location' => $target]);
     }
 }

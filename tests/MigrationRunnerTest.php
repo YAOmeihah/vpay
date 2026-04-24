@@ -35,4 +35,20 @@ final class MigrationRunnerTest extends TestCase
         self::assertSame('2.1.0', Setting::getConfigValue('app_version'));
         self::assertNotEmpty(Db::name('system_migration_log')->select()->toArray());
     }
+
+    public function test_runner_statement_parser_skips_utf8_comment_lines(): void
+    {
+        $runner = new MigrationRunner();
+        $method = new \ReflectionMethod($runner, 'splitStatements');
+        $method->setAccessible(true);
+
+        $statements = $method->invoke(
+            $runner,
+            "-- 升级脚本：确保中文注释不会被拆成 SQL\nINSERT INTO `setting` (`vkey`, `vvalue`) VALUES ('migration_utf8_test', '1');\n"
+        );
+
+        self::assertSame([
+            "INSERT INTO `setting` (`vkey`, `vvalue`) VALUES ('migration_utf8_test', '1');",
+        ], $statements);
+    }
 }

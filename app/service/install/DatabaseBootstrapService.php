@@ -31,13 +31,19 @@ class DatabaseBootstrapService
      */
     protected function splitStatements(string $sql): array
     {
-        $lines = preg_split('/\R/', $sql) ?: [];
+        $sql = preg_replace('/^\xEF\xBB\xBF/', '', $sql) ?? $sql;
+        $lines = preg_split('/\R/u', $sql) ?: [];
         $statements = [];
         $buffer = '';
 
         foreach ($lines as $line) {
             $trimmed = trim($line);
-            if ($trimmed === '' || str_starts_with($trimmed, '--')) {
+            if (
+                $trimmed === ''
+                || str_starts_with($trimmed, '--')
+                || str_starts_with($trimmed, '#')
+                || (str_starts_with($trimmed, '/*') && !str_starts_with($trimmed, '/*!'))
+            ) {
                 continue;
             }
 

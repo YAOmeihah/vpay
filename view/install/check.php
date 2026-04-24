@@ -8,6 +8,7 @@
 <body>
   <main>
     <h1><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></h1>
+    <p><?= htmlspecialchars((string) ($state['message'] ?? ''), ENT_QUOTES, 'UTF-8') ?></p>
     <ul>
       <?php foreach ($checks as $check): ?>
         <li>
@@ -16,6 +17,12 @@
         </li>
       <?php endforeach; ?>
     </ul>
+    <?php if (($state['state'] ?? '') === 'not_installed'): ?>
+      <?php include __DIR__ . DIRECTORY_SEPARATOR . 'form.php'; ?>
+    <?php endif; ?>
+    <?php if (($state['state'] ?? '') === 'upgrade_required'): ?>
+      <?php include __DIR__ . DIRECTORY_SEPARATOR . 'confirm.php'; ?>
+    <?php endif; ?>
   </main>
 </body>
 </html>

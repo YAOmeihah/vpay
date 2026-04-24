@@ -16,7 +16,8 @@ class InstallStepService
      * @return array{
      *   env: array{written: bool, path: string, content: string},
      *   installed: bool,
-     *   status: string
+     *   status: string,
+     *   admin_user: string
      * }
      */
     public function install(array $payload): array
@@ -25,6 +26,8 @@ class InstallStepService
         $pdo = $this->connect($payload['env']);
 
         $this->databaseBootstrap()->importBootstrapSql($pdo);
+        // vmq.sql disables autocommit during bootstrap; restore it before persisting install metadata.
+        $pdo->exec('SET AUTOCOMMIT = 1');
         $this->adminBootstrap()->bootstrap([
             'admin_user' => $payload['admin_user'],
             'admin_pass' => $payload['admin_pass'],
@@ -37,6 +40,7 @@ class InstallStepService
             'env' => $env,
             'installed' => $env['written'],
             'status' => $env['written'] ? 'installed' : 'pending',
+            'admin_user' => trim($payload['admin_user']),
         ];
     }
 

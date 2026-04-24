@@ -54,6 +54,12 @@
 
 升级不会重新导入 `vmq.sql`，也不会重置管理员账号。升级只执行待升级版本对应的 migration。
 
+## 后台自动更新
+
+管理员登录后台后可以在“系统设置”中检查 GitHub Release 更新。自动更新会先执行环境预检，下载 Release 包和 `.sha256` 校验文件，通过校验后备份当前程序文件，再覆盖新版文件并执行数据库 migration。
+
+自动更新会保留 `.env`、`runtime/` 和运行状态目录。执行更新前仍建议先备份数据库。
+
 ## Apache 伪静态
 
 发布包的 `public/.htaccess` 已内置 Apache 伪静态规则。请确保站点开启 `mod_rewrite`，并允许 `.htaccess` 生效。

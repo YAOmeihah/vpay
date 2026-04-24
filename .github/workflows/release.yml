@@ -80,12 +80,15 @@ jobs:
         run: |
           cd build/releases
           zip -r "${{ steps.version.outputs.package_name }}.zip" "${{ steps.version.outputs.package_name }}"
+          sha256sum "${{ steps.version.outputs.package_name }}.zip" > "${{ steps.version.outputs.package_name }}.zip.sha256"
 
       - name: Upload release artifact
         uses: actions/upload-artifact@v4
         with:
           name: "${{ steps.version.outputs.package_name }}-full"
-          path: "build/releases/${{ steps.version.outputs.package_name }}.zip"
+          path: |
+            build/releases/${{ steps.version.outputs.package_name }}.zip
+            build/releases/${{ steps.version.outputs.package_name }}.zip.sha256
           if-no-files-found: error
 
       - name: Publish GitHub Release asset
@@ -96,8 +99,9 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           ZIP="build/releases/${{ steps.version.outputs.package_name }}.zip"
+          SHA256="build/releases/${{ steps.version.outputs.package_name }}.zip.sha256"
           if gh release view "$VERSION" >/dev/null 2>&1; then
-            gh release upload "$VERSION" "$ZIP" --clobber
+            gh release upload "$VERSION" "$ZIP" "$SHA256" --clobber
           else
-            gh release create "$VERSION" "$ZIP" --title "$VERSION" --notes "Full installable VPay package for $VERSION."
+            gh release create "$VERSION" "$ZIP" "$SHA256" --title "$VERSION" --notes "Full installable VPay package for $VERSION."
           fi

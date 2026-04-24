@@ -6,6 +6,7 @@ import { getSettings, saveSettings } from "@/api/admin/settings";
 
 import PaymentConfigCard from "./components/PaymentConfigCard.vue";
 import SecurityCard from "./components/SecurityCard.vue";
+import SystemUpdateCard from "./components/SystemUpdateCard.vue";
 import {
   buildPaymentPayload,
   buildSecurityPayload,
@@ -77,6 +78,8 @@ onMounted(loadSettings);
         </p>
       </div>
     </el-card>
+
+    <SystemUpdateCard />
 
     <SecurityCard
       :model="sections.security"

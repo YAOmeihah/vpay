@@ -6,7 +6,11 @@ Route::any('login', 'admin.Auth/login');
 
 Route::group('admin/index', function () {
     Route::any('getMain', 'admin/getMain');
-    Route::any('checkUpdate', 'admin/checkUpdate');
+    Route::any('checkUpdate', 'admin.Update/check');
+    Route::post('preflightUpdate', 'admin.Update/preflight');
+    Route::post('startUpdate', 'admin.Update/start');
+    Route::any('getUpdateStatus', 'admin.Update/status');
+    Route::any('getUpdateRecovery', 'admin.Update/recover');
     Route::any('getSettings', 'admin/getSettings');
     Route::any('saveSetting', 'admin/saveSetting');
     Route::any('getTerminals', 'admin/getTerminals');

@@ -51,6 +51,19 @@ final class ReleaseWorkflowTest extends TestCase
         self::assertStringContainsString('config/app.php', $workflow);
     }
 
+    public function test_release_workflow_uploads_zip_and_sha256_assets(): void
+    {
+        $workflowPath = dirname(__DIR__) . DIRECTORY_SEPARATOR . '.github/workflows/release.yml';
+
+        self::assertFileExists($workflowPath);
+
+        $workflow = (string) file_get_contents($workflowPath);
+
+        self::assertStringContainsString('sha256sum "${{ steps.version.outputs.package_name }}.zip"', $workflow);
+        self::assertStringContainsString('${{ steps.version.outputs.package_name }}.zip.sha256', $workflow);
+        self::assertStringContainsString('gh release upload "$VERSION" "$ZIP" "$SHA256" --clobber', $workflow);
+    }
+
     public function test_release_output_directory_is_ignored_by_git(): void
     {
         $gitignorePath = dirname(__DIR__) . DIRECTORY_SEPARATOR . '.gitignore';

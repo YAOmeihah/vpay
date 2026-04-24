@@ -186,12 +186,16 @@ final class ReleasePackageBuilder
             return '';
         }
 
-        $config = require $configPath;
-        if (!is_array($config)) {
+        $contents = file_get_contents($configPath);
+        if (!is_string($contents)) {
             return '';
         }
 
-        return (string) ($config['ver'] ?? '');
+        if (!preg_match('/[\'"]ver[\'"]\s*=>\s*[\'"]([^\'"]+)[\'"]/', $contents, $matches)) {
+            return '';
+        }
+
+        return (string) $matches[1];
     }
 
     private function normalizePath(string $path): string

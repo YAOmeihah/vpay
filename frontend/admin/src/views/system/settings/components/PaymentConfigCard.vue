@@ -25,8 +25,6 @@ const validatePositiveInteger = (_rule: unknown, value: string, callback: (error
 };
 
 const rules: FormRules<PaymentSection> = {
-  notifyUrl: [{ required: true, message: "请输入异步回调地址", trigger: "blur" }],
-  returnUrl: [{ required: true, message: "请输入同步回调地址", trigger: "blur" }],
   key: [{ required: true, message: "请输入通讯密钥", trigger: "blur" }],
   close: [{ validator: validatePositiveInteger, trigger: "blur" }],
   payQf: [{ required: true, message: "请选择区分方式", trigger: "change" }],
@@ -46,7 +44,7 @@ const handleSave = async () => {
     <template #header>
       <div class="space-y-1">
         <div class="text-base font-medium">支付基础配置</div>
-        <div class="text-sm text-gray-500">维护订单有效期、支付回调地址、通讯密钥和金额区分方式。</div>
+        <div class="text-sm text-gray-500">维护订单有效期、默认支付回调地址、通讯密钥和金额区分方式。</div>
       </div>
     </template>
 
@@ -60,11 +58,21 @@ const handleSave = async () => {
       </el-form-item>
 
       <el-form-item label="异步回调" prop="notifyUrl">
-        <el-input v-model="props.model.notifyUrl" placeholder="请输入异步回调地址" />
+        <div class="w-full space-y-2">
+          <el-input v-model="props.model.notifyUrl" placeholder="留空则不设置默认异步回调地址" />
+          <div class="text-xs leading-5 text-gray-500">
+            订单未传 notifyUrl 时使用；每笔订单传入 notifyUrl 会优先覆盖此默认值。
+          </div>
+        </div>
       </el-form-item>
 
       <el-form-item label="同步回调" prop="returnUrl">
-        <el-input v-model="props.model.returnUrl" placeholder="请输入支付完成跳转地址" />
+        <div class="w-full space-y-2">
+          <el-input v-model="props.model.returnUrl" placeholder="留空则不设置默认支付完成跳转地址" />
+          <div class="text-xs leading-5 text-gray-500">
+            订单未传 returnUrl 时使用；每笔订单传入 returnUrl 会优先覆盖此默认值。
+          </div>
+        </div>
       </el-form-item>
 
       <el-form-item label="通知 SSL 校验">

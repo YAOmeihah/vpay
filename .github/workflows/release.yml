@@ -1,0 +1,103 @@
+name: Build Release Package
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version, for example v2.1.0"
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    name: Build full installable package
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          extensions: mbstring, pdo_mysql, zip
+          coverage: none
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.14.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.16.0"
+          cache: "pnpm"
+          cache-dependency-path: "frontend/admin/pnpm-lock.yaml"
+
+      - name: Install PHP production dependencies
+        run: composer install --no-dev --prefer-dist --no-interaction --optimize-autoloader
+
+      - name: Install frontend dependencies
+        working-directory: frontend/admin
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck frontend
+        working-directory: frontend/admin
+        run: pnpm typecheck
+
+      - name: Build console frontend
+        working-directory: frontend/admin
+        run: pnpm build
+
+      - name: Resolve release version
+        id: version
+        shell: bash
+        run: |
+          INPUT_VERSION="${{ inputs.version || '' }}"
+          VERSION="${{ github.ref_name }}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "$INPUT_VERSION" ]; then
+            VERSION="$INPUT_VERSION"
+          fi
+          if [ -z "$VERSION" ] || [[ "$VERSION" == *"/"* ]]; then
+            VERSION="$(php -r '$config = require "config/app.php"; echo $config["ver"] ?? "dev";')"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "package_name=vpay-$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Stage release package
+        run: php build/release-package.php --version="${{ steps.version.outputs.version }}" --output=build/releases
+
+      - name: Archive release package
+        shell: bash
+        run: |
+          cd build/releases
+          zip -r "${{ steps.version.outputs.package_name }}.zip" "${{ steps.version.outputs.package_name }}"
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: "${{ steps.version.outputs.package_name }}-full"
+          path: "build/releases/${{ steps.version.outputs.package_name }}.zip"
+          if-no-files-found: error
+
+      - name: Publish GitHub Release asset
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          ZIP="build/releases/${{ steps.version.outputs.package_name }}.zip"
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            gh release upload "$VERSION" "$ZIP" --clobber
+          else
+            gh release create "$VERSION" "$ZIP" --title "$VERSION" --notes "Full installable VPay package for $VERSION."
+          fi

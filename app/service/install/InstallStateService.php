@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace app\service\install;
 
-use app\model\Setting;
 use think\facade\Db;
 
 class InstallStateService
@@ -26,14 +25,16 @@ class InstallStateService
         }
 
         if (!$this->settingsTableAvailable()) {
+            $canStartInstall = $enableFlag || !is_file($this->envFilePath());
+
             return [
-                'state' => $enableFlag ? 'not_installed' : 'installed',
-                'message' => $enableFlag ? '系统尚未安装' : '系统状态未知',
+                'state' => $canStartInstall ? 'not_installed' : 'installed',
+                'message' => $canStartInstall ? '系统尚未安装' : '系统状态未知',
             ];
         }
 
-        $installStatus = Setting::getConfigValue('install_status');
-        $schemaVersion = Setting::getConfigValue('schema_version');
+        $installStatus = $this->settingValue('install_status');
+        $schemaVersion = $this->settingValue('schema_version');
         $appVersion = (string) config('app.ver', '');
 
         if ($installStatus === '' && !$enableFlag && $this->looksLikeLegacyInstalledSystem()) {
@@ -78,12 +79,17 @@ class InstallStateService
         }
     }
 
+    protected function envFilePath(): string
+    {
+        return app()->getRootPath() . '.env';
+    }
+
     private function looksLikeLegacyInstalledSystem(): bool
     {
         $markers = [
-            Setting::getConfigValue('user'),
-            Setting::getConfigValue('pass'),
-            Setting::getConfigValue('key'),
+            $this->settingValue('user'),
+            $this->settingValue('pass'),
+            $this->settingValue('key'),
         ];
 
         foreach ($markers as $marker) {
@@ -93,5 +99,16 @@ class InstallStateService
         }
 
         return false;
+    }
+
+    private function settingValue(string $key): string
+    {
+        try {
+            $value = Db::name('setting')->where('vkey', $key)->value('vvalue');
+        } catch (\Throwable) {
+            return '';
+        }
+
+        return $value === null ? '' : (string) $value;
     }
 }

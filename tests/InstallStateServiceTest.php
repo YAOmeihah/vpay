@@ -3,7 +3,9 @@ declare(strict_types=1);
 
 namespace tests;
 
+use app\service\CacheService;
 use app\service\install\InstallStateService;
+use think\facade\Db;
 
 final class InstallStateServiceTest extends TestCase
 {
@@ -55,6 +57,65 @@ final class InstallStateServiceTest extends TestCase
         self::assertSame('not_installed', $service->status()['state']);
     }
 
+    public function test_reports_not_installed_for_release_package_without_env_file(): void
+    {
+        $envPath = $this->runtimeDir . DIRECTORY_SEPARATOR . '.env';
+        $service = new class($this->runtimeDir, $envPath) extends InstallStateService {
+            public function __construct(
+                private readonly string $runtimeDir,
+                private readonly string $envPath
+            ) {
+            }
+
+            protected function installRuntimePath(): string
+            {
+                return $this->runtimeDir;
+            }
+
+            protected function settingsTableAvailable(): bool
+            {
+                return false;
+            }
+
+            protected function envFilePath(): string
+            {
+                return $this->envPath;
+            }
+        };
+
+        self::assertSame('not_installed', $service->status()['state']);
+    }
+
+    public function test_keeps_installer_closed_when_env_exists_but_settings_table_is_unavailable(): void
+    {
+        $envPath = $this->runtimeDir . DIRECTORY_SEPARATOR . '.env';
+        file_put_contents($envPath, 'DB_NAME = vmqphp8');
+        $service = new class($this->runtimeDir, $envPath) extends InstallStateService {
+            public function __construct(
+                private readonly string $runtimeDir,
+                private readonly string $envPath
+            ) {
+            }
+
+            protected function installRuntimePath(): string
+            {
+                return $this->runtimeDir;
+            }
+
+            protected function settingsTableAvailable(): bool
+            {
+                return false;
+            }
+
+            protected function envFilePath(): string
+            {
+                return $this->envPath;
+            }
+        };
+
+        self::assertSame('installed', $service->status()['state']);
+    }
+
     public function test_reports_upgrade_required_when_schema_version_is_older_than_app_version(): void
     {
         $this->seedSettings([
@@ -101,6 +162,34 @@ final class InstallStateServiceTest extends TestCase
 
         self::assertSame('upgrade_required', $status['state']);
         self::assertSame('检测到旧版系统，需要升级', $status['message']);
+        self::assertSame('2.0.0', $status['current_version']);
+    }
+
+    public function test_state_detection_ignores_stale_setting_cache_values(): void
+    {
+        Db::execute('DELETE FROM `setting`');
+        Db::name('setting')->insertAll([
+            ['vkey' => 'user', 'vvalue' => 'legacy-admin'],
+            ['vkey' => 'pass', 'vvalue' => password_hash('legacy-pass', PASSWORD_DEFAULT)],
+            ['vkey' => 'key', 'vvalue' => 'legacy-key'],
+        ]);
+        CacheService::cacheSetting('install_status', 'installed');
+        CacheService::cacheSetting('schema_version', '2.1.0');
+
+        $service = new class($this->runtimeDir) extends InstallStateService {
+            public function __construct(private readonly string $runtimeDir)
+            {
+            }
+
+            protected function installRuntimePath(): string
+            {
+                return $this->runtimeDir;
+            }
+        };
+
+        $status = $service->status();
+
+        self::assertSame('upgrade_required', $status['state']);
         self::assertSame('2.0.0', $status['current_version']);
     }
 }

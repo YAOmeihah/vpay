@@ -1,23 +1,34 @@
-import { http } from "@/utils/http";
 import { adminLogin, getAdminProfile } from "./admin/auth";
 
-export type UserResult = {
-  success: boolean;
-  data: {
-    avatar: string;
-    username: string;
-    nickname: string;
-    roles: string[];
-    permissions: string[];
-  };
+type LoginProfile = {
+  avatar: string;
+  username: string;
+  nickname: string;
+  roles: string[];
+  permissions: string[];
 };
+
+export type UserResult =
+  | {
+      success: true;
+      msg?: string;
+      data: LoginProfile;
+    }
+  | {
+      success: false;
+      msg?: string;
+      data: null;
+    };
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-export const getLogin = (data?: { user: string; pass: string }) => {
+export const getLogin = (data?: {
+  user: string;
+  pass: string;
+}): Promise<UserResult> => {
   return adminLogin(data).then(async loginRes => {
     if (loginRes.code !== 1) {
-      return { success: false, data: null } as any;
+      return { success: false, msg: loginRes.msg, data: null };
     }
 
     for (let attempt = 0; attempt < 5; attempt++) {
@@ -32,6 +43,6 @@ export const getLogin = (data?: { user: string; pass: string }) => {
       await delay(150);
     }
 
-    return { success: false, data: null } as any;
+    return { success: false, msg: "登录状态确认失败", data: null };
   });
 };

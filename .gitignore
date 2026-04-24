@@ -16,6 +16,9 @@
 *.orig
 *~
 
+# Release package outputs
+/build/releases/
+
 # PHP / ThinkPHP runtime
 /runtime/
 /public/runtime/

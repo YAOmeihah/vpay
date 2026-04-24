@@ -472,7 +472,7 @@ final class InstallWizardControllerTest extends TestCase
 
         self::assertStringContainsString('完成', $html);
         self::assertSame('2.0.0', $runner->fromVersion);
-        self::assertSame('2.1.1', $runner->toVersion);
+        self::assertSame((string) config('app.ver'), $runner->toVersion);
     }
 
     public function test_run_requires_admin_credentials_before_executing_upgrade(): void

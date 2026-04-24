@@ -62,11 +62,14 @@ final class AdminUpdateControllerTest extends TestCase
 
     public function test_start_downloads_backs_up_and_applies_release(): void
     {
+        $currentVersion = (string) config('app.ver');
+        $targetVersion = '9.9.9';
+        $tagName = 'v' . $targetVersion;
         $this->withPostRequest([
             'release' => [
-                'tag_name' => 'v2.1.2',
+                'tag_name' => $tagName,
                 'assets' => [
-                    ['name' => 'vpay-v2.1.2.zip', 'browser_download_url' => 'https://example.test/vpay.zip'],
+                    ['name' => 'vpay-' . $tagName . '.zip', 'browser_download_url' => 'https://example.test/vpay.zip'],
                 ],
             ],
         ]);
@@ -128,14 +131,14 @@ final class AdminUpdateControllerTest extends TestCase
         self::assertSame(1, $payload['code']);
         self::assertSame('更新完成', $payload['msg']);
         self::assertSame('updated', $payload['data']['status']);
-        self::assertSame('2.1.2', $payload['data']['target_version']);
+        self::assertSame($targetVersion, $payload['data']['target_version']);
         self::assertSame([
-            ['download', 'v2.1.2', 'vpay-v2.1.2.zip'],
-            ['backup', '2.1.1', '2.1.2'],
+            ['download', $tagName, 'vpay-' . $tagName . '.zip'],
+            ['backup', $currentVersion, $targetVersion],
             [
                 'apply',
-                '2.1.1',
-                '2.1.2',
+                $currentVersion,
+                $targetVersion,
                 sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'vpay-backup.zip',
                 sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'vpay-package',
             ],

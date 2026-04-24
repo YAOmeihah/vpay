@@ -133,14 +133,18 @@ CREATE TABLE `setting` (
 --
 
 INSERT INTO `setting` (`vkey`, `vvalue`) VALUES
-('user', 'admin'),
-('pass', '$2y$10$Aa8o06ToI9Hh87TwJJRMle1gqDHHPFkkK5pYliS0wATn6.djAXDe.'),
+('user', ''),
+('pass', ''),
 ('notifyUrl', ''),
 ('returnUrl', ''),
 ('key', ''),
 ('close', '5'),
 ('payQf', '1'),
-('allocationStrategy', 'fixed_priority');
+('allocationStrategy', 'fixed_priority'),
+('notify_ssl_verify', '1'),
+('install_status', 'pending'),
+('schema_version', '2.1.0'),
+('app_version', '2.1.0');
 
 -- --------------------------------------------------------
 

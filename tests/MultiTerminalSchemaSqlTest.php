@@ -34,6 +34,11 @@ final class MultiTerminalSchemaSqlTest extends TestCase
         self::assertStringContainsString('`channel_id` bigint(20) DEFAULT NULL', $bootstrapSql);
         self::assertStringContainsString('ADD UNIQUE KEY `uniq_channel_price` (`channel_id`,`price`)', $bootstrapSql);
         self::assertStringContainsString('ADD INDEX `idx_type_status_terminal` (`type`,`status`,`terminal_id`)', $bootstrapSql);
+        self::assertStringContainsString("('notify_ssl_verify', '1')", $bootstrapSql);
+        self::assertStringContainsString("('install_status', 'pending')", $bootstrapSql);
+        self::assertStringContainsString("('schema_version', '2.1.0')", $bootstrapSql);
+        self::assertStringContainsString("('app_version', '2.1.0')", $bootstrapSql);
+        self::assertStringNotContainsString("('user', 'admin')", $bootstrapSql);
         self::assertStringNotContainsString('`priority` int(11) NOT NULL DEFAULT 100', $bootstrapSql);
         self::assertStringNotContainsString('idx_type_status_priority', $bootstrapSql);
 

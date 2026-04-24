@@ -4,8 +4,10 @@ declare(strict_types=1);
 namespace app\controller\install;
 
 use app\BaseController;
+use app\model\Setting;
 use app\service\install\InstallStepService;
 use app\service\install\InstallStateService;
+use app\service\install\MigrationRunner;
 use think\Response;
 use think\facade\View;
 
@@ -41,11 +43,19 @@ class Wizard extends BaseController
             ]));
         }
 
-        $result = $this->app->make(InstallStepService::class)->install([
-            'env' => (array) $this->request->post('env', []),
-            'admin_user' => (string) $this->request->post('admin_user', ''),
-            'admin_pass' => (string) $this->request->post('admin_pass', ''),
-        ]);
+        if (($this->state()['state'] ?? '') === 'upgrade_required') {
+            $currentVersion = Setting::getConfigValue('schema_version');
+            $targetVersion = (string) config('app.ver');
+
+            $this->app->make(MigrationRunner::class)->runPending($currentVersion, $targetVersion);
+            $result = ['installed' => true, 'status' => 'upgraded'];
+        } else {
+            $result = $this->app->make(InstallStepService::class)->install([
+                'env' => (array) $this->request->post('env', []),
+                'admin_user' => (string) $this->request->post('admin_user', ''),
+                'admin_pass' => (string) $this->request->post('admin_pass', ''),
+            ]);
+        }
 
         if (($result['installed'] ?? false) === true) {
             return $this->htmlResponse(View::fetch('install/success', [

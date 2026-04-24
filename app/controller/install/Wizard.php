@@ -43,34 +43,43 @@ class Wizard extends BaseController
             ]));
         }
 
-        if (($this->state()['state'] ?? '') === 'upgrade_required') {
-            $currentVersion = Setting::getConfigValue('schema_version');
-            $targetVersion = (string) config('app.ver');
+        try {
+            $result = $this->handleRun();
 
-            $this->app->make(MigrationRunner::class)->runPending($currentVersion, $targetVersion);
-            $result = ['installed' => true, 'status' => 'upgraded'];
-        } else {
-            $result = $this->app->make(InstallStepService::class)->install([
-                'env' => (array) $this->request->post('env', []),
-                'admin_user' => (string) $this->request->post('admin_user', ''),
-                'admin_pass' => (string) $this->request->post('admin_pass', ''),
-            ]);
-        }
+            if (($result['installed'] ?? false) === true) {
+                return $this->htmlResponse(View::fetch('install/success', [
+                    'title' => '完成',
+                    'result' => $result,
+                ]));
+            }
 
-        if (($result['installed'] ?? false) === true) {
-            return $this->htmlResponse(View::fetch('install/success', [
-                'title' => '完成',
-                'result' => $result,
+            return $this->htmlResponse(View::fetch('install/recover', [
+                'title' => '恢复',
+                'context' => [
+                    'step' => 'write-env',
+                    'message' => '配置文件写入失败，请按提示手工复制后重试。',
+                ],
+            ]));
+        } catch (\Throwable $exception) {
+            $context = [
+                'step' => 'run',
+                'message' => $exception->getMessage(),
+            ];
+
+            $runtimePath = $this->installRuntimePath();
+            if (!is_dir($runtimePath)) {
+                @mkdir($runtimePath, 0777, true);
+            }
+            @file_put_contents(
+                $runtimePath . DIRECTORY_SEPARATOR . 'last-error.json',
+                json_encode($context, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)
+            );
+
+            return $this->htmlResponse(View::fetch('install/recover', [
+                'title' => '恢复',
+                'context' => $context,
             ]));
         }
-
-        return $this->htmlResponse(View::fetch('install/recover', [
-            'title' => '恢复',
-            'context' => [
-                'step' => 'write-env',
-                'message' => '配置文件写入失败，请按提示手工复制后重试。',
-            ],
-        ]));
     }
 
     public function recover(): Response
@@ -88,6 +97,17 @@ class Wizard extends BaseController
 
     protected function recoveryContext(): array
     {
+        $path = $this->installRuntimePath() . DIRECTORY_SEPARATOR . 'last-error.json';
+        if (is_file($path)) {
+            $decoded = json_decode((string) file_get_contents($path), true);
+            if (is_array($decoded)) {
+                return [
+                    'step' => (string) ($decoded['step'] ?? ''),
+                    'message' => (string) ($decoded['message'] ?? '暂无恢复信息'),
+                ];
+            }
+        }
+
         return ['step' => '', 'message' => '暂无恢复信息'];
     }
 
@@ -113,8 +133,31 @@ class Wizard extends BaseController
         };
     }
 
+    protected function handleRun(): array
+    {
+        if (($this->state()['state'] ?? '') === 'upgrade_required') {
+            $currentVersion = Setting::getConfigValue('schema_version');
+            $targetVersion = (string) config('app.ver');
+
+            $this->app->make(MigrationRunner::class)->runPending($currentVersion, $targetVersion);
+
+            return ['installed' => true, 'status' => 'upgraded'];
+        }
+
+        return $this->app->make(InstallStepService::class)->install([
+            'env' => (array) $this->request->post('env', []),
+            'admin_user' => (string) $this->request->post('admin_user', ''),
+            'admin_pass' => (string) $this->request->post('admin_pass', ''),
+        ]);
+    }
+
     private function htmlResponse(string $html): Response
     {
         return response($html)->contentType('text/html; charset=utf-8');
+    }
+
+    private function installRuntimePath(): string
+    {
+        return app()->getRuntimePath() . 'install';
     }
 }

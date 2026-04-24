@@ -19,6 +19,7 @@ final class ReleasePackageBuilder
         $packageDir = $outputRoot . DIRECTORY_SEPARATOR . 'vpay-' . $version;
 
         $this->assertRequiredBuildArtifacts($root);
+        $appVersion = $this->appVersion($root);
 
         if (!is_dir($outputRoot) && !mkdir($outputRoot, 0777, true)) {
             throw new RuntimeException('Unable to create release output directory: ' . $outputRoot);
@@ -68,6 +69,7 @@ final class ReleasePackageBuilder
                 'generated_at' => gmdate('c'),
                 'contains_vendor' => true,
                 'contains_console_build' => true,
+                'app_version' => $appVersion,
             ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) ?: '{}'
         );
 
@@ -175,6 +177,21 @@ final class ReleasePackageBuilder
         }
 
         return $version;
+    }
+
+    private function appVersion(string $root): string
+    {
+        $configPath = $root . DIRECTORY_SEPARATOR . 'config' . DIRECTORY_SEPARATOR . 'app.php';
+        if (!is_file($configPath)) {
+            return '';
+        }
+
+        $config = require $configPath;
+        if (!is_array($config)) {
+            return '';
+        }
+
+        return (string) ($config['ver'] ?? '');
     }
 
     private function normalizePath(string $path): string

@@ -36,7 +36,28 @@ final class UpdatePreflightServiceTest extends TestCase
         $result = $service->check(['zip_size' => 1024]);
 
         self::assertTrue($result['ok']);
+        self::assertTrue($result['can_update']);
         self::assertSame([], array_values(array_filter($result['checks'], static fn (array $check): bool => $check['ok'] !== true)));
+    }
+
+    public function test_preflight_reads_zip_size_from_release_assets(): void
+    {
+        $free = @disk_free_space($this->root);
+        if ($free === false) {
+            self::markTestSkipped('disk_free_space is unavailable');
+        }
+
+        $result = (new UpdatePreflightService($this->root, new UpdateStateStore($this->root)))->check([
+            'assets' => [
+                'zip' => [
+                    'size' => ((int) $free) + 1,
+                ],
+            ],
+        ]);
+
+        self::assertFalse($result['ok']);
+        self::assertFalse($result['can_update']);
+        self::assertContains('磁盘剩余空间不足', array_column($result['checks'], 'message'));
     }
 
     public function test_preflight_fails_when_update_lock_exists(): void

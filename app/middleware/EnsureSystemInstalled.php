@@ -32,12 +32,18 @@ class EnsureSystemInstalled
             return $next($request);
         }
 
-        $payload = $guard->errorPayload((string) $state['state']);
+        $stateName = (string) ($state['state'] ?? 'installed');
+        $installUrl = $guard->installUrl($stateName);
+        if (!$this->shouldReturnJson($request)) {
+            return response('', 302, ['Location' => $installUrl]);
+        }
+
+        $payload = $guard->errorPayload($stateName);
 
         return json([
             'code' => $payload['code'],
             'msg' => $payload['msg'],
-            'data' => ['installUrl' => '/install'],
+            'data' => ['installUrl' => $installUrl],
         ], 503);
     }
 
@@ -59,5 +65,27 @@ class EnsureSystemInstalled
             'admin/index/getUpdateStatus',
             'admin/index/getUpdateRecovery',
         ], true);
+    }
+
+    private function shouldReturnJson(Request $request): bool
+    {
+        $path = ltrim($request->pathinfo(), '/');
+        if (
+            str_starts_with($path, 'admin/index/')
+            || str_starts_with($path, 'merchant/')
+            || str_starts_with($path, 'monitor/')
+            || in_array($path, ['login', 'enQrcode'], true)
+        ) {
+            return true;
+        }
+
+        $requestedWith = strtolower((string) $request->header('X-Requested-With'));
+        if ($requestedWith === 'xmlhttprequest') {
+            return true;
+        }
+
+        $accept = strtolower((string) $request->header('Accept'));
+
+        return str_contains($accept, 'application/json');
     }
 }

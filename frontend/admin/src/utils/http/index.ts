@@ -28,6 +28,28 @@ const defaultConfig: AxiosRequestConfig = {
   }
 };
 
+const installRedirectCodes = new Set([50301, 50302, 50303, 50304]);
+
+const redirectToInstallIfNeeded = (payload: unknown): boolean => {
+  const responseData = payload as Record<string, unknown> | null;
+  const code = Number(responseData?.code);
+  const data = responseData?.data as Record<string, unknown> | null;
+  const installUrl = typeof data?.installUrl === "string" ? data.installUrl : "";
+
+  if (!installRedirectCodes.has(code) || installUrl.trim() === "") {
+    return false;
+  }
+
+  if (
+    typeof window !== "undefined" &&
+    !window.location.pathname.startsWith("/install")
+  ) {
+    window.location.assign(installUrl);
+  }
+
+  return true;
+};
+
 class PureHttp {
   constructor() {
     this.httpInterceptorsRequest();
@@ -77,6 +99,10 @@ class PureHttp {
           return response.data;
         }
         const responseCode = Number((response.data as any)?.code);
+        if (redirectToInstallIfNeeded(response.data)) {
+          return Promise.reject(response.data);
+        }
+
         const isUnauthorized =
           (response.status === 401 || responseCode === 40101) &&
           !response.config.skipUnauthorizedLogout;
@@ -102,6 +128,8 @@ class PureHttp {
           ($error as PureHttpError & { msg?: string }).msg = errorMessage;
           $error.message = errorMessage;
         }
+
+        redirectToInstallIfNeeded(errorData);
 
         const unauthorizedCode = Number(($error.response?.data as any)?.code);
         const isUnauthorized =

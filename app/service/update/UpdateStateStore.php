@@ -95,11 +95,19 @@ final class UpdateStateStore
     {
         $this->ensureUpdatePath();
         file_put_contents($this->lastSuccessPath(), $this->encode($payload + ['created_at' => time()]));
+        $this->clearLastError();
     }
 
     public function lastSuccess(): array
     {
         return $this->readJson($this->lastSuccessPath());
+    }
+
+    public function clearLastError(): void
+    {
+        if (is_file($this->lastErrorPath())) {
+            @unlink($this->lastErrorPath());
+        }
     }
 
     public function ensureUpdatePath(): void

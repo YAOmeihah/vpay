@@ -3,9 +3,138 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="VPay 支付接口、监控回调与商户通知字段说明。" />
-  <title>VPay | Payment API</title>
+  <meta name="description" content="VPay 商户对接文档：下单、查单、关闭订单、支付回调和签名规则。" />
+  <title>VPay | 商户对接文档</title>
   <link rel="stylesheet" href="/assets/css/root-portal.css?v=2" />
+  <style>
+    .merchant-doc {
+      display: grid;
+      gap: 28px;
+      margin-top: 24px;
+    }
+
+    .doc-section {
+      display: grid;
+      gap: 16px;
+      max-width: 1120px;
+      width: 100%;
+    }
+
+    .doc-section h2,
+    .doc-section h3 {
+      margin: 0;
+      color: #111827;
+    }
+
+    .doc-section p {
+      margin: 0;
+      color: #4b5563;
+      line-height: 1.8;
+    }
+
+    .doc-table-wrap {
+      overflow-x: auto;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .doc-table {
+      width: 100%;
+      min-width: 720px;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    .doc-table th,
+    .doc-table td {
+      padding: 13px 14px;
+      border-bottom: 1px solid #e5e7eb;
+      text-align: left;
+      vertical-align: top;
+      line-height: 1.65;
+    }
+
+    .doc-table th {
+      color: #111827;
+      background: #f9fafb;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .doc-table tr:last-child td {
+      border-bottom: 0;
+    }
+
+    code {
+      padding: 2px 5px;
+      border-radius: 5px;
+      background: #f3f4f6;
+      color: #0f172a;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 0.92em;
+    }
+
+    pre {
+      margin: 0;
+      overflow-x: auto;
+      border-radius: 8px;
+      background: #111827;
+      color: #e5e7eb;
+      padding: 16px;
+      line-height: 1.65;
+    }
+
+    pre code {
+      padding: 0;
+      background: transparent;
+      color: inherit;
+    }
+
+    .doc-note {
+      border-left: 4px solid #2563eb;
+      border-radius: 8px;
+      background: #eff6ff;
+      padding: 14px 16px;
+      color: #1f2937;
+      line-height: 1.8;
+    }
+
+    .doc-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .doc-panel {
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      background: #fff;
+      padding: 18px;
+    }
+
+    .doc-panel h3 {
+      margin-bottom: 8px;
+      font-size: 17px;
+    }
+
+    .doc-list {
+      margin: 0;
+      padding-left: 20px;
+      color: #4b5563;
+      line-height: 1.8;
+    }
+
+    @media (max-width: 760px) {
+      .doc-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .doc-table {
+        min-width: 640px;
+      }
+    }
+  </style>
 </head>
 <body>
   <div class="portal-shell">
@@ -21,73 +150,373 @@
       <section class="hero-section">
         <div class="hero-copy">
           <p class="hero-eyebrow">Merchant Integration Reference</p>
-          <h1>支付接口与回调说明</h1>
+          <h1>VPay 商户对接文档</h1>
           <p class="hero-description">
-            这份页面用于快速查看商户下单、订单查询、监控回调与异步通知字段。详细实现以当前路由和控制器为准。
+            本文档面向商户系统开发者，只说明商户下单、查询、关闭订单、支付结果通知和签名验签。接口以当前系统域名为基础地址。
           </p>
           <div class="hero-actions">
-            <a class="button-primary" href="/console/">进入管理后台</a>
-            <a class="button-secondary" href="/">返回系统门户</a>
+            <a class="button-primary" href="#quick-start">开始对接</a>
+            <a class="button-secondary" href="/console/">查看通讯密钥</a>
           </div>
         </div>
 
         <div class="hero-cards">
           <article class="portal-card">
-            <h2>支付接口</h2>
-            <p>创建订单、查询订单、检查支付状态与关闭未支付订单。</p>
-            <a href="#native-endpoints">查看接口</a>
+            <h2>下单</h2>
+            <p>商户生成订单号、金额和签名，调用 <code>/createOrder</code> 创建支付订单。</p>
+            <a href="#create-order">查看下单接口</a>
           </article>
           <article class="portal-card">
-            <h2>监控回调</h2>
-            <p>监控端状态、心跳上报、支付推送与清理接口说明。</p>
-            <a href="#monitor-endpoints">查看监控说明</a>
+            <h2>支付</h2>
+            <p>将用户跳转到 <code>/payPage/pay.html?orderId=...</code>，由支付页展示二维码并轮询结果。</p>
+            <a href="#payment-flow">查看流程</a>
           </article>
           <article class="portal-card">
-            <h2>商户通知</h2>
-            <p>查看支付成功后的回调字段与签名规则。</p>
-            <a href="#merchant-callback">查看回调字段</a>
+            <h2>回调</h2>
+            <p>支付成功后系统请求商户异步通知地址，商户验签并返回 <code>success</code>。</p>
+            <a href="#notify">查看回调</a>
           </article>
         </div>
       </section>
 
-      <section class="steps-section" id="native-endpoints" aria-labelledby="native-title">
-        <h2 id="native-title">支付接口</h2>
-        <ul class="entry-list">
-          <li><strong>`POST|GET /createOrder`：</strong> 创建支付订单。请求参数包含 `payId`、`type`、`price`、`sign`，可选 `param`、`notifyUrl`、`returnUrl`、`isHtml`。</li>
-          <li><strong>`POST|GET /getOrder`：</strong> 按 `orderId` 查询订单详情，返回 `payId`、`orderId`、`payType`、`price`、`reallyPrice`、`payUrl`、`isAuto`、`state`、`timeOut`、`date`。</li>
-          <li><strong>`POST|GET /checkOrder`：</strong> 查询订单支付结果。未支付或过期返回失败消息，支付成功返回同步跳转 URL。</li>
-          <li><strong>`POST|GET /closeOrder`：</strong> 关闭未支付订单。请求参数包含 `orderId` 和简单签名 `md5(orderId + key)`。</li>
-        </ul>
-      </section>
+      <div class="merchant-doc">
+        <section class="doc-section" id="quick-start" aria-labelledby="quick-start-title">
+          <h2 id="quick-start-title">接入准备</h2>
+          <div class="doc-grid">
+            <article class="doc-panel">
+              <h3>基础地址</h3>
+              <p>把示例中的 <code>https://pay.example.com</code> 替换为你的 VPay 站点域名。站点运行目录应指向 <code>public/</code>。</p>
+            </article>
+            <article class="doc-panel">
+              <h3>通讯密钥</h3>
+              <p>在管理后台的支付基础配置中获取 <code>通讯密钥</code>。商户下单签名和回调验签都使用这个密钥。</p>
+            </article>
+          </div>
+          <div class="doc-note">
+            推荐使用 <code>application/x-www-form-urlencoded</code> 提交参数。金额建议统一传两位小数字符串，例如 <code>99.00</code>；签名时必须使用和请求中完全一致的字符串。
+          </div>
+        </section>
 
-      <section class="steps-section" id="monitor-endpoints" aria-labelledby="monitor-title">
-        <h2 id="monitor-title">监控接口</h2>
-        <ul class="entry-list">
-          <li><strong>`POST|GET /getState`：</strong> 查询指定监控终端状态。必须提交 `terminalCode`、`t|ts`、`sign`，按该终端返回 `lastheart`、`lastpay`、`jkstate`。</li>
-          <li><strong>`POST|GET /appHeart`：</strong> 指定监控终端心跳上报。必须提交 `terminalCode`、`t|ts`、`sign`，通过后刷新该终端的在线状态与心跳时间。</li>
-          <li><strong>`POST /appPush`：</strong> 监控端上报收款结果。必须提交 `terminalCode`、`type`、`amountCents`、`ts`、`nonce`、`eventId`、`sign`，签名绑定到该终端并只匹配分配给该终端的订单，且带防重放校验。</li>
-          <li><strong>`POST|GET /closeEndOrder`：</strong> 清理超时未完成订单。</li>
-        </ul>
-      </section>
+        <section class="doc-section" id="payment-flow" aria-labelledby="flow-title">
+          <h2 id="flow-title">商户支付流程</h2>
+          <ol class="doc-list">
+            <li>商户系统创建本地订单，生成唯一商户订单号 <code>payId</code>。</li>
+            <li>按 <code>md5(payId + param + type + price + key)</code> 生成下单签名，调用 <code>/createOrder</code>。</li>
+            <li>下单成功后，使用返回的 <code>orderId</code> 跳转到 <code>/payPage/pay.html?orderId=平台订单号</code>。</li>
+            <li>用户扫码付款后，VPay 会请求商户 <code>notifyUrl</code>，商户验签、更新订单并返回 <code>success</code>。</li>
+            <li>支付页检测到成功后调用 <code>/checkOrder</code> 获取同步跳转地址，并跳转到商户 <code>returnUrl</code>。</li>
+          </ol>
+        </section>
 
-      <section class="entry-section" id="merchant-callback" aria-labelledby="callback-title">
-        <h2 id="callback-title">商户异步通知字段</h2>
-        <ul class="entry-list">
-          <li><strong>`payId`：</strong> 商户订单号</li>
-          <li><strong>`param`：</strong> 创建订单时传入的自定义参数</li>
-          <li><strong>`type`：</strong> 支付方式</li>
-          <li><strong>`price`：</strong> 订单金额</li>
-          <li><strong>`reallyPrice`：</strong> 实际支付金额</li>
-          <li><strong>`sign`：</strong> 回调签名，算法为 `md5(payId + param + type + price + reallyPrice + key)`</li>
-        </ul>
-      </section>
+        <section class="doc-section" id="sign" aria-labelledby="sign-title">
+          <h2 id="sign-title">签名规则</h2>
+          <div class="doc-table-wrap">
+            <table class="doc-table">
+              <thead>
+                <tr>
+                  <th>场景</th>
+                  <th>算法</th>
+                  <th>说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>创建订单</td>
+                  <td><code>md5(payId + param + type + price + key)</code></td>
+                  <td><code>param</code> 未传时按空字符串参与签名；<code>type</code> 和 <code>price</code> 使用请求中的原始值拼接。</td>
+                </tr>
+                <tr>
+                  <td>关闭订单</td>
+                  <td><code>md5(orderId + key)</code></td>
+                  <td>只用于关闭未支付的平台订单。</td>
+                </tr>
+                <tr>
+                  <td>异步通知与同步跳转</td>
+                  <td><code>md5(payId + param + type + price + reallyPrice + key)</code></td>
+                  <td>商户验签时使用收到的字段字符串原文拼接，不要自行改金额格式。</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <pre><code>key = "你的通讯密钥"
+payId = "M202604250001"
+param = "user=10001"
+type = "1"
+price = "99.00"
+sign = md5(payId + param + type + price + key)</code></pre>
+        </section>
+
+        <section class="doc-section" id="create-order" aria-labelledby="create-title">
+          <h2 id="create-title">创建订单</h2>
+          <p><code>POST|GET /createOrder</code>。推荐使用 <code>POST</code>。</p>
+          <div class="doc-table-wrap">
+            <table class="doc-table">
+              <thead>
+                <tr>
+                  <th>参数</th>
+                  <th>必填</th>
+                  <th>说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>payId</code></td>
+                  <td>是</td>
+                  <td>商户订单号，必须唯一，最长 100 字符。</td>
+                </tr>
+                <tr>
+                  <td><code>type</code></td>
+                  <td>是</td>
+                  <td>支付方式：<code>1</code> 微信，<code>2</code> 支付宝。</td>
+                </tr>
+                <tr>
+                  <td><code>price</code></td>
+                  <td>是</td>
+                  <td>订单金额，必须大于 <code>0</code> 且小于 <code>1000000</code>。建议传两位小数。</td>
+                </tr>
+                <tr>
+                  <td><code>sign</code></td>
+                  <td>是</td>
+                  <td>下单签名：<code>md5(payId + param + type + price + key)</code>。</td>
+                </tr>
+                <tr>
+                  <td><code>param</code></td>
+                  <td>否</td>
+                  <td>商户自定义透传参数，会原样带回异步通知和同步跳转。</td>
+                </tr>
+                <tr>
+                  <td><code>notifyUrl</code></td>
+                  <td>否</td>
+                  <td>本订单异步通知地址，最长 1000 字符；不传则使用后台默认异步回调地址。</td>
+                </tr>
+                <tr>
+                  <td><code>returnUrl</code></td>
+                  <td>否</td>
+                  <td>本订单支付完成后的同步跳转地址，最长 1000 字符；不传则使用后台默认同步回调地址。</td>
+                </tr>
+                <tr>
+                  <td><code>isHtml</code></td>
+                  <td>否</td>
+                  <td>传 <code>1</code> 时接口输出跳转脚本，直接跳到 VPay 支付页；默认返回 JSON。</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <pre><code>curl -X POST "https://pay.example.com/createOrder" \
+  -d "payId=M202604250001" \
+  -d "type=1" \
+  -d "price=99.00" \
+  -d "param=user=10001" \
+  -d "notifyUrl=https://merchant.example.com/vpay/notify" \
+  -d "returnUrl=https://merchant.example.com/order/result" \
+  -d "sign=按签名规则生成的MD5"</code></pre>
+          <pre><code>{
+  "code": 1,
+  "msg": "成功",
+  "data": {
+    "payId": "M202604250001",
+    "orderId": "202604251830001234",
+    "payType": 1,
+    "price": "99.00",
+    "reallyPrice": "99.01",
+    "payUrl": "weixin://...",
+    "isAuto": 1,
+    "state": 0,
+    "timeOut": "15",
+    "date": 1777113000
+  }
+}</code></pre>
+          <div class="doc-note">
+            <code>reallyPrice</code> 是实际应付金额，系统可能为了防止撞单微调金额。自定义收银台必须展示 <code>reallyPrice</code>，不要让用户按 <code>price</code> 付款。
+          </div>
+        </section>
+
+        <section class="doc-section" id="query-order" aria-labelledby="query-title">
+          <h2 id="query-title">查询订单</h2>
+          <p><code>POST|GET /getOrder</code>。按平台订单号查询支付页展示所需信息。</p>
+          <div class="doc-table-wrap">
+            <table class="doc-table">
+              <thead>
+                <tr>
+                  <th>参数</th>
+                  <th>必填</th>
+                  <th>说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>orderId</code></td>
+                  <td>是</td>
+                  <td><code>/createOrder</code> 返回的平台订单号。</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>订单状态 <code>state</code>：<code>0</code> 未支付，<code>1</code> 已支付，<code>2</code> 通知失败，<code>-1</code> 已过期，<code>-2</code> 已取消，<code>-3</code> 分配失败。</p>
+        </section>
+
+        <section class="doc-section" id="check-order" aria-labelledby="check-title">
+          <h2 id="check-title">检查支付结果</h2>
+          <p><code>POST|GET /checkOrder</code>。支付页轮询使用；支付成功时返回商户同步跳转 URL。</p>
+          <div class="doc-table-wrap">
+            <table class="doc-table">
+              <thead>
+                <tr>
+                  <th>参数</th>
+                  <th>必填</th>
+                  <th>说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>orderId</code></td>
+                  <td>是</td>
+                  <td><code>/createOrder</code> 返回的平台订单号。</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <pre><code>{
+  "code": 1,
+  "msg": "成功",
+  "data": "https://merchant.example.com/order/result?payId=M202604250001&amp;param=user%3D10001&amp;type=1&amp;price=99.00&amp;reallyPrice=99.01&amp;sign=..."
+}</code></pre>
+          <p>未支付时返回 <code>code=-1</code>、<code>msg=订单未支付</code>；过期时返回 <code>msg=订单已过期</code>。</p>
+        </section>
+
+        <section class="doc-section" id="close-order" aria-labelledby="close-title">
+          <h2 id="close-title">关闭订单</h2>
+          <p><code>POST|GET /closeOrder</code>。商户需要主动取消未支付订单时调用。</p>
+          <div class="doc-table-wrap">
+            <table class="doc-table">
+              <thead>
+                <tr>
+                  <th>参数</th>
+                  <th>必填</th>
+                  <th>说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>orderId</code></td>
+                  <td>是</td>
+                  <td><code>/createOrder</code> 返回的平台订单号。</td>
+                </tr>
+                <tr>
+                  <td><code>sign</code></td>
+                  <td>是</td>
+                  <td><code>md5(orderId + key)</code>。</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>只有未支付订单可以关闭。关闭成功后订单状态会变为过期状态。</p>
+        </section>
+
+        <section class="doc-section" id="notify" aria-labelledby="notify-title">
+          <h2 id="notify-title">异步通知</h2>
+          <p>支付成功后，VPay 使用 HTTP GET 请求本订单的 <code>notifyUrl</code>。如果订单未传 <code>notifyUrl</code>，则使用后台默认异步回调地址。</p>
+          <div class="doc-table-wrap">
+            <table class="doc-table">
+              <thead>
+                <tr>
+                  <th>字段</th>
+                  <th>说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>payId</code></td>
+                  <td>商户订单号。</td>
+                </tr>
+                <tr>
+                  <td><code>param</code></td>
+                  <td>创建订单时传入的自定义参数。</td>
+                </tr>
+                <tr>
+                  <td><code>type</code></td>
+                  <td>支付方式：<code>1</code> 微信，<code>2</code> 支付宝。</td>
+                </tr>
+                <tr>
+                  <td><code>price</code></td>
+                  <td>商户下单金额。</td>
+                </tr>
+                <tr>
+                  <td><code>reallyPrice</code></td>
+                  <td>用户实际支付金额。</td>
+                </tr>
+                <tr>
+                  <td><code>sign</code></td>
+                  <td>回调签名：<code>md5(payId + param + type + price + reallyPrice + key)</code>。</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <pre><code>GET https://merchant.example.com/vpay/notify?payId=M202604250001&amp;param=user%3D10001&amp;type=1&amp;price=99.00&amp;reallyPrice=99.01&amp;sign=...</code></pre>
+          <div class="doc-note">
+            商户通知接口验签成功并完成业务处理后，响应正文必须返回小写 <code>success</code>。返回其他内容、请求超时或网络失败都会被视为通知失败。
+          </div>
+        </section>
+
+        <section class="doc-section" id="return-url" aria-labelledby="return-title">
+          <h2 id="return-title">同步跳转</h2>
+          <p>支付页检测到订单已支付后，会跳转到 <code>returnUrl</code>。跳转 URL 会追加与异步通知相同的字段：<code>payId</code>、<code>param</code>、<code>type</code>、<code>price</code>、<code>reallyPrice</code>、<code>sign</code>。</p>
+          <p>同步跳转只适合给用户展示支付结果，商户订单最终状态应以异步通知验签后的处理结果为准。</p>
+        </section>
+
+        <section class="doc-section" id="examples" aria-labelledby="examples-title">
+          <h2 id="examples-title">PHP 示例</h2>
+          <h3>生成下单签名</h3>
+          <pre><code>&lt;?php
+$key = '你的通讯密钥';
+$payId = 'M' . date('YmdHis');
+$param = 'user=10001';
+$type = '1';
+$price = '99.00';
+
+$sign = md5($payId . $param . $type . $price . $key);</code></pre>
+          <h3>异步通知验签</h3>
+          <pre><code>&lt;?php
+$key = '你的通讯密钥';
+
+$payId = $_GET['payId'] ?? '';
+$param = $_GET['param'] ?? '';
+$type = $_GET['type'] ?? '';
+$price = $_GET['price'] ?? '';
+$reallyPrice = $_GET['reallyPrice'] ?? '';
+$sign = $_GET['sign'] ?? '';
+
+$expected = md5($payId . $param . $type . $price . $reallyPrice . $key);
+
+if (!hash_equals($expected, $sign)) {
+    http_response_code(400);
+    echo 'fail';
+    exit;
+}
+
+// 按 payId 查询商户订单，校验金额，幂等更新为已支付。
+
+echo 'success';</code></pre>
+        </section>
+
+        <section class="doc-section" id="notes" aria-labelledby="notes-title">
+          <h2 id="notes-title">接入注意事项</h2>
+          <ul class="doc-list">
+            <li><code>payId</code> 必须唯一；重复下单会返回 <code>商户订单号已存在</code>。</li>
+            <li>异步通知可能因网络问题重试或人工补单重复触发，商户侧必须按 <code>payId</code> 做幂等处理。</li>
+            <li>商户通知地址必须公网可访问；系统会拦截指向内网或保留地址的通知 URL。</li>
+            <li>使用 HTTPS 通知地址时，生产环境建议保持证书有效。后台关闭通知 SSL 校验只建议用于本地或自签名证书调试。</li>
+            <li>自定义收银台可以直接使用 <code>getOrder</code> 返回的 <code>payUrl</code>，但必须展示 <code>reallyPrice</code> 并轮询 <code>checkOrder</code>。</li>
+          </ul>
+        </section>
+      </div>
     </main>
 
     <footer class="portal-footer">
       <span>VPay</span>
       <a href="/">系统门户</a>
       <a href="/console/">管理后台</a>
-      <span>Payment API</span>
+      <span>Merchant API</span>
     </footer>
   </div>
 </body>

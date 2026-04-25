@@ -8,6 +8,7 @@ use app\model\PayOrder;
 use app\model\TmpPrice;
 use app\service\MonitorService;
 use app\service\NotifyService;
+use app\service\OrderService;
 use app\service\SignService;
 use app\service\config\SettingSystemConfig;
 use app\service\order\OrderStateManager;
@@ -120,26 +121,32 @@ class Order extends BaseController
 
         $res = PayOrder::where("order_id", $orderId)->find();
         if ($res) {
-            $time = $this->systemConfig()->getOrderCloseRaw();
-
-            $data = array(
-                "payId" => $res['pay_id'],
-                "orderId" => $res['order_id'],
-                "payType" => $res['type'],
-                "price" => $res['price'],
-                "reallyPrice" => $res['really_price'],
-                "payUrl" => $res['pay_url'],
-                "isAuto" => $res['is_auto'],
-                "state" => $res['state'],
-                "timeOut" => $time,
-                "date" => $res['create_date']
-            );
+            $data = OrderService::buildPayloadFromOrder($res);
 
             \app\service\CacheService::cacheOrder($orderId, $data);
 
             return json($this->getReturn(1, "成功", $data));
         } else {
             return json($this->getReturn(-1, "云端订单编号不存在"));
+        }
+    }
+
+    public function selectOrderPayType()
+    {
+        MonitorService::closeExpiredOrders();
+
+        $orderId = (string) $this->request->param('orderId', '');
+        $type = (int) $this->request->param('type', 0);
+
+        if ($orderId === '') {
+            return json($this->getReturn(-1, '云端订单编号不能为空'));
+        }
+
+        try {
+            $data = OrderService::selectOrderPayType($orderId, $type);
+            return json($this->getReturn(1, "成功", $data));
+        } catch (\RuntimeException $e) {
+            return json($this->getReturn(-1, $e->getMessage(), $this->freshPendingChoicePayload($orderId)));
         }
     }
 
@@ -190,6 +197,24 @@ class Order extends BaseController
     private function systemConfig(): SettingSystemConfig
     {
         return $this->app->make(SettingSystemConfig::class);
+    }
+
+    private function freshPendingChoicePayload(string $orderId): ?array
+    {
+        if ($orderId === '') {
+            return null;
+        }
+
+        $order = PayOrder::where('order_id', $orderId)->find();
+        if (!$order) {
+            return null;
+        }
+
+        if ((string) $order['assign_status'] !== PayOrder::ASSIGN_STATUS_PENDING_CHOICE) {
+            return null;
+        }
+
+        return OrderService::buildPayloadFromOrder($order);
     }
 
     private function orderStateManager(): OrderStateManager

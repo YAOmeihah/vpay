@@ -4,12 +4,14 @@ declare(strict_types=1);
 namespace app\service;
 
 use app\model\MonitorTerminal;
+use app\model\PayQrcode;
 use app\model\PayOrder;
 use app\model\Setting;
 use app\model\TerminalChannel;
 use app\model\TmpPrice;
 use app\service\config\SettingSystemConfig;
 use app\service\config\SystemConfig;
+use app\service\order\OrderPayloadFactory;
 use app\service\order\OrderStateManager;
 use app\service\payment\PaymentEventService;
 use app\service\terminal\ChannelPriceReservationService;
@@ -35,69 +37,198 @@ class OrderService
 
         $orderId = OrderCreationKernel::generatePlatformOrderId();
         OrderCreationKernel::assertMerchantOrderNotExists($payId);
-        $selection = static::runTransaction(function () use (
-            $payId,
-            $type,
-            $price,
-            $param,
-            $notifyUrl,
-            $returnUrl,
-            $orderId
-        ): array {
-            try {
-                [$channel, $payConfig, $reallyPrice] = static::selectAvailableChannelForOrder($type, $price, $orderId);
-                $createDate = time();
 
-                $data = [
-                    'close_date'   => 0,
-                    'create_date'  => $createDate,
-                    'is_auto'      => $payConfig['isAuto'],
-                    'notify_url'   => $notifyUrl,
-                    'order_id'     => $orderId,
-                    'param'        => $param,
-                    'pay_date'     => 0,
-                    'pay_id'       => $payId,
-                    'pay_url'      => $payConfig['payUrl'],
-                    'price'        => $price,
-                    'really_price' => $reallyPrice,
-                    'return_url'   => $returnUrl,
-                    'terminal_id'  => (int) $channel['terminal_id'],
-                    'channel_id'   => (int) $channel['id'],
-                    'assign_status' => 'assigned',
-                    'assign_reason' => '',
-                    'terminal_snapshot' => (string) $channel['terminal_name'],
-                    'channel_snapshot' => (string) $channel['channel_name'],
-                    'state'        => PayOrder::STATE_UNPAID,
-                    'type'         => $type,
-                ];
+        try {
+            $selection = static::runTransaction(function () use (
+                $payId,
+                $type,
+                $price,
+                $param,
+                $notifyUrl,
+                $returnUrl,
+                $orderId
+            ): array {
+                try {
+                    [$channel, $payConfig, $reallyPrice] = static::selectAvailableChannelForOrder($type, $price, $orderId);
+                    $createDate = time();
 
-                OrderCreationKernel::createOrderRecord($data);
-                static::markChannelUsed((int) $channel['id'], $createDate);
-                static::markAllocationCursorUsed($type, (int) $channel['id']);
+                    $data = [
+                        'close_date'   => 0,
+                        'create_date'  => $createDate,
+                        'is_auto'      => $payConfig['isAuto'],
+                        'notify_url'   => $notifyUrl,
+                        'order_id'     => $orderId,
+                        'param'        => $param,
+                        'pay_date'     => 0,
+                        'pay_id'       => $payId,
+                        'pay_url'      => $payConfig['payUrl'],
+                        'price'        => $price,
+                        'really_price' => $reallyPrice,
+                        'return_url'   => $returnUrl,
+                        'terminal_id'  => (int) $channel['terminal_id'],
+                        'channel_id'   => (int) $channel['id'],
+                        'assign_status' => PayOrder::ASSIGN_STATUS_ASSIGNED,
+                        'assign_reason' => '',
+                        'terminal_snapshot' => (string) $channel['terminal_name'],
+                        'channel_snapshot' => (string) $channel['channel_name'],
+                        'state'        => PayOrder::STATE_UNPAID,
+                        'type'         => $type,
+                    ];
 
-                return [$channel, $payConfig, $reallyPrice, $createDate];
-            } catch (\Throwable $e) {
-                OrderCreationKernel::rollbackReservedPrice($orderId);
+                    OrderCreationKernel::createOrderRecord($data);
+                    static::markChannelUsed((int) $channel['id'], $createDate);
+                    static::markAllocationCursorUsed($type, (int) $channel['id']);
+
+                    return [$channel, $payConfig, $reallyPrice, $createDate];
+                } catch (\Throwable $e) {
+                    OrderCreationKernel::rollbackReservedPrice($orderId);
+                    throw $e;
+                }
+            });
+
+            [$channel, $payConfig, $reallyPrice, $createDate] = $selection;
+
+            return OrderCreationKernel::buildAndCacheOrderInfo(
+                $payId,
+                $orderId,
+                $type,
+                $price,
+                $reallyPrice,
+                $payConfig['payUrl'],
+                $payConfig['isAuto'],
+                $createDate,
+                (int) $channel['terminal_id'],
+                (int) $channel['id'],
+                (string) $channel['terminal_name'],
+                (string) $channel['channel_name']
+            );
+        } catch (\RuntimeException $e) {
+            OrderCreationKernel::rollbackReservedPrice($orderId);
+
+            if (!static::shouldCreatePendingChoice($e, $type)) {
                 throw $e;
             }
+
+            $availablePayTypes = static::availablePayTypes($type, $price);
+            if ($availablePayTypes === []) {
+                throw $e;
+            }
+
+            return static::createPendingChoiceOrder(
+                $payId,
+                $orderId,
+                $type,
+                $price,
+                $param,
+                $notifyUrl,
+                $returnUrl,
+                $e->getMessage(),
+                $availablePayTypes
+            );
+        }
+    }
+
+    public static function selectOrderPayType(string $orderId, int $type): array
+    {
+        if (!in_array($type, [PayOrder::TYPE_WECHAT, PayOrder::TYPE_ALIPAY], true)) {
+            throw new \RuntimeException('支付方式错误=>1|微信 2|支付宝');
+        }
+
+        $result = static::runTransaction(function () use ($orderId, $type): array {
+            $order = PayOrder::where('order_id', $orderId)->lock(true)->find();
+            if (!$order) {
+                throw new \RuntimeException('云端订单编号不存在');
+            }
+
+            if (static::isExpiredByConfig($order)) {
+                PayOrder::where('id', (int) $order['id'])->update([
+                    'state' => PayOrder::STATE_EXPIRED,
+                    'close_date' => time(),
+                ]);
+                TmpPrice::where('oid', $orderId)->delete();
+
+                return ['status' => 'expired'];
+            }
+
+            $state = (int) $order['state'];
+            if ($state === PayOrder::STATE_EXPIRED) {
+                return ['status' => 'expired'];
+            }
+
+            if ($state !== PayOrder::STATE_UNPAID) {
+                throw new \RuntimeException('订单已支付');
+            }
+
+            $assignStatus = (string) $order['assign_status'];
+            if ($assignStatus === PayOrder::ASSIGN_STATUS_ASSIGNED) {
+                return [
+                    'status' => 'assigned',
+                    'payload' => static::buildPayloadFromOrder($order),
+                ];
+            }
+
+            if ($assignStatus !== PayOrder::ASSIGN_STATUS_PENDING_CHOICE) {
+                throw new \RuntimeException('订单状态不允许选择支付方式');
+            }
+
+            $availableTypes = array_column(
+                static::availablePayTypes((int) $order['type'], (string) $order['price']),
+                'type'
+            );
+
+            if (!in_array($type, $availableTypes, true)) {
+                throw new \RuntimeException('当前选择的支付方式不可用');
+            }
+
+            try {
+                [$channel, $payConfig, $reallyPrice] = static::selectAvailableChannelForOrder(
+                    $type,
+                    (string) $order['price'],
+                    $orderId
+                );
+            } catch (\RuntimeException $e) {
+                OrderCreationKernel::rollbackReservedPrice($orderId);
+                throw new \RuntimeException('当前选择的支付方式不可用', 0, $e);
+            }
+
+            $now = time();
+            PayOrder::where('id', (int) $order['id'])
+                ->where('state', PayOrder::STATE_UNPAID)
+                ->where('assign_status', PayOrder::ASSIGN_STATUS_PENDING_CHOICE)
+                ->update([
+                    'is_auto' => $payConfig['isAuto'],
+                    'pay_url' => $payConfig['payUrl'],
+                    'really_price' => $reallyPrice,
+                    'terminal_id' => (int) $channel['terminal_id'],
+                    'channel_id' => (int) $channel['id'],
+                    'terminal_snapshot' => (string) $channel['terminal_name'],
+                    'channel_snapshot' => (string) $channel['channel_name'],
+                    'assign_status' => PayOrder::ASSIGN_STATUS_ASSIGNED,
+                    'assign_reason' => '用户从' . static::paymentTypeName((int) $order['type']) . '切换到' . static::paymentTypeName($type),
+                    'type' => $type,
+                ]);
+
+            static::markChannelUsed((int) $channel['id'], $now);
+            static::markAllocationCursorUsed($type, (int) $channel['id']);
+
+            $updated = PayOrder::where('id', (int) $order['id'])->findOrFail();
+
+            return [
+                'status' => 'assigned',
+                'payload' => static::buildPayloadFromOrder($updated),
+            ];
         });
 
-        [$channel, $payConfig, $reallyPrice, $createDate] = $selection;
+        static::orderStateManager()->invalidateOrderView($orderId);
 
-        return OrderCreationKernel::buildAndCacheOrderInfo(
-            $payId,
-            $orderId,
-            $type,
-            $price,
-            $reallyPrice,
-            $payConfig['payUrl'],
-            $payConfig['isAuto'],
-            $createDate,
-            (int) $channel['terminal_id'],
-            (int) $channel['id'],
-            (string) $channel['terminal_name'],
-            (string) $channel['channel_name']
-        );
+        if (($result['status'] ?? '') === 'expired') {
+            throw new \RuntimeException('订单已过期');
+        }
+
+        $payload = $result['payload'];
+        CacheService::cacheOrder($orderId, $payload);
+
+        return $payload;
     }
 
     /**
@@ -139,6 +270,11 @@ class OrderService
     protected static function allocator(): TerminalAllocatorService
     {
         return app()->make(TerminalAllocatorService::class);
+    }
+
+    protected static function payloadFactory(): OrderPayloadFactory
+    {
+        return app()->make(OrderPayloadFactory::class);
     }
 
     protected static function allocationCursor(): TerminalAllocationCursorService
@@ -193,6 +329,187 @@ class OrderService
         }
 
         throw $lastException ?? new \RuntimeException($type === 1 ? '当前无可用微信收款终端' : '当前无可用支付宝收款终端');
+    }
+
+    /**
+     * @return array<int, array{type: int, name: string}>
+     */
+    public static function availablePayTypes(int $requestedType, string $price): array
+    {
+        $available = [];
+
+        foreach ([PayOrder::TYPE_WECHAT, PayOrder::TYPE_ALIPAY] as $type) {
+            if ($type === $requestedType) {
+                continue;
+            }
+
+            if (static::hasRenderableChannelForType($type, $price)) {
+                $available[] = [
+                    'type' => $type,
+                    'name' => static::paymentTypeName($type),
+                ];
+            }
+        }
+
+        return $available;
+    }
+
+    public static function buildPayloadFromOrder(mixed $order): array
+    {
+        if ((string) $order['assign_status'] === PayOrder::ASSIGN_STATUS_PENDING_CHOICE) {
+            return static::payloadFactory()->createPendingChoice(
+                (string) $order['pay_id'],
+                (string) $order['order_id'],
+                (int) $order['type'],
+                static::formatMoneyForPayload($order['price']),
+                (int) $order['state'],
+                static::systemConfig()->getOrderCloseRaw(),
+                (int) $order['create_date'],
+                (string) $order['assign_reason'],
+                static::availablePayTypes((int) $order['type'], static::formatMoneyForPayload($order['price']))
+            );
+        }
+
+        return static::payloadFactory()->create(
+            (string) $order['pay_id'],
+            (string) $order['order_id'],
+            (int) $order['type'],
+            static::formatMoneyForPayload($order['price']),
+            static::formatMoneyForPayload($order['really_price']),
+            (string) $order['pay_url'],
+            (int) $order['is_auto'],
+            (int) $order['state'],
+            static::systemConfig()->getOrderCloseRaw(),
+            (int) $order['create_date']
+        );
+    }
+
+    /**
+     * @param array<int, array{type: int, name: string}> $availablePayTypes
+     */
+    protected static function createPendingChoiceOrder(
+        string $payId,
+        string $orderId,
+        int $type,
+        string $price,
+        string $param,
+        string $notifyUrl,
+        string $returnUrl,
+        string $assignReason,
+        array $availablePayTypes
+    ): array {
+        $createDate = time();
+
+        static::runTransaction(function () use (
+            $payId,
+            $orderId,
+            $type,
+            $price,
+            $param,
+            $notifyUrl,
+            $returnUrl,
+            $assignReason,
+            $createDate
+        ): void {
+            OrderCreationKernel::createOrderRecord([
+                'close_date'   => 0,
+                'create_date'  => $createDate,
+                'is_auto'      => 0,
+                'notify_url'   => $notifyUrl,
+                'order_id'     => $orderId,
+                'param'        => $param,
+                'pay_date'     => 0,
+                'pay_id'       => $payId,
+                'pay_url'      => '',
+                'price'        => $price,
+                'really_price' => '0.00',
+                'return_url'   => $returnUrl,
+                'terminal_id'  => null,
+                'channel_id'   => null,
+                'assign_status' => PayOrder::ASSIGN_STATUS_PENDING_CHOICE,
+                'assign_reason' => $assignReason,
+                'terminal_snapshot' => '',
+                'channel_snapshot' => '',
+                'state'        => PayOrder::STATE_UNPAID,
+                'type'         => $type,
+            ]);
+        });
+
+        return OrderCreationKernel::buildAndCachePendingChoiceOrderInfo(
+            $payId,
+            $orderId,
+            $type,
+            $price,
+            $createDate,
+            $assignReason,
+            $availablePayTypes
+        );
+    }
+
+    protected static function shouldCreatePendingChoice(\RuntimeException $e, int $type): bool
+    {
+        return $e->getMessage() === static::unavailableMessageForType($type);
+    }
+
+    protected static function unavailableMessageForType(int $type): string
+    {
+        return $type === PayOrder::TYPE_WECHAT
+            ? '当前无可用微信收款终端'
+            : '当前无可用支付宝收款终端';
+    }
+
+    protected static function paymentTypeName(int $type): string
+    {
+        return $type === PayOrder::TYPE_ALIPAY ? '支付宝' : '微信';
+    }
+
+    protected static function hasRenderableChannelForType(int $type, string $price): bool
+    {
+        try {
+            $channels = static::loadChannelsForType($type);
+            $eligible = static::allocator()->orderEligibleChannels(
+                static::allocationStrategy(),
+                $channels,
+                $type
+            );
+
+            foreach ($eligible as $channel) {
+                if (trim((string) ($channel['pay_url'] ?? '')) !== '') {
+                    return true;
+                }
+
+                if (static::channelHasStaticQrcodeForPrice((int) $channel['id'], $price)) {
+                    return true;
+                }
+            }
+        } catch (\RuntimeException) {
+            return false;
+        }
+
+        return false;
+    }
+
+    protected static function channelHasStaticQrcodeForPrice(int $channelId, string $price): bool
+    {
+        return PayQrcode::where('channel_id', $channelId)
+            ->where('price', $price)
+            ->find() !== null;
+    }
+
+    protected static function isExpiredByConfig(mixed $order): bool
+    {
+        if ((int) $order['state'] !== PayOrder::STATE_UNPAID) {
+            return false;
+        }
+
+        $closeTime = time() - 60 * static::systemConfig()->getOrderCloseMinutes();
+
+        return (int) $order['create_date'] <= $closeTime;
+    }
+
+    protected static function formatMoneyForPayload(mixed $value): string
+    {
+        return number_format((float) $value, 2, '.', '');
     }
 
     /**

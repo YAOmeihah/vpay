@@ -74,6 +74,9 @@ namespace app\model {
             public const STATE_NOTIFY_FAILED = 2;
             public const STATE_EXPIRED = -1;
 
+            public const ASSIGN_STATUS_ASSIGNED = 'assigned';
+            public const ASSIGN_STATUS_PENDING_CHOICE = 'pending_choice';
+
             public const TYPE_WECHAT = 1;
             public const TYPE_ALIPAY = 2;
 
@@ -144,6 +147,11 @@ namespace app\model {
             public function where(string $field, mixed $value): self
             {
                 $this->wheres[$field] = $value;
+                return $this;
+            }
+
+            public function lock(bool|string $lock = false): self
+            {
                 return $this;
             }
 
@@ -350,6 +358,19 @@ namespace app\model {
 
                 TmpPrice::replaceRows($rows);
                 return $affected;
+            }
+
+            public function count(): int
+            {
+                $count = 0;
+
+                foreach (TmpPrice::allRows() as $row) {
+                    if ($this->matches($row)) {
+                        $count++;
+                    }
+                }
+
+                return $count;
             }
 
             /**

@@ -48,6 +48,10 @@ class PayOrder extends Model
     const STATE_EXPIRED = -1;  // 已过期
     const STATE_CANCELLED = -2; // 已取消
     const STATE_ASSIGN_FAILED = -3; // 分配失败
+
+    // 分配状态常量
+    const ASSIGN_STATUS_ASSIGNED = 'assigned';
+    const ASSIGN_STATUS_PENDING_CHOICE = 'pending_choice';
     
     // 支付类型常量
     const TYPE_WECHAT = 1;     // 微信支付

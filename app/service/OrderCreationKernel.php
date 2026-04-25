@@ -124,6 +124,35 @@ class OrderCreationKernel
         return $orderInfo;
     }
 
+    /**
+     * @param array<int, array{type: int, name: string}> $availablePayTypes
+     */
+    public static function buildAndCachePendingChoiceOrderInfo(
+        string $merchantOrderId,
+        string $orderId,
+        int $type,
+        string $price,
+        int $createDate,
+        string $assignReason,
+        array $availablePayTypes
+    ): array {
+        $orderInfo = static::payloadFactory()->createPendingChoice(
+            $merchantOrderId,
+            $orderId,
+            $type,
+            $price,
+            PayOrder::STATE_UNPAID,
+            static::systemConfig()->getOrderCloseRaw(),
+            $createDate,
+            $assignReason,
+            $availablePayTypes
+        );
+
+        static::orderCache()->cacheOrder($orderId, $orderInfo);
+
+        return $orderInfo;
+    }
+
     protected static function systemConfig(): SystemConfig
     {
         return app()->make(SystemConfig::class);

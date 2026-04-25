@@ -329,6 +329,31 @@ sign = md5(payId + param + type + price + key)</code></pre>
           <div class="doc-note">
             <code>reallyPrice</code> 是实际应付金额，系统可能为了防止撞单微调金额。自定义收银台必须展示 <code>reallyPrice</code>，不要让用户按 <code>price</code> 付款。
           </div>
+          <p>当请求的支付方式暂不可用但存在其他可用支付方式时，接口仍返回 <code>code=1</code>，并返回 <code>assignStatus=pending_choice</code>。接入方仍按 <code>orderId</code> 跳转支付页，由用户在支付页选择其他支付方式。</p>
+          <pre><code>{
+  "code": 1,
+  "msg": "成功",
+  "data": {
+    "payId": "M202604260001",
+    "orderId": "2026042600011234",
+    "payType": 1,
+    "price": "99.00",
+    "reallyPrice": "",
+    "payUrl": "",
+    "isAuto": 0,
+    "state": 0,
+    "timeOut": "15",
+    "date": 1777132800,
+    "assignStatus": "pending_choice",
+    "assignReason": "当前无可用微信收款终端",
+    "availablePayTypes": [
+      {
+        "type": 2,
+        "name": "支付宝"
+      }
+    ]
+  }
+}</code></pre>
         </section>
 
         <section class="doc-section" id="query-order" aria-labelledby="query-title">
@@ -353,6 +378,35 @@ sign = md5(payId + param + type + price + key)</code></pre>
             </table>
           </div>
           <p>订单状态 <code>state</code>：<code>0</code> 未支付，<code>1</code> 已支付，<code>2</code> 通知失败，<code>-1</code> 已过期，<code>-2</code> 已取消，<code>-3</code> 分配失败。</p>
+        </section>
+
+        <section class="doc-section" id="select-pay-type" aria-labelledby="select-pay-type-title">
+          <h2 id="select-pay-type-title">选择替代支付方式</h2>
+          <p><code>POST|GET /selectOrderPayType</code>。当订单处于 <code>pending_choice</code> 状态时，支付页调用该接口选择可用支付方式。</p>
+          <div class="doc-table-wrap">
+            <table class="doc-table">
+              <thead>
+                <tr>
+                  <th>字段</th>
+                  <th>必填</th>
+                  <th>说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>orderId</code></td>
+                  <td>是</td>
+                  <td><code>/createOrder</code> 返回的平台订单号。</td>
+                </tr>
+                <tr>
+                  <td><code>type</code></td>
+                  <td>是</td>
+                  <td>用户选择的支付方式：<code>1</code> 微信，<code>2</code> 支付宝。</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>选择成功后，接口返回普通待支付订单数据，支付页会切换到二维码支付界面。</p>
         </section>
 
         <section class="doc-section" id="check-order" aria-labelledby="check-title">

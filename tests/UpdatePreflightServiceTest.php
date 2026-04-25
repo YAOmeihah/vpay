@@ -118,6 +118,17 @@ final class UpdatePreflightServiceTest extends TestCase
         self::assertSame('网络失败', $store->lastError()['message']);
     }
 
+    public function test_state_store_clears_last_error_when_success_is_written(): void
+    {
+        $store = new UpdateStateStore($this->root);
+        $store->writeError(['stage' => 'copy', 'message' => '旧失败']);
+
+        $store->writeSuccess(['status' => 'updated']);
+
+        self::assertSame([], $store->lastError());
+        self::assertFileDoesNotExist($store->lastErrorPath());
+    }
+
     private function removeTree(string $path): void
     {
         if (!file_exists($path)) {

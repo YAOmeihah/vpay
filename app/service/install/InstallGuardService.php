@@ -31,4 +31,11 @@ class InstallGuardService
             default => ['code' => 50304, 'msg' => '系统需要恢复'],
         };
     }
+
+    public function installUrl(string $state): string
+    {
+        return in_array($state, ['locked', 'recovery_required'], true)
+            ? '/install/recover'
+            : '/install';
+    }
 }

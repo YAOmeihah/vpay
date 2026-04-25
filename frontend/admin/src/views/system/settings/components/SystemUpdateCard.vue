@@ -160,6 +160,7 @@ const handleStart = async () => {
       stage: "complete",
       message: "更新完成，建议刷新页面"
     };
+    recovery.value = null;
     preflightOk.value = false;
   } catch (error: any) {
     message(errorMessage(error, "自动更新失败"), { type: "error" });

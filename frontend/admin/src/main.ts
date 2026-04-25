@@ -7,13 +7,11 @@ import {
   clearChunkReloadMarker,
   installChunkReloadRecovery
 } from "@/utils/chunkReload";
-// import { useEcharts } from "@/plugins/echarts";
 import { createApp, type Directive } from "vue";
 import { useElementPlus } from "@/plugins/elementPlus";
 import { injectResponsiveStorage } from "@/utils/responsive";
 
 import Table from "@pureadmin/table";
-// import PureDescriptions from "@pureadmin/descriptions";
 
 // 引入重置样式
 import "./style/reset.scss";
@@ -46,12 +44,6 @@ app.component("IconifyIconOffline", IconifyIconOffline);
 app.component("IconifyIconOnline", IconifyIconOnline);
 app.component("FontIcon", FontIcon);
 
-// 全局注册按钮级别权限组件
-import { Auth } from "@/components/ReAuth";
-import { Perms } from "@/components/RePerms";
-app.component("Auth", Auth);
-app.component("Perms", Perms);
-
 // 全局注册vue-tippy
 import "tippy.js/dist/tippy.css";
 import "tippy.js/themes/light.css";
@@ -65,7 +57,5 @@ getPlatformConfig(app).then(async config => {
   clearChunkReloadMarker(sessionStorage);
   injectResponsiveStorage(app, config);
   app.use(MotionPlugin).use(useElementPlus).use(Table);
-  // .use(PureDescriptions)
-  // .use(useEcharts);
   app.mount("#app");
 });

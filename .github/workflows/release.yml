@@ -67,7 +67,7 @@ jobs:
             VERSION="$INPUT_VERSION"
           fi
           if [ -z "$VERSION" ] || [[ "$VERSION" == *"/"* ]]; then
-            VERSION="$(php -r '$config = require "config/app.php"; echo $config["ver"] ?? "dev";')"
+            VERSION="$(php -r '$contents = file_get_contents("config/app.php"); if (preg_match("/[\x27\x22]ver[\x27\x22]\s*=>\s*[\x27\x22]([^\x27\x22]+)/", $contents, $matches)) { echo $matches[1]; } else { echo "dev"; }')"
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "package_name=vpay-$VERSION" >> "$GITHUB_OUTPUT"

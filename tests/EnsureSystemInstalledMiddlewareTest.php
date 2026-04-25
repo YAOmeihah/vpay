@@ -35,4 +35,69 @@ final class EnsureSystemInstalledMiddlewareTest extends TestCase
         self::assertSame('系统尚未安装', $payload['msg']);
         self::assertSame('/install', $payload['data']['installUrl']);
     }
+
+    public function test_returns_maintenance_error_for_regular_api_while_update_is_running(): void
+    {
+        $request = (clone $this->app->request)
+            ->withServer(['REQUEST_METHOD' => 'GET'])
+            ->setMethod('GET')
+            ->setPathinfo('admin/index/getMain');
+
+        $this->app->instance('request', $request);
+
+        $middleware = new class extends EnsureSystemInstalled {
+            protected function installState(): array
+            {
+                return ['state' => 'installed', 'message' => '系统已安装'];
+            }
+
+            protected function hasUpdateLock(): bool
+            {
+                return true;
+            }
+        };
+
+        $response = $middleware->handle(
+            $request,
+            static fn ($nextRequest) => json(['code' => 1, 'msg' => 'ok', 'data' => null])
+        );
+
+        $payload = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame(503, $response->getCode());
+        self::assertSame(50305, $payload['code']);
+        self::assertSame('系统正在更新，请稍后再试', $payload['msg']);
+    }
+
+    public function test_allows_update_status_api_while_update_is_running(): void
+    {
+        $request = (clone $this->app->request)
+            ->withServer(['REQUEST_METHOD' => 'GET'])
+            ->setMethod('GET')
+            ->setPathinfo('admin/index/getUpdateStatus');
+
+        $this->app->instance('request', $request);
+
+        $middleware = new class extends EnsureSystemInstalled {
+            protected function installState(): array
+            {
+                return ['state' => 'installed', 'message' => '系统已安装'];
+            }
+
+            protected function hasUpdateLock(): bool
+            {
+                return true;
+            }
+        };
+
+        $response = $middleware->handle(
+            $request,
+            static fn ($nextRequest) => json(['code' => 1, 'msg' => 'ok', 'data' => null])
+        );
+
+        $payload = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame(200, $response->getCode());
+        self::assertSame(1, $payload['code']);
+    }
 }

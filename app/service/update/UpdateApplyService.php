@@ -41,18 +41,26 @@ final class UpdateApplyService
 
         $store = $this->stateStore();
         $store->writeLock([
-            'stage' => 'copy',
+            'stage' => 'migrate',
             'from_version' => $fromVersion,
             'target_version' => $targetVersion,
             'started_at' => time(),
         ]);
 
         try {
-            $store->writeStatus(['stage' => 'copy', 'message' => '正在覆盖程序文件']);
-            $this->copyPackage($packageRoot);
+            $store->writeStatus(['stage' => 'migrate', 'message' => '正在准备数据库迁移文件']);
+            $this->copyMigrationFiles($packageRoot);
 
             $store->writeStatus(['stage' => 'migrate', 'message' => '正在执行数据库迁移']);
             $this->runMigrations($fromVersion, $targetVersion);
+
+            $store->writeLock([
+                'stage' => 'copy',
+                'from_version' => $fromVersion,
+                'target_version' => $targetVersion,
+            ]);
+            $store->writeStatus(['stage' => 'copy', 'message' => '正在覆盖程序文件']);
+            $this->copyPackage($packageRoot);
 
             CacheService::clearAll();
 
@@ -83,6 +91,18 @@ final class UpdateApplyService
         }
     }
 
+    private function copyMigrationFiles(string $packageRoot): void
+    {
+        $source = $packageRoot . DIRECTORY_SEPARATOR . 'database' . DIRECTORY_SEPARATOR . 'migrations';
+        if (is_dir($source)) {
+            $this->copyDirectory(
+                $source,
+                $this->root() . 'database' . DIRECTORY_SEPARATOR . 'migrations',
+                'database/migrations'
+            );
+        }
+    }
+
     private function copyPackage(string $packageRoot): void
     {
         foreach (self::MANAGED_DIRS as $dir) {
@@ -105,9 +125,14 @@ final class UpdateApplyService
         if ($this->shouldPreserve($relativeRoot)) {
             return;
         }
+        if (is_file($target) || is_link($target)) {
+            $this->removeTree($target);
+        }
         if (!is_dir($target) && !mkdir($target, 0777, true)) {
             throw new RuntimeException('无法创建目录: ' . $target);
         }
+
+        $this->deleteMissingEntries($source, $target, $relativeRoot);
 
         foreach (scandir($source) ?: [] as $item) {
             if ($item === '.' || $item === '..') {
@@ -135,6 +160,9 @@ final class UpdateApplyService
     private function copyFile(string $source, string $target): void
     {
         $this->assertInsideRoot($target);
+        if (is_dir($target) || is_link($target)) {
+            $this->removeTree($target);
+        }
         $dir = dirname($target);
         if (!is_dir($dir) && !mkdir($dir, 0777, true)) {
             throw new RuntimeException('无法创建目录: ' . $dir);
@@ -147,6 +175,50 @@ final class UpdateApplyService
         if (!rename($temporary, $target)) {
             @unlink($temporary);
             throw new RuntimeException('替换更新文件失败: ' . $target);
+        }
+    }
+
+    private function deleteMissingEntries(string $source, string $target, string $relativeRoot): void
+    {
+        foreach (scandir($target) ?: [] as $item) {
+            if ($item === '.' || $item === '..') {
+                continue;
+            }
+
+            $relativePath = $relativeRoot . '/' . $item;
+            if ($this->shouldPreserve($relativePath)) {
+                continue;
+            }
+
+            $sourcePath = $source . DIRECTORY_SEPARATOR . $item;
+            if (!file_exists($sourcePath)) {
+                $this->removeTree($target . DIRECTORY_SEPARATOR . $item);
+            }
+        }
+    }
+
+    private function removeTree(string $path): void
+    {
+        $this->assertInsideRoot($path);
+        if (!file_exists($path) && !is_link($path)) {
+            return;
+        }
+
+        if (is_file($path) || is_link($path)) {
+            if (!@unlink($path)) {
+                throw new RuntimeException('无法删除旧文件: ' . $path);
+            }
+            return;
+        }
+
+        foreach (scandir($path) ?: [] as $item) {
+            if ($item !== '.' && $item !== '..') {
+                $this->removeTree($path . DIRECTORY_SEPARATOR . $item);
+            }
+        }
+
+        if (!@rmdir($path)) {
+            throw new RuntimeException('无法删除旧目录: ' . $path);
         }
     }
 

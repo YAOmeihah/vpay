@@ -22,6 +22,7 @@ final class UpdateApplyServiceTest extends TestCase
         $this->packageRoot = $base . DIRECTORY_SEPARATOR . 'package';
 
         $this->writeFile($this->root, 'app/AppService.php', 'old code');
+        $this->writeFile($this->root, 'app/RemovedService.php', 'removed code');
         $this->writeFile($this->root, 'public/index.php', 'old entry');
         $this->writeFile($this->root, 'public/runtime/cache.tmp', 'keep public runtime');
         $this->writeFile($this->root, '.env', 'APP_DEBUG=false');
@@ -63,6 +64,7 @@ final class UpdateApplyServiceTest extends TestCase
         self::assertSame('updated', $result['status']);
         self::assertSame('new code', file_get_contents($this->root . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'AppService.php'));
         self::assertSame('new entry', file_get_contents($this->root . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'index.php'));
+        self::assertFileDoesNotExist($this->root . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'RemovedService.php');
         self::assertSame('APP_DEBUG=false', file_get_contents($this->root . DIRECTORY_SEPARATOR . '.env'));
         self::assertSame('keep public runtime', file_get_contents($this->root . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'runtime' . DIRECTORY_SEPARATOR . 'cache.tmp'));
         self::assertSame(['2.1.1', '2.1.2'], $migrationCall);
@@ -96,6 +98,7 @@ final class UpdateApplyServiceTest extends TestCase
         self::assertSame('migrate', $error['stage']);
         self::assertSame('migration failed', $error['message']);
         self::assertSame('backup.zip', $error['backup_path']);
+        self::assertSame('old code', file_get_contents($this->root . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'AppService.php'));
         self::assertFileDoesNotExist($store->lockPath());
     }
 

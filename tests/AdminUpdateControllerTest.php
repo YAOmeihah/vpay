@@ -69,12 +69,87 @@ final class AdminUpdateControllerTest extends TestCase
             'release' => [
                 'tag_name' => $tagName,
                 'assets' => [
-                    ['name' => 'vpay-' . $tagName . '.zip', 'browser_download_url' => 'https://example.test/vpay.zip'],
+                    'zip' => ['name' => 'vpay-' . $tagName . '.zip', 'download_url' => 'https://evil.example/vpay.zip'],
+                    'sha256' => ['name' => 'vpay-' . $tagName . '.zip.sha256', 'download_url' => 'https://evil.example/vpay.zip.sha256'],
                 ],
             ],
         ]);
         $log = (object) ['steps' => []];
 
+        $this->bindFresh(UpdateReleaseService::class, fn () => new class($log, $tagName) {
+            public function __construct(private readonly object $log, private readonly string $tagName)
+            {
+            }
+
+            public function resolveUpdate(string $requestedTag): array
+            {
+                $this->log->steps[] = ['resolve', $requestedTag];
+
+                return [
+                    'status' => 'update_available',
+                    'tag_name' => $this->tagName,
+                    'latest_version' => ltrim($this->tagName, 'vV'),
+                    'assets' => [
+                        'zip' => [
+                            'name' => 'vpay-' . $this->tagName . '.zip',
+                            'download_url' => 'https://github.com/YAOmeihah/vpay/releases/download/' . $this->tagName . '/vpay-' . $this->tagName . '.zip',
+                            'size' => 1024,
+                        ],
+                        'sha256' => [
+                            'name' => 'vpay-' . $this->tagName . '.zip.sha256',
+                            'download_url' => 'https://github.com/YAOmeihah/vpay/releases/download/' . $this->tagName . '/vpay-' . $this->tagName . '.zip.sha256',
+                            'size' => 128,
+                        ],
+                    ],
+                ];
+            }
+        });
+        $this->bindFresh(UpdatePreflightService::class, fn () => new class($log) {
+            public function __construct(private readonly object $log)
+            {
+            }
+
+            public function check(array $release): array
+            {
+                $this->log->steps[] = ['preflight', $release['tag_name'] ?? ''];
+
+                return ['can_update' => true, 'checks' => []];
+            }
+        });
+        $this->bindFresh(UpdateStateStore::class, fn () => new class($log) {
+            private bool $locked = false;
+
+            public function __construct(private readonly object $log)
+            {
+            }
+
+            public function acquireLock(array $payload): bool
+            {
+                $this->log->steps[] = ['lock', $payload['stage'] ?? ''];
+                if ($this->locked) {
+                    return false;
+                }
+                $this->locked = true;
+
+                return true;
+            }
+
+            public function writeStatus(array $payload): void
+            {
+                $this->log->steps[] = ['status', $payload['stage'] ?? ''];
+            }
+
+            public function writeLock(array $payload): void
+            {
+                $this->log->steps[] = ['lock-stage', $payload['stage'] ?? ''];
+            }
+
+            public function clearLock(): void
+            {
+                $this->log->steps[] = ['clear-lock'];
+                $this->locked = false;
+            }
+        });
         $this->bindFresh(UpdatePackageService::class, fn () => new class($log) {
             public function __construct(private readonly object $log)
             {
@@ -82,7 +157,7 @@ final class AdminUpdateControllerTest extends TestCase
 
             public function download(array $assets, string $tagName): array
             {
-                $this->log->steps[] = ['download', $tagName, $assets[0]['name'] ?? null];
+                $this->log->steps[] = ['download', $tagName, $assets['zip']['download_url'] ?? null];
 
                 return [
                     'tag_name' => $tagName,
@@ -133,7 +208,12 @@ final class AdminUpdateControllerTest extends TestCase
         self::assertSame('updated', $payload['data']['status']);
         self::assertSame($targetVersion, $payload['data']['target_version']);
         self::assertSame([
-            ['download', $tagName, 'vpay-' . $tagName . '.zip'],
+            ['resolve', $tagName],
+            ['preflight', $tagName],
+            ['lock', 'download'],
+            ['status', 'download'],
+            ['download', $tagName, 'https://github.com/YAOmeihah/vpay/releases/download/' . $tagName . '/vpay-' . $tagName . '.zip'],
+            ['status', 'backup'],
             ['backup', $currentVersion, $targetVersion],
             [
                 'apply',
@@ -142,7 +222,67 @@ final class AdminUpdateControllerTest extends TestCase
                 sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'vpay-backup.zip',
                 sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'vpay-package',
             ],
+            ['clear-lock'],
         ], $log->steps);
+    }
+
+    public function test_start_refuses_to_run_when_update_lock_is_busy(): void
+    {
+        $this->withPostRequest([
+            'release' => [
+                'tag_name' => 'v9.9.9',
+            ],
+        ]);
+        $log = (object) ['downloaded' => false];
+
+        $this->bindFresh(UpdateReleaseService::class, fn () => new class {
+            public function resolveUpdate(string $requestedTag): array
+            {
+                return [
+                    'status' => 'update_available',
+                    'tag_name' => $requestedTag,
+                    'latest_version' => ltrim($requestedTag, 'vV'),
+                    'assets' => [
+                        'zip' => ['download_url' => 'https://github.com/YAOmeihah/vpay/releases/download/v9.9.9/vpay-v9.9.9.zip', 'size' => 1024],
+                        'sha256' => ['download_url' => 'https://github.com/YAOmeihah/vpay/releases/download/v9.9.9/vpay-v9.9.9.zip.sha256', 'size' => 128],
+                    ],
+                ];
+            }
+        });
+        $this->bindFresh(UpdatePreflightService::class, fn () => new class {
+            public function check(array $release): array
+            {
+                return ['can_update' => true, 'checks' => []];
+            }
+        });
+        $this->bindFresh(UpdateStateStore::class, fn () => new class {
+            public function acquireLock(array $payload): bool
+            {
+                return false;
+            }
+
+            public function clearLock(): void
+            {
+            }
+        });
+        $this->bindFresh(UpdatePackageService::class, fn () => new class($log) {
+            public function __construct(private readonly object $log)
+            {
+            }
+
+            public function download(array $assets, string $tagName): array
+            {
+                $this->log->downloaded = true;
+
+                return [];
+            }
+        });
+
+        $payload = $this->decode((new Update($this->app))->start());
+
+        self::assertSame(-1, $payload['code']);
+        self::assertSame('当前已有更新任务正在执行', $payload['msg']);
+        self::assertFalse($log->downloaded);
     }
 
     public function test_start_returns_api_error_when_update_fails(): void
@@ -154,6 +294,40 @@ final class AdminUpdateControllerTest extends TestCase
             ],
         ]);
 
+        $this->bindFresh(UpdateReleaseService::class, fn () => new class {
+            public function resolveUpdate(string $requestedTag): array
+            {
+                return [
+                    'status' => 'update_available',
+                    'tag_name' => $requestedTag,
+                    'latest_version' => ltrim($requestedTag, 'vV'),
+                    'assets' => [
+                        'zip' => ['download_url' => 'https://github.com/YAOmeihah/vpay/releases/download/v2.1.2/vpay-v2.1.2.zip', 'size' => 1024],
+                        'sha256' => ['download_url' => 'https://github.com/YAOmeihah/vpay/releases/download/v2.1.2/vpay-v2.1.2.zip.sha256', 'size' => 128],
+                    ],
+                ];
+            }
+        });
+        $this->bindFresh(UpdatePreflightService::class, fn () => new class {
+            public function check(array $release): array
+            {
+                return ['can_update' => true, 'checks' => []];
+            }
+        });
+        $this->bindFresh(UpdateStateStore::class, fn () => new class {
+            public function acquireLock(array $payload): bool
+            {
+                return true;
+            }
+
+            public function writeStatus(array $payload): void
+            {
+            }
+
+            public function clearLock(): void
+            {
+            }
+        });
         $this->bindFresh(UpdatePackageService::class, fn () => new class {
             public function download(array $assets, string $tagName): array
             {

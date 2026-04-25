@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import {
   canStartUpdate,
+  clearedPreflightState,
   normalizePreflightChecks,
   updateBadgeType
 } from "../src/views/system/settings/updateState.ts";
@@ -34,5 +35,12 @@ describe("system update state", () => {
       ]
     );
     assert.deepEqual(normalizePreflightChecks(null), []);
+  });
+
+  it("clears preflight state after an update completes", () => {
+    assert.deepEqual(clearedPreflightState(), {
+      checks: [],
+      ok: false
+    });
   });
 });

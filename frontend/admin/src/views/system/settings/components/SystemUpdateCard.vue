@@ -14,6 +14,7 @@ import { message } from "@/utils/message";
 
 import {
   canStartUpdate,
+  clearedPreflightState,
   normalizePreflightChecks,
   updateBadgeType,
   type PreflightCheck
@@ -61,8 +62,9 @@ const errorMessage = (error: any, fallback: string) =>
   String(error?.msg ?? error?.message ?? fallback);
 
 const resetPreflight = () => {
-  checks.value = [];
-  preflightOk.value = false;
+  const state = clearedPreflightState();
+  checks.value = state.checks;
+  preflightOk.value = state.ok;
 };
 
 const handleCheck = async () => {
@@ -161,7 +163,7 @@ const handleStart = async () => {
       message: "更新完成，建议刷新页面"
     };
     recovery.value = null;
-    preflightOk.value = false;
+    resetPreflight();
   } catch (error: any) {
     message(errorMessage(error, "自动更新失败"), { type: "error" });
     await loadRecovery();

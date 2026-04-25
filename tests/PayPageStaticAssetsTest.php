@@ -35,6 +35,24 @@ class PayPageStaticAssetsTest extends TestCase
         $this->assertStringContainsString('class="payment-side"', $this->payHtml);
     }
 
+    public function test_pay_page_exposes_pending_choice_payment_type_shell(): void
+    {
+        $this->assertStringContainsString('class="payment-choice"', $this->payHtml);
+        $this->assertStringContainsString('availablePayTypes', $this->payHtml);
+        $this->assertStringContainsString('choiceSubmittingType', $this->payHtml);
+        $this->assertStringContainsString('selectPayType(option.type)', $this->payHtml);
+        $this->assertStringContainsString("../selectOrderPayType", $this->payHtml);
+        $this->assertStringContainsString("assignStatus === 'pending_choice'", $this->payHtml);
+    }
+
+    public function test_pay_page_choice_css_has_responsive_payment_type_actions(): void
+    {
+        $this->assertStringContainsString('.payment-choice', $this->payCss);
+        $this->assertStringContainsString('.payment-choice-actions', $this->payCss);
+        $this->assertStringContainsString('.payment-choice-btn', $this->payCss);
+        $this->assertStringContainsString('.payment-choice-btn.loading::after', $this->payCss);
+    }
+
     public function test_desktop_layout_hides_mobile_save_actions(): void
     {
         $this->assertStringContainsString('@media (min-width: 769px)', $this->payCss);

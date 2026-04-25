@@ -125,6 +125,17 @@ class ControllerEdgeServiceRegressionTest extends TestCase
         self::$app->request->setController('');
     }
 
+    public function test_merchant_payment_choice_route_and_controller_action_are_registered(): void
+    {
+        $routeSource = (string) file_get_contents(self::$rootPath . 'route/merchant.php');
+        $controllerSource = (string) file_get_contents(self::$rootPath . 'app/controller/merchant/Order.php');
+
+        $this->assertStringContainsString("Route::any('selectOrderPayType', 'merchant.Order/selectOrderPayType');", $routeSource);
+        $this->assertStringContainsString('public function selectOrderPayType()', $controllerSource);
+        $this->assertStringContainsString('OrderService::selectOrderPayType', $controllerSource);
+        $this->assertStringContainsString('OrderService::buildPayloadFromOrder', $controllerSource);
+    }
+
     public function test_admin_settings_service_keeps_existing_field_list_and_masks_sensitive_values(): void
     {
         if (!class_exists(AdminSettingsService::class)) {

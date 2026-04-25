@@ -120,6 +120,18 @@ CREATE TABLE `payment_event` (
 -- --------------------------------------------------------
 
 --
+-- 表的结构 `terminal_allocation_cursor`
+--
+
+CREATE TABLE `terminal_allocation_cursor` (
+  `type` int(11) NOT NULL,
+  `last_channel_id` bigint(20) NOT NULL DEFAULT 0,
+  `updated_at` bigint(20) NOT NULL DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+-- --------------------------------------------------------
+
+--
 -- 表的结构 `setting`
 --
 
@@ -206,6 +218,12 @@ ALTER TABLE `terminal_channel`
 ALTER TABLE `payment_event`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `uniq_terminal_event` (`terminal_id`,`event_id`);
+
+--
+-- 表的索引 `terminal_allocation_cursor`
+--
+ALTER TABLE `terminal_allocation_cursor`
+  ADD PRIMARY KEY (`type`);
 
 --
 -- 表的索引 `setting`

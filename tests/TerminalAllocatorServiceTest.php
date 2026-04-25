@@ -29,4 +29,28 @@ final class TerminalAllocatorServiceTest extends TestCase
 
         self::assertSame(4, $channel['id']);
     }
+
+    public function test_round_robin_single_eligible_channel_keeps_returning_that_channel(): void
+    {
+        $allocator = new TerminalAllocatorService();
+
+        $channel = $allocator->pickChannel('round_robin', [
+            ['id' => 9, 'terminal_id' => 90, 'type' => 1, 'status' => 'enabled', 'terminal_status' => 'enabled', 'online_state' => 'online', 'dispatch_priority' => 10],
+        ], 1, 9);
+
+        self::assertSame(9, $channel['id']);
+    }
+
+    public function test_round_robin_rotates_from_last_channel_to_next_eligible_channel(): void
+    {
+        $allocator = new TerminalAllocatorService();
+
+        $ordered = $allocator->orderEligibleChannels('round_robin', [
+            ['id' => 3, 'terminal_id' => 30, 'type' => 1, 'status' => 'enabled', 'terminal_status' => 'enabled', 'online_state' => 'online', 'dispatch_priority' => 10],
+            ['id' => 4, 'terminal_id' => 40, 'type' => 1, 'status' => 'enabled', 'terminal_status' => 'enabled', 'online_state' => 'online', 'dispatch_priority' => 20],
+            ['id' => 5, 'terminal_id' => 50, 'type' => 1, 'status' => 'enabled', 'terminal_status' => 'enabled', 'online_state' => 'online', 'dispatch_priority' => 30],
+        ], 1, 4);
+
+        self::assertSame([5, 3, 4], array_column($ordered, 'id'));
+    }
 }

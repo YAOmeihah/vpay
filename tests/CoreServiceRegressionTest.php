@@ -256,7 +256,7 @@ namespace app\model {
         class TmpPrice
         {
             /**
-             * @var array<int, array{oid: string, price?: string}>
+             * @var array<int, array{oid: string, price?: string, channel_id?: int|null}>
              */
             private static array $rows = [];
 
@@ -271,10 +271,10 @@ namespace app\model {
                 self::$throwOnDelete = false;
             }
 
-            public static function seed(string $oid, string $price = ''): int
+            public static function seed(string $oid, string $price = '', ?int $channelId = null): int
             {
                 $id = self::$nextId++;
-                self::$rows[$id] = ['oid' => $oid, 'price' => $price];
+                self::$rows[$id] = ['oid' => $oid, 'price' => $price, 'channel_id' => $channelId];
                 return $id;
             }
 
@@ -283,7 +283,16 @@ namespace app\model {
              */
             public static function create(array $data): void
             {
-                self::seed((string) ($data['oid'] ?? ''), (string) ($data['price'] ?? ''));
+                $channelId = array_key_exists('channel_id', $data) ? (int) $data['channel_id'] : null;
+                $price = (string) ($data['price'] ?? '');
+
+                foreach (self::$rows as $row) {
+                    if (($row['channel_id'] ?? null) === $channelId && (string) ($row['price'] ?? '') === $price) {
+                        throw new \RuntimeException('Duplicate channel price');
+                    }
+                }
+
+                self::seed((string) ($data['oid'] ?? ''), $price, $channelId);
             }
 
             public static function where(string $field, mixed $value): TmpPriceQuery
@@ -292,7 +301,7 @@ namespace app\model {
             }
 
             /**
-             * @return array<int, array{oid: string, price?: string}>
+             * @return array<int, array{oid: string, price?: string, channel_id?: int|null}>
              */
             public static function allRows(): array
             {
@@ -300,7 +309,7 @@ namespace app\model {
             }
 
             /**
-             * @param array<int, array{oid: string, price?: string}> $rows
+             * @param array<int, array{oid: string, price?: string, channel_id?: int|null}> $rows
              */
             public static function replaceRows(array $rows): void
             {
@@ -344,7 +353,7 @@ namespace app\model {
             }
 
             /**
-             * @param array{oid: string, price?: string} $row
+             * @param array{oid: string, price?: string, channel_id?: int|null} $row
              */
             private function matches(array $row): bool
             {

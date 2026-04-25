@@ -50,4 +50,16 @@ class AdminSettingsServiceTest extends TestCase
         $this->assertArrayNotHasKey('jkstate', $settings);
         $this->assertSame('round_robin', $settings['allocationStrategy']);
     }
+
+    public function test_save_settings_rejects_invalid_allocation_strategy(): void
+    {
+        $service = new AdminSettingsService();
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('分配策略无效');
+
+        $service->saveSettings([
+            'allocationStrategy' => 'unexpected_strategy',
+        ]);
+    }
 }

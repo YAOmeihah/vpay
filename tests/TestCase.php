@@ -117,6 +117,7 @@ abstract class TestCase extends BaseTestCase
         $pdo->exec('DROP TABLE IF EXISTS `pay_qrcode`');
         $pdo->exec('DROP TABLE IF EXISTS `tmp_price`');
         $pdo->exec('DROP TABLE IF EXISTS `payment_event`');
+        $pdo->exec('DROP TABLE IF EXISTS `terminal_allocation_cursor`');
         $pdo->exec('DROP TABLE IF EXISTS `terminal_channel`');
         $pdo->exec('DROP TABLE IF EXISTS `monitor_terminal`');
         $pdo->exec('DROP TABLE IF EXISTS `setting`');
@@ -228,6 +229,15 @@ abstract class TestCase extends BaseTestCase
                 `created_at` BIGINT NOT NULL DEFAULT 0,
                 PRIMARY KEY (`id`),
                 UNIQUE KEY `uniq_terminal_event` (`terminal_id`, `event_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
+        );
+
+        $pdo->exec(
+            'CREATE TABLE `terminal_allocation_cursor` (
+                `type` INT NOT NULL,
+                `last_channel_id` BIGINT NOT NULL DEFAULT 0,
+                `updated_at` BIGINT NOT NULL DEFAULT 0,
+                PRIMARY KEY (`type`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
         );
 

@@ -51,7 +51,7 @@ class Monitor extends BaseController
 
     public function appHeart()
     {
-        MonitorService::closeExpiredOrders();
+        $this->closeExpiredOrders();
 
         $terminalCode = trim((string) $this->request->param('terminalCode', ''));
         $t = (string) $this->request->param("t", (string) $this->request->param('ts', ''));

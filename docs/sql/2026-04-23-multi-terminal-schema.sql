@@ -49,6 +49,13 @@ CREATE TABLE `payment_event` (
   UNIQUE KEY `uniq_terminal_event` (`terminal_id`,`event_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE `terminal_allocation_cursor` (
+  `type` int(11) NOT NULL,
+  `last_channel_id` bigint(20) NOT NULL DEFAULT 0,
+  `updated_at` bigint(20) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`type`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 ALTER TABLE `pay_order`
   ADD COLUMN `terminal_id` bigint(20) DEFAULT NULL,
   ADD COLUMN `channel_id` bigint(20) DEFAULT NULL,

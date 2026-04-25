@@ -14,6 +14,7 @@ use app\service\order\OrderStateManager;
 use app\service\payment\PaymentEventService;
 use app\service\terminal\ChannelPriceReservationService;
 use app\service\terminal\TerminalAllocatorService;
+use app\service\terminal\TerminalAllocationCursorService;
 use think\facade\Db;
 
 class OrderService
@@ -34,39 +35,54 @@ class OrderService
 
         $orderId = OrderCreationKernel::generatePlatformOrderId();
         OrderCreationKernel::assertMerchantOrderNotExists($payId);
-        [$channel, $payConfig, $reallyPrice] = static::selectAvailableChannelForOrder($type, $price, $orderId);
+        $selection = static::runTransaction(function () use (
+            $payId,
+            $type,
+            $price,
+            $param,
+            $notifyUrl,
+            $returnUrl,
+            $orderId
+        ): array {
+            try {
+                [$channel, $payConfig, $reallyPrice] = static::selectAvailableChannelForOrder($type, $price, $orderId);
+                $createDate = time();
 
-        try {
-            $createDate = time();
-            $data = [
-                'close_date'   => 0,
-                'create_date'  => $createDate,
-                'is_auto'      => $payConfig['isAuto'],
-                'notify_url'   => $notifyUrl,
-                'order_id'     => $orderId,
-                'param'        => $param,
-                'pay_date'     => 0,
-                'pay_id'       => $payId,
-                'pay_url'      => $payConfig['payUrl'],
-                'price'        => $price,
-                'really_price' => $reallyPrice,
-                'return_url'   => $returnUrl,
-                'terminal_id'  => (int) $channel['terminal_id'],
-                'channel_id'   => (int) $channel['id'],
-                'assign_status' => 'assigned',
-                'assign_reason' => '',
-                'terminal_snapshot' => (string) $channel['terminal_name'],
-                'channel_snapshot' => (string) $channel['channel_name'],
-                'state'        => PayOrder::STATE_UNPAID,
-                'type'         => $type,
-            ];
+                $data = [
+                    'close_date'   => 0,
+                    'create_date'  => $createDate,
+                    'is_auto'      => $payConfig['isAuto'],
+                    'notify_url'   => $notifyUrl,
+                    'order_id'     => $orderId,
+                    'param'        => $param,
+                    'pay_date'     => 0,
+                    'pay_id'       => $payId,
+                    'pay_url'      => $payConfig['payUrl'],
+                    'price'        => $price,
+                    'really_price' => $reallyPrice,
+                    'return_url'   => $returnUrl,
+                    'terminal_id'  => (int) $channel['terminal_id'],
+                    'channel_id'   => (int) $channel['id'],
+                    'assign_status' => 'assigned',
+                    'assign_reason' => '',
+                    'terminal_snapshot' => (string) $channel['terminal_name'],
+                    'channel_snapshot' => (string) $channel['channel_name'],
+                    'state'        => PayOrder::STATE_UNPAID,
+                    'type'         => $type,
+                ];
 
-            OrderCreationKernel::createOrderRecord($data);
-            static::markChannelUsed((int) $channel['id'], $createDate);
-        } catch (\Throwable $e) {
-            OrderCreationKernel::rollbackReservedPrice($orderId);
-            throw $e;
-        }
+                OrderCreationKernel::createOrderRecord($data);
+                static::markChannelUsed((int) $channel['id'], $createDate);
+                static::markAllocationCursorUsed($type, (int) $channel['id']);
+
+                return [$channel, $payConfig, $reallyPrice, $createDate];
+            } catch (\Throwable $e) {
+                OrderCreationKernel::rollbackReservedPrice($orderId);
+                throw $e;
+            }
+        });
+
+        [$channel, $payConfig, $reallyPrice, $createDate] = $selection;
 
         return OrderCreationKernel::buildAndCacheOrderInfo(
             $payId,
@@ -125,6 +141,11 @@ class OrderService
         return app()->make(TerminalAllocatorService::class);
     }
 
+    protected static function allocationCursor(): TerminalAllocationCursorService
+    {
+        return app()->make(TerminalAllocationCursorService::class);
+    }
+
     protected static function priceReservation(): ChannelPriceReservationService
     {
         return app()->make(ChannelPriceReservationService::class);
@@ -136,7 +157,7 @@ class OrderService
     protected static function selectChannel(int $type): array
     {
         $channels = static::loadChannelsForType($type);
-        $lastChannelId = static::lastUsedChannelId($channels);
+        $lastChannelId = static::lastChannelIdForStrategy($type, $channels);
 
         return static::allocator()->pickChannel(static::allocationStrategy(), $channels, $type, $lastChannelId);
     }
@@ -180,7 +201,7 @@ class OrderService
     protected static function orderedChannels(int $type): array
     {
         $channels = static::loadChannelsForType($type);
-        $lastChannelId = static::lastUsedChannelId($channels);
+        $lastChannelId = static::lastChannelIdForStrategy($type, $channels);
 
         return static::allocator()->orderEligibleChannels(static::allocationStrategy(), $channels, $type, $lastChannelId);
     }
@@ -225,7 +246,27 @@ class OrderService
         return in_array($e->getMessage(), [
             '请您先进入后台配置程序',
             '当前通道不存在或已被删除',
+            '订单超出负荷，请稍后重试',
         ], true);
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $channels
+     */
+    protected static function lastChannelIdForStrategy(int $type, array $channels): ?int
+    {
+        if (static::allocationStrategy() === 'round_robin') {
+            return static::allocationCursor()->lastChannelIdForUpdate($type);
+        }
+
+        return static::lastUsedChannelId($channels);
+    }
+
+    protected static function markAllocationCursorUsed(int $type, int $channelId): void
+    {
+        if (static::allocationStrategy() === 'round_robin') {
+            static::allocationCursor()->markChannelUsed($type, $channelId);
+        }
     }
 
     /**

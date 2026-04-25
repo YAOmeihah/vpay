@@ -129,6 +129,18 @@ final class UpdatePreflightServiceTest extends TestCase
         self::assertFileDoesNotExist($store->lastErrorPath());
     }
 
+    public function test_state_store_ignores_stale_last_error_when_success_is_newer(): void
+    {
+        $store = new UpdateStateStore($this->root);
+        $store->writeError(['stage' => 'copy', 'message' => '旧失败']);
+        file_put_contents($store->lastSuccessPath(), json_encode([
+            'status' => 'updated',
+            'created_at' => time() + 1,
+        ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+
+        self::assertSame([], $store->lastError());
+    }
+
     private function removeTree(string $path): void
     {
         if (!file_exists($path)) {

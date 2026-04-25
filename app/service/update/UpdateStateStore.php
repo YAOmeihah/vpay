@@ -88,7 +88,14 @@ final class UpdateStateStore
 
     public function lastError(): array
     {
-        return $this->readJson($this->lastErrorPath());
+        $error = $this->readJson($this->lastErrorPath());
+        if ($error !== [] && $this->hasNewerSuccessThanError($error)) {
+            $this->clearLastError();
+
+            return [];
+        }
+
+        return $error;
     }
 
     public function writeSuccess(array $payload): void
@@ -134,6 +141,25 @@ final class UpdateStateStore
         $decoded = json_decode((string) file_get_contents($path), true);
 
         return is_array($decoded) ? $decoded : [];
+    }
+
+    private function hasNewerSuccessThanError(array $error): bool
+    {
+        $success = $this->lastSuccess();
+        if ($success === []) {
+            return false;
+        }
+
+        $successTime = (int) ($success['created_at'] ?? 0);
+        $errorTime = (int) ($error['created_at'] ?? 0);
+        if ($successTime > 0 && $errorTime > 0) {
+            return $successTime >= $errorTime;
+        }
+
+        $successMtime = @filemtime($this->lastSuccessPath()) ?: 0;
+        $errorMtime = @filemtime($this->lastErrorPath()) ?: 0;
+
+        return $successMtime > 0 && $errorMtime > 0 && $successMtime >= $errorMtime;
     }
 
     private function encode(array $payload): string

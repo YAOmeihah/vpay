@@ -29,5 +29,5 @@ return [
     'show_error_msg'   => false,
 
     // 系统版本号
-    'ver' => '2.1.7',
+    'ver' => '2.1.8',
 ];

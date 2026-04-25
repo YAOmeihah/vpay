@@ -7,6 +7,7 @@ use app\model\MonitorTerminal;
 use app\model\PaymentEvent;
 use app\model\PayOrder;
 use app\model\TerminalChannel;
+use app\model\TmpPrice;
 use app\service\CacheService;
 use app\service\OrderService;
 
@@ -248,5 +249,133 @@ class OrderCreationServicesTest extends TestCase
         $this->assertSame('回退终端', $result['terminalSnapshot']);
         $this->assertSame('回退微信通道', $result['channelSnapshot']);
         $this->assertSame('weixin://fallback-pay-url', $result['payUrl']);
+    }
+
+    public function test_round_robin_single_terminal_keeps_accepting_repeated_orders(): void
+    {
+        $this->seedSettings(['allocationStrategy' => 'round_robin']);
+
+        $first = OrderService::createOrder([
+            'payId' => 'single-terminal-001',
+            'type' => PayOrder::TYPE_WECHAT,
+            'price' => '31.00',
+            'param' => 'single-terminal',
+            'notifyUrl' => 'https://merchant.example/notify/single-1',
+            'returnUrl' => 'https://merchant.example/return/single-1',
+        ]);
+        $second = OrderService::createOrder([
+            'payId' => 'single-terminal-002',
+            'type' => PayOrder::TYPE_WECHAT,
+            'price' => '31.00',
+            'param' => 'single-terminal',
+            'notifyUrl' => 'https://merchant.example/notify/single-2',
+            'returnUrl' => 'https://merchant.example/return/single-2',
+        ]);
+        $third = OrderService::createOrder([
+            'payId' => 'single-terminal-003',
+            'type' => PayOrder::TYPE_WECHAT,
+            'price' => '31.00',
+            'param' => 'single-terminal',
+            'notifyUrl' => 'https://merchant.example/notify/single-3',
+            'returnUrl' => 'https://merchant.example/return/single-3',
+        ]);
+
+        $this->assertSame([1, 1, 1], [
+            $first['channelId'],
+            $second['channelId'],
+            $third['channelId'],
+        ]);
+        $this->assertSame(['31.00', '31.01', '31.02'], [
+            $first['reallyPrice'],
+            $second['reallyPrice'],
+            $third['reallyPrice'],
+        ]);
+    }
+
+    public function test_round_robin_rotates_across_available_terminals_for_rapid_consecutive_orders(): void
+    {
+        $this->seedSettings(['allocationStrategy' => 'round_robin']);
+        $this->createWechatTerminalWithChannel(2, 3, 'terminal-b', '终端 B', 20, 'weixin://pay/b');
+        $this->createWechatTerminalWithChannel(3, 4, 'terminal-c', '终端 C', 30, 'weixin://pay/c');
+
+        $channelIds = [];
+        for ($index = 1; $index <= 5; $index++) {
+            $result = OrderService::createOrder([
+                'payId' => 'round-robin-' . $index,
+                'type' => PayOrder::TYPE_WECHAT,
+                'price' => '41.00',
+                'param' => 'round-robin',
+                'notifyUrl' => 'https://merchant.example/notify/rr-' . $index,
+                'returnUrl' => 'https://merchant.example/return/rr-' . $index,
+            ]);
+            $channelIds[] = $result['channelId'];
+        }
+
+        $this->assertSame([1, 3, 4, 1, 3], $channelIds);
+    }
+
+    public function test_round_robin_falls_back_to_next_terminal_when_first_channel_price_slots_are_full(): void
+    {
+        $this->seedSettings(['allocationStrategy' => 'round_robin', 'payQf' => '1']);
+        $this->createWechatTerminalWithChannel(2, 3, 'capacity-terminal', '容量回退终端', 20, 'weixin://pay/capacity-fallback');
+
+        for ($cents = 5200; $cents <= 5209; $cents++) {
+            TmpPrice::create([
+                'oid' => 'occupied-' . $cents,
+                'channel_id' => 1,
+                'price' => number_format($cents / 100, 2, '.', ''),
+            ]);
+        }
+
+        $result = OrderService::createOrder([
+            'payId' => 'capacity-fallback-001',
+            'type' => PayOrder::TYPE_WECHAT,
+            'price' => '52.00',
+            'param' => 'capacity-fallback',
+            'notifyUrl' => 'https://merchant.example/notify/capacity',
+            'returnUrl' => 'https://merchant.example/return/capacity',
+        ]);
+
+        $this->assertSame(2, $result['terminalId']);
+        $this->assertSame(3, $result['channelId']);
+        $this->assertSame('52.00', $result['reallyPrice']);
+        $this->assertSame('weixin://pay/capacity-fallback', $result['payUrl']);
+    }
+
+    private function createWechatTerminalWithChannel(
+        int $terminalId,
+        int $channelId,
+        string $terminalCode,
+        string $terminalName,
+        int $dispatchPriority,
+        string $payUrl
+    ): void {
+        MonitorTerminal::create([
+            'id' => $terminalId,
+            'terminal_code' => $terminalCode,
+            'terminal_name' => $terminalName,
+            'dispatch_priority' => $dispatchPriority,
+            'status' => 'enabled',
+            'online_state' => 'online',
+            'monitor_key' => $terminalCode . '-key',
+            'last_heartbeat_at' => time(),
+            'last_paid_at' => 0,
+            'last_ip' => '127.0.0.' . $terminalId,
+            'device_meta' => null,
+            'created_at' => time(),
+            'updated_at' => time(),
+        ]);
+
+        TerminalChannel::create([
+            'id' => $channelId,
+            'terminal_id' => $terminalId,
+            'type' => PayOrder::TYPE_WECHAT,
+            'channel_name' => $terminalName . '微信通道',
+            'status' => 'enabled',
+            'pay_url' => $payUrl,
+            'last_used_at' => 0,
+            'created_at' => time(),
+            'updated_at' => time(),
+        ]);
     }
 }

@@ -16,6 +16,7 @@ final class MultiTerminalSchemaSqlTest extends TestCase
         self::assertStringContainsString('CREATE TABLE `monitor_terminal`', $sql);
         self::assertStringContainsString('CREATE TABLE `terminal_channel`', $sql);
         self::assertStringContainsString('CREATE TABLE `payment_event`', $sql);
+        self::assertStringContainsString('CREATE TABLE `terminal_allocation_cursor`', $sql);
         self::assertStringContainsString('ALTER TABLE `tmp_price`', $sql);
         self::assertStringContainsString('ADD UNIQUE KEY `uniq_channel_price` (`channel_id`,`price`)', $sql);
         self::assertStringContainsString('ALTER TABLE `pay_qrcode`', $sql);
@@ -29,6 +30,8 @@ final class MultiTerminalSchemaSqlTest extends TestCase
         self::assertStringContainsString('CREATE TABLE `monitor_terminal`', $bootstrapSql);
         self::assertStringContainsString('CREATE TABLE `terminal_channel`', $bootstrapSql);
         self::assertStringContainsString('CREATE TABLE `payment_event`', $bootstrapSql);
+        self::assertStringContainsString('CREATE TABLE `terminal_allocation_cursor`', $bootstrapSql);
+        self::assertStringContainsString('ADD PRIMARY KEY (`type`)', $bootstrapSql);
         self::assertStringContainsString('`dispatch_priority` int(11) NOT NULL DEFAULT 100', $bootstrapSql);
         self::assertStringContainsString('`terminal_id` bigint(20) DEFAULT NULL', $bootstrapSql);
         self::assertStringContainsString('`channel_id` bigint(20) DEFAULT NULL', $bootstrapSql);

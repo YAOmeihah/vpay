@@ -8,6 +8,8 @@ use app\service\config\SettingConfigRepository;
 
 class AdminSettingsService
 {
+    private const ALLOCATION_STRATEGIES = ['fixed_priority', 'round_robin'];
+
     /**
      * @return array<string, string>
      */
@@ -63,6 +65,10 @@ class AdminSettingsService
                 'notify_ssl_verify', 'close', 'payQf', 'allocationStrategy',
             ], true)) {
                 $value = trim($value);
+            }
+
+            if ($param === 'allocationStrategy' && !in_array($value, self::ALLOCATION_STRATEGIES, true)) {
+                throw new \RuntimeException('分配策略无效');
             }
 
             $this->setConfigValue($param, $value);

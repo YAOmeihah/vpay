@@ -39,6 +39,23 @@ final class UpdateStateStore
         return is_file($this->lockPath());
     }
 
+    public function acquireLock(array $payload): bool
+    {
+        $this->ensureUpdatePath();
+        $handle = @fopen($this->lockPath(), 'x');
+        if ($handle === false) {
+            return false;
+        }
+
+        try {
+            fwrite($handle, $this->encode($payload + ['updated_at' => time()]));
+        } finally {
+            fclose($handle);
+        }
+
+        return true;
+    }
+
     public function writeLock(array $payload): void
     {
         $this->ensureUpdatePath();

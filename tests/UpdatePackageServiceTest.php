@@ -78,6 +78,43 @@ final class UpdatePackageServiceTest extends TestCase
         $service->verifyAndExtract($zipPath, $shaPath, 'v2.1.2');
     }
 
+    public function test_rejects_non_github_release_download_urls(): void
+    {
+        $localZip = $this->root . DIRECTORY_SEPARATOR . 'local.zip';
+        $localSha = $localZip . '.sha256';
+        file_put_contents($localZip, 'zip');
+        file_put_contents($localSha, hash_file('sha256', $localZip));
+
+        $service = new UpdatePackageService($this->root);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('GitHub Release');
+
+        $service->download([
+            'zip' => ['download_url' => 'file:///' . str_replace('\\', '/', $localZip), 'size' => 3],
+            'sha256' => ['download_url' => 'file:///' . str_replace('\\', '/', $localSha), 'size' => 64],
+        ], 'v2.1.2');
+    }
+
+    public function test_rejects_release_package_larger_than_download_limit(): void
+    {
+        $service = new UpdatePackageService($this->root, 5);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('超过允许大小');
+
+        $service->download([
+            'zip' => [
+                'download_url' => 'https://github.com/YAOmeihah/vpay/releases/download/v2.1.2/vpay-v2.1.2.zip',
+                'size' => 6,
+            ],
+            'sha256' => [
+                'download_url' => 'https://github.com/YAOmeihah/vpay/releases/download/v2.1.2/vpay-v2.1.2.zip.sha256',
+                'size' => 64,
+            ],
+        ], 'v2.1.2');
+    }
+
     private function createPackage(string $tag, array $overrides = []): array
     {
         $zipPath = $this->root . DIRECTORY_SEPARATOR . 'vpay-' . $tag . '.zip';

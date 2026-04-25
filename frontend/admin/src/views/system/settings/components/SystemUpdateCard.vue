@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { ElMessageBox } from "element-plus";
 
 import {
@@ -28,6 +28,7 @@ const preflighting = ref(false);
 const updating = ref(false);
 const loadingRecovery = ref(false);
 const preflightOk = ref(false);
+let statusPollingTimer: number | null = null;
 
 const status = computed(() => release.value?.status ?? "unknown");
 const canRunUpdate = computed(() =>
@@ -141,6 +142,11 @@ const handleStart = async () => {
 
   try {
     updating.value = true;
+    runtimeStatus.value = {
+      stage: "download",
+      message: "更新任务已开始，正在等待服务器反馈"
+    };
+    startStatusPolling();
     const res = await startUpdate(release.value);
 
     if (res.code !== 1) {
@@ -159,6 +165,8 @@ const handleStart = async () => {
     message(errorMessage(error, "自动更新失败"), { type: "error" });
     await loadRecovery();
   } finally {
+    stopStatusPolling();
+    await loadStatus();
     updating.value = false;
   }
 };
@@ -186,6 +194,21 @@ const loadStatus = async () => {
   }
 };
 
+const startStatusPolling = () => {
+  stopStatusPolling();
+  void loadStatus();
+  statusPollingTimer = window.setInterval(() => {
+    void loadStatus();
+  }, 2000);
+};
+
+const stopStatusPolling = () => {
+  if (statusPollingTimer !== null) {
+    window.clearInterval(statusPollingTimer);
+    statusPollingTimer = null;
+  }
+};
+
 const formatSize = (value: unknown) => {
   const size = Number(value ?? 0);
   if (!Number.isFinite(size) || size <= 0) return "未知大小";
@@ -203,6 +226,10 @@ const formatDate = (value?: string) => {
 onMounted(() => {
   void loadStatus();
   void loadRecovery();
+});
+
+onUnmounted(() => {
+  stopStatusPolling();
 });
 </script>
 

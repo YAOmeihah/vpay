@@ -49,6 +49,8 @@ final class ReleaseWorkflowTest extends TestCase
         self::assertStringContainsString('INPUT_VERSION=', $workflow);
         self::assertStringContainsString('[[ "$VERSION" == *"/"* ]]', $workflow);
         self::assertStringContainsString('config/app.php', $workflow);
+        self::assertStringNotContainsString('require "config/app.php"', $workflow);
+        self::assertStringContainsString('preg_match("/[\x27\x22]ver', $workflow);
     }
 
     public function test_release_workflow_uploads_zip_and_sha256_assets(): void

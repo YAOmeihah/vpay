@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace app\service\update;
 
+use RuntimeException;
+
 final class UpdateReleaseService
 {
     public function __construct(
@@ -22,6 +24,26 @@ final class UpdateReleaseService
                 'current_version' => $this->currentVersion(),
             ];
         }
+    }
+
+    public function resolveUpdate(string $requestedTag = ''): array
+    {
+        $result = $this->checkFromRelease($this->client()->latest());
+        $tag = (string) ($result['tag_name'] ?? '');
+
+        if ($requestedTag !== '' && !hash_equals($tag, $requestedTag)) {
+            throw new RuntimeException('请求的更新版本不是当前最新正式版本');
+        }
+
+        if (($result['status'] ?? '') !== 'update_available') {
+            throw new RuntimeException((string) ($result['message'] ?? '当前没有可用更新'));
+        }
+
+        if (($result['assets'] ?? []) === []) {
+            throw new RuntimeException('Release 缺少可下载的更新包');
+        }
+
+        return $result;
     }
 
     public function checkFromRelease(array $release): array

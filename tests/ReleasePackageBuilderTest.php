@@ -24,7 +24,6 @@ final class ReleasePackageBuilderTest extends TestCase
         $this->writeFixtureFile('app/AppService.php', '<?php');
         $this->writeFixtureFile('config/app.php', "<?php return ['ver' => '9.8.7'];");
         $this->writeFixtureFile('database/migrations/2.1.0/001.sql', 'SELECT 1;');
-        $this->writeFixtureFile('extend/.keep', '');
         $this->writeFixtureFile('public/index.php', '<?php');
         $this->writeFixtureFile('public/index.html', '<h1>静态首页</h1>');
         $this->writeFixtureFile('public/.htaccess', 'RewriteEngine On');
@@ -70,6 +69,7 @@ final class ReleasePackageBuilderTest extends TestCase
         self::assertFileExists($packageDir . DIRECTORY_SEPARATOR . 'public/console/index.html');
         self::assertFileExists($packageDir . DIRECTORY_SEPARATOR . '.example.env');
         self::assertFileExists($packageDir . DIRECTORY_SEPARATOR . 'README-INSTALL.md');
+        self::assertDirectoryExists($packageDir . DIRECTORY_SEPARATOR . 'extend');
         self::assertFileExists($packageDir . DIRECTORY_SEPARATOR . 'runtime/install/.keep');
 
         $manifestPath = $packageDir . DIRECTORY_SEPARATOR . 'release-manifest.json';

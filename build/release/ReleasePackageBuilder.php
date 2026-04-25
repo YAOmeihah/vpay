@@ -39,6 +39,12 @@ final class ReleasePackageBuilder
                 $this->copyDirectory($source, $packageDir . DIRECTORY_SEPARATOR . $dir, $dir);
             }
         }
+        foreach (['extend'] as $dir) {
+            $target = $packageDir . DIRECTORY_SEPARATOR . $dir;
+            if (!is_dir($target) && !mkdir($target, 0777, true)) {
+                throw new RuntimeException('Unable to create release package directory: ' . $target);
+            }
+        }
 
         foreach ([
             '.example.env',

@@ -11,6 +11,11 @@ export type PreflightCheck = {
   message: string;
 };
 
+export type PreflightState = {
+  checks: PreflightCheck[];
+  ok: boolean;
+};
+
 export function canStartUpdate(
   status: UpdateStatus,
   preflightOk: boolean,
@@ -40,4 +45,11 @@ export function normalizePreflightChecks(input: unknown): PreflightCheck[] {
       message: String(row.message ?? "")
     };
   });
+}
+
+export function clearedPreflightState(): PreflightState {
+  return {
+    checks: [],
+    ok: false
+  };
 }

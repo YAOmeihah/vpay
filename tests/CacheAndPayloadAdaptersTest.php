@@ -96,6 +96,87 @@ class CacheAndPayloadAdaptersTest extends TestCase
         ], $payload);
     }
 
+    public function test_pay_order_exposes_assignment_status_constants(): void
+    {
+        $this->assertSame('assigned', PayOrder::ASSIGN_STATUS_ASSIGNED);
+        $this->assertSame('pending_choice', PayOrder::ASSIGN_STATUS_PENDING_CHOICE);
+    }
+
+    public function test_order_payload_factory_builds_pending_choice_payload_without_changing_normal_payload_shape(): void
+    {
+        $factory = new OrderPayloadFactory();
+
+        $normalPayload = $factory->create(
+            'merchant-normal',
+            'order-normal',
+            PayOrder::TYPE_WECHAT,
+            '19.00',
+            '19.01',
+            'weixin://normal-pay',
+            1,
+            PayOrder::STATE_UNPAID,
+            '15',
+            1700000000
+        );
+
+        $this->assertSame([
+            'payId',
+            'orderId',
+            'payType',
+            'price',
+            'reallyPrice',
+            'payUrl',
+            'isAuto',
+            'state',
+            'timeOut',
+            'date',
+        ], array_keys($normalPayload));
+
+        $pendingPayload = $factory->createPendingChoice(
+            'merchant-choice',
+            'order-choice',
+            PayOrder::TYPE_WECHAT,
+            '19.00',
+            PayOrder::STATE_UNPAID,
+            '15',
+            1700000100,
+            '当前无可用微信收款终端',
+            [
+                ['type' => PayOrder::TYPE_ALIPAY, 'name' => '支付宝'],
+            ]
+        );
+
+        $this->assertSame([
+            'payId',
+            'orderId',
+            'payType',
+            'price',
+            'reallyPrice',
+            'payUrl',
+            'isAuto',
+            'state',
+            'timeOut',
+            'date',
+            'assignStatus',
+            'assignReason',
+            'availablePayTypes',
+        ], array_keys($pendingPayload));
+
+        $this->assertSame('merchant-choice', $pendingPayload['payId']);
+        $this->assertSame('order-choice', $pendingPayload['orderId']);
+        $this->assertSame(PayOrder::TYPE_WECHAT, $pendingPayload['payType']);
+        $this->assertSame('19.00', $pendingPayload['price']);
+        $this->assertSame('', $pendingPayload['reallyPrice']);
+        $this->assertSame('', $pendingPayload['payUrl']);
+        $this->assertSame(0, $pendingPayload['isAuto']);
+        $this->assertSame(PayOrder::STATE_UNPAID, $pendingPayload['state']);
+        $this->assertSame(PayOrder::ASSIGN_STATUS_PENDING_CHOICE, $pendingPayload['assignStatus']);
+        $this->assertSame('当前无可用微信收款终端', $pendingPayload['assignReason']);
+        $this->assertSame([
+            ['type' => PayOrder::TYPE_ALIPAY, 'name' => '支付宝'],
+        ], $pendingPayload['availablePayTypes']);
+    }
+
     public function test_cache_adapters_keep_existing_cache_keys_and_payloads(): void
     {
         if (!class_exists(OrderCache::class)) {

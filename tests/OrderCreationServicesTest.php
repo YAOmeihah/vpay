@@ -88,6 +88,190 @@ class OrderCreationServicesTest extends TestCase
         $this->assertSame('默认微信通道', $order->getAttr('channel_snapshot'));
     }
 
+    public function test_create_order_returns_pending_choice_when_requested_type_is_unavailable_but_alternative_exists(): void
+    {
+        TerminalChannel::where('type', PayOrder::TYPE_WECHAT)->delete();
+
+        $result = OrderService::createOrder([
+            'payId' => 'pending-choice-001',
+            'type' => PayOrder::TYPE_WECHAT,
+            'price' => '23.00',
+            'param' => 'choice-param',
+            'notifyUrl' => 'https://merchant.example/notify/choice',
+            'returnUrl' => 'https://merchant.example/return/choice',
+        ]);
+
+        $this->assertSame('pending-choice-001', $result['payId']);
+        $this->assertSame(PayOrder::TYPE_WECHAT, $result['payType']);
+        $this->assertSame('23.00', $result['price']);
+        $this->assertSame('', $result['reallyPrice']);
+        $this->assertSame('', $result['payUrl']);
+        $this->assertSame(0, $result['isAuto']);
+        $this->assertSame(PayOrder::STATE_UNPAID, $result['state']);
+        $this->assertSame(PayOrder::ASSIGN_STATUS_PENDING_CHOICE, $result['assignStatus']);
+        $this->assertSame('当前无可用微信收款终端', $result['assignReason']);
+        $this->assertSame([
+            ['type' => PayOrder::TYPE_ALIPAY, 'name' => '支付宝'],
+        ], $result['availablePayTypes']);
+
+        $order = PayOrder::where('pay_id', 'pending-choice-001')->findOrFail();
+        $this->assertSame(PayOrder::TYPE_WECHAT, $order->getAttr('type'));
+        $this->assertSame(PayOrder::STATE_UNPAID, $order->getAttr('state'));
+        $this->assertSame(PayOrder::ASSIGN_STATUS_PENDING_CHOICE, $order->getAttr('assign_status'));
+        $this->assertSame('当前无可用微信收款终端', $order->getAttr('assign_reason'));
+        $this->assertSame('', $order->getAttr('pay_url'));
+        $this->assertEquals(0.0, (float) $order->getAttr('really_price'));
+        $this->assertNull($order->getAttr('terminal_id'));
+        $this->assertNull($order->getAttr('channel_id'));
+        $this->assertSame('choice-param', $order->getAttr('param'));
+        $this->assertSame('https://merchant.example/notify/choice', $order->getAttr('notify_url'));
+        $this->assertSame('https://merchant.example/return/choice', $order->getAttr('return_url'));
+
+        $this->assertSame($result, CacheService::getOrder($result['orderId']));
+        $this->assertSame(0, TmpPrice::where('oid', $result['orderId'])->count());
+    }
+
+    public function test_create_order_keeps_existing_error_when_requested_type_and_alternatives_are_unavailable(): void
+    {
+        TerminalChannel::where('type', PayOrder::TYPE_WECHAT)->delete();
+        TerminalChannel::where('type', PayOrder::TYPE_ALIPAY)->delete();
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('当前无可用微信收款终端');
+
+        OrderService::createOrder([
+            'payId' => 'pending-choice-none-001',
+            'type' => PayOrder::TYPE_WECHAT,
+            'price' => '24.00',
+            'param' => 'choice-none-param',
+            'notifyUrl' => 'https://merchant.example/notify/choice-none',
+            'returnUrl' => 'https://merchant.example/return/choice-none',
+        ]);
+    }
+
+    public function test_select_order_pay_type_assigns_pending_choice_order_to_selected_channel(): void
+    {
+        TerminalChannel::where('type', PayOrder::TYPE_WECHAT)->delete();
+
+        $pending = OrderService::createOrder([
+            'payId' => 'pending-select-001',
+            'type' => PayOrder::TYPE_WECHAT,
+            'price' => '25.00',
+            'param' => 'select-param',
+            'notifyUrl' => 'https://merchant.example/notify/select',
+            'returnUrl' => 'https://merchant.example/return/select',
+        ]);
+
+        CacheService::cacheOrder($pending['orderId'], ['stale' => true]);
+
+        $selected = OrderService::selectOrderPayType($pending['orderId'], PayOrder::TYPE_ALIPAY);
+
+        $this->assertSame('pending-select-001', $selected['payId']);
+        $this->assertSame($pending['orderId'], $selected['orderId']);
+        $this->assertSame(PayOrder::TYPE_ALIPAY, $selected['payType']);
+        $this->assertSame('25.00', $selected['price']);
+        $this->assertSame('25.00', $selected['reallyPrice']);
+        $this->assertSame('alipays://default-pay-url', $selected['payUrl']);
+        $this->assertSame(1, $selected['isAuto']);
+        $this->assertSame(PayOrder::STATE_UNPAID, $selected['state']);
+
+        $order = PayOrder::where('order_id', $pending['orderId'])->findOrFail();
+        $this->assertSame(PayOrder::TYPE_ALIPAY, $order->getAttr('type'));
+        $this->assertEquals(25.0, (float) $order->getAttr('really_price'));
+        $this->assertSame('alipays://default-pay-url', $order->getAttr('pay_url'));
+        $this->assertSame(1, $order->getAttr('terminal_id'));
+        $this->assertSame(2, $order->getAttr('channel_id'));
+        $this->assertSame(PayOrder::ASSIGN_STATUS_ASSIGNED, $order->getAttr('assign_status'));
+        $this->assertSame('用户从微信切换到支付宝', $order->getAttr('assign_reason'));
+        $this->assertSame('默认终端', $order->getAttr('terminal_snapshot'));
+        $this->assertSame('默认支付宝通道', $order->getAttr('channel_snapshot'));
+
+        $this->assertSame($selected, CacheService::getOrder($pending['orderId']));
+        $this->assertSame(1, TmpPrice::where('oid', $pending['orderId'])->count());
+    }
+
+    public function test_select_order_pay_type_is_idempotent_after_pending_choice_order_is_assigned(): void
+    {
+        TerminalChannel::where('type', PayOrder::TYPE_WECHAT)->delete();
+
+        $pending = OrderService::createOrder([
+            'payId' => 'pending-select-repeat-001',
+            'type' => PayOrder::TYPE_WECHAT,
+            'price' => '26.00',
+            'param' => 'select-repeat-param',
+            'notifyUrl' => 'https://merchant.example/notify/select-repeat',
+            'returnUrl' => 'https://merchant.example/return/select-repeat',
+        ]);
+
+        $first = OrderService::selectOrderPayType($pending['orderId'], PayOrder::TYPE_ALIPAY);
+        $second = OrderService::selectOrderPayType($pending['orderId'], PayOrder::TYPE_ALIPAY);
+
+        $this->assertSame($first, $second);
+        $this->assertSame(1, TmpPrice::where('oid', $pending['orderId'])->count());
+    }
+
+    public function test_select_order_pay_type_rejects_and_expires_stale_pending_choice_order(): void
+    {
+        TerminalChannel::where('type', PayOrder::TYPE_WECHAT)->delete();
+
+        $pending = OrderService::createOrder([
+            'payId' => 'pending-select-expired-001',
+            'type' => PayOrder::TYPE_WECHAT,
+            'price' => '27.00',
+            'param' => 'select-expired-param',
+            'notifyUrl' => 'https://merchant.example/notify/select-expired',
+            'returnUrl' => 'https://merchant.example/return/select-expired',
+        ]);
+
+        CacheService::cacheOrder($pending['orderId'], ['stale' => true]);
+        PayOrder::where('order_id', $pending['orderId'])->update([
+            'create_date' => time() - 3600,
+        ]);
+
+        try {
+            OrderService::selectOrderPayType($pending['orderId'], PayOrder::TYPE_ALIPAY);
+            $this->fail('Expired pending-choice orders must not be assigned.');
+        } catch (\RuntimeException $e) {
+            $this->assertSame('订单已过期', $e->getMessage());
+        }
+
+        $order = PayOrder::where('order_id', $pending['orderId'])->findOrFail();
+        $this->assertSame(PayOrder::STATE_EXPIRED, $order->getAttr('state'));
+        $this->assertNull(CacheService::getOrder($pending['orderId']));
+    }
+
+    public function test_select_order_pay_type_keeps_order_pending_when_selected_type_becomes_unavailable(): void
+    {
+        TerminalChannel::where('type', PayOrder::TYPE_WECHAT)->delete();
+
+        $pending = OrderService::createOrder([
+            'payId' => 'pending-select-unavailable-001',
+            'type' => PayOrder::TYPE_WECHAT,
+            'price' => '28.00',
+            'param' => 'select-unavailable-param',
+            'notifyUrl' => 'https://merchant.example/notify/select-unavailable',
+            'returnUrl' => 'https://merchant.example/return/select-unavailable',
+        ]);
+
+        TerminalChannel::where('type', PayOrder::TYPE_ALIPAY)->update([
+            'status' => 'disabled',
+            'updated_at' => time(),
+        ]);
+
+        try {
+            OrderService::selectOrderPayType($pending['orderId'], PayOrder::TYPE_ALIPAY);
+            $this->fail('Unavailable selected types must not assign the order.');
+        } catch (\RuntimeException $e) {
+            $this->assertSame('当前选择的支付方式不可用', $e->getMessage());
+        }
+
+        $order = PayOrder::where('order_id', $pending['orderId'])->findOrFail();
+        $this->assertSame(PayOrder::ASSIGN_STATUS_PENDING_CHOICE, $order->getAttr('assign_status'));
+        $this->assertSame(PayOrder::TYPE_WECHAT, $order->getAttr('type'));
+        $this->assertEquals(0.0, (float) $order->getAttr('really_price'));
+        $this->assertSame(0, TmpPrice::where('oid', $pending['orderId'])->count());
+    }
+
     public function test_handle_pay_push_can_record_multiple_unmatched_transfers_under_unique_indexes(): void
     {
         $first = OrderService::handleTerminalPayPush(

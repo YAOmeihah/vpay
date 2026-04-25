@@ -135,8 +135,8 @@
                 <div class="payment-header-copy">
                     <div class="payment-brand-copy">
                         <p class="payment-kicker">安全收银台</p>
-                        <h1>{{ payType1 }}扫码支付</h1>
-                        <p class="payment-subtitle">订单已生成，请在倒计时结束前完成支付。</p>
+                        <h1>{{ assignStatus === 'pending_choice' ? '选择支付方式' : payType1 + '扫码支付' }}</h1>
+                        <p class="payment-subtitle">{{ assignStatus === 'pending_choice' ? '当前支付方式暂不可用，请选择其他可用方式继续支付。' : '订单已生成，请在倒计时结束前完成支付。' }}</p>
                     </div>
                     <div class="payment-security" aria-label="支付链路已加密">
                         <span class="security-dot" aria-hidden="true"></span>
@@ -151,8 +151,8 @@
                     <p class="payment-kicker">安全收银台</p>
                 </div>
                 <div class="payment-header-mobile-copy">
-                    <h1>{{ payType1 }}扫码支付</h1>
-                    <p class="payment-subtitle">订单已生成，请在倒计时结束前完成支付。</p>
+                    <h1>{{ assignStatus === 'pending_choice' ? '选择支付方式' : payType1 + '扫码支付' }}</h1>
+                    <p class="payment-subtitle">{{ assignStatus === 'pending_choice' ? '当前支付方式暂不可用，请选择其他可用方式继续支付。' : '订单已生成，请在倒计时结束前完成支付。' }}</p>
                 </div>
                 <div class="payment-security" aria-label="支付链路已加密">
                     <span class="security-dot" aria-hidden="true"></span>
@@ -169,7 +169,34 @@
             </div>
         </div>
 
-        <div id="orderbody">
+        <section class="payment-choice" v-if="assignStatus === 'pending_choice'" aria-label="选择支付方式">
+            <div class="payment-choice-copy">
+                <p class="section-label">支付方式切换</p>
+                <h2>当前{{ payType1 }}暂不可用</h2>
+                <p>{{ assignReason || '当前请求的支付方式暂不可用，请选择其他可用支付方式继续完成订单。' }}</p>
+            </div>
+            <div class="payment-choice-actions" v-if="availablePayTypes.length > 0">
+                <button
+                    type="button"
+                    class="payment-choice-btn"
+                    :class="[
+                        Number(option.type) === 2 ? 'alipay' : 'wechat',
+                        choiceSubmittingType === Number(option.type) ? 'loading' : ''
+                    ]"
+                    v-for="option in availablePayTypes"
+                    :key="option.type"
+                    :disabled="choiceSubmittingType !== 0"
+                    @click="selectPayType(option.type)"
+                >
+                    {{ resolveAvailablePayTypeLabel(option.type) }}支付
+                </button>
+            </div>
+            <p class="payment-choice-empty" v-else>
+                暂无其他可用支付方式，请返回商户页面稍后重试。
+            </p>
+        </section>
+
+        <div id="orderbody" v-show="assignStatus !== 'pending_choice'">
             <div class="mobile-first-screen" aria-label="手机端首屏摘要">
                 <div class="mobile-summary" aria-label="手机端支付摘要">
                     <section class="summary-card mobile-summary-card amount-summary-card">
@@ -459,6 +486,10 @@
 
     function resolvePayTypeLabel(payType) {
         return Number(payType) === 2 ? '支付宝' : '微信';
+    }
+
+    function isPendingChoice(orderData) {
+        return String(orderData.assignStatus || '') === 'pending_choice';
     }
 
     function formatDate(timestamp) {
@@ -758,15 +789,21 @@
         );
 
         orderData.payType1 = resolvePayTypeLabel(orderData.payType);
+        orderData.assignStatus = orderData.assignStatus || '';
+        orderData.assignReason = orderData.assignReason || '';
+        orderData.availablePayTypes = Array.isArray(orderData.availablePayTypes) ? orderData.availablePayTypes : [];
 
         Object.keys(orderData).forEach(function (key) {
             pageVm[key] = orderData[key];
         });
 
         pageVm.$nextTick(function () {
-            bindQrImageState();
-            initMobileSave();
-            toggleOrderDetail(false);
+            if (!isPendingChoice(orderData)) {
+                bindQrImageState();
+                initMobileSave();
+                toggleOrderDetail(false);
+            }
+
             if (typeof window.markPaymentBootReady === 'function') {
                 window.markPaymentBootReady();
             }
@@ -774,6 +811,12 @@
 
         if (Number(orderData.state) === -1) {
             showExpiredState('订单已过期，请返回网站重新发起支付。');
+            return;
+        }
+
+        if (isPendingChoice(orderData)) {
+            stopCountdown();
+            stopPolling();
             return;
         }
 
@@ -798,6 +841,40 @@
         }, function () {
             showExpiredState('订单信息获取失败，请刷新页面重试。');
         });
+    }
+
+    function selectPayType(type) {
+        var orderId = getQueryString('orderId') || '';
+        var selectedType = Number(type);
+
+        if (!orderId || !selectedType || pageVm.choiceSubmittingType !== 0) {
+            return;
+        }
+
+        pageVm.choiceSubmittingType = selectedType;
+
+        httpPost(
+            "../selectOrderPayType",
+            'orderId=' + encodeURIComponent(orderId) + '&type=' + encodeURIComponent(selectedType),
+            function (response) {
+                pageVm.choiceSubmittingType = 0;
+
+                if (response.code === 1 && response.data) {
+                    applyOrderData(response.data);
+                    return;
+                }
+
+                if (response.data) {
+                    applyOrderData(response.data);
+                }
+
+                showCheckResult('error', '支付方式不可用', response.msg || '当前支付方式暂不可用，请重新选择。');
+            },
+            function () {
+                pageVm.choiceSubmittingType = 0;
+                showCheckResult('error', '切换失败', '网络错误，请稍后重试。');
+            }
+        );
     }
 
     function check(isManualCheck) {
@@ -1009,10 +1086,16 @@
                 isAuto: 0,
                 state: 0,
                 timeOut: 15,
-                date: 0
+                date: 0,
+                assignStatus: '',
+                assignReason: '',
+                availablePayTypes: [],
+                choiceSubmittingType: 0
             },
             methods: {
-                formatDate: formatDate
+                formatDate: formatDate,
+                selectPayType: selectPayType,
+                resolveAvailablePayTypeLabel: resolvePayTypeLabel
             }
         });
 

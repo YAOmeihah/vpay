@@ -40,6 +40,44 @@ final class UpdatePreflightServiceTest extends TestCase
         self::assertSame([], array_values(array_filter($result['checks'], static fn (array $check): bool => $check['ok'] !== true)));
     }
 
+    public function test_preflight_allows_missing_optional_extend_directory_when_root_is_writable(): void
+    {
+        self::assertDirectoryDoesNotExist($this->root . DIRECTORY_SEPARATOR . 'extend');
+
+        $result = (new UpdatePreflightService($this->root, new UpdateStateStore($this->root)))->check(['zip_size' => 1024]);
+
+        self::assertTrue($result['ok']);
+        self::assertTrue($result['can_update']);
+        self::assertContains('extend 可写', array_column($result['checks'], 'label'));
+    }
+
+    public function test_preflight_checks_real_program_file_write_access(): void
+    {
+        $result = (new UpdatePreflightService($this->root, new UpdateStateStore($this->root)))->check(['zip_size' => 1024]);
+
+        self::assertContains('程序文件可写', array_column($result['checks'], 'label'));
+    }
+
+    public function test_preflight_fails_when_nested_program_directory_is_not_writable(): void
+    {
+        if (DIRECTORY_SEPARATOR === '\\') {
+            self::markTestSkipped('Windows chmod does not reliably simulate web user write permissions');
+        }
+
+        $nested = $this->root . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'service' . DIRECTORY_SEPARATOR . 'update';
+        mkdir($nested, 0555, true);
+        chmod($nested, 0555);
+
+        try {
+            $result = (new UpdatePreflightService($this->root, new UpdateStateStore($this->root)))->check(['zip_size' => 1024]);
+        } finally {
+            chmod($nested, 0777);
+        }
+
+        self::assertFalse($result['ok']);
+        self::assertContains('程序文件存在不可写路径', array_column($result['checks'], 'message'));
+    }
+
     public function test_preflight_reads_zip_size_from_release_assets(): void
     {
         $free = @disk_free_space($this->root);

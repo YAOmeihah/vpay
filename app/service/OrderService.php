@@ -37,6 +37,7 @@ class OrderService
 
         $orderId = OrderCreationKernel::generatePlatformOrderId();
         OrderCreationKernel::assertMerchantOrderNotExists($payId);
+        static::assertMonitorOnline();
 
         try {
             $selection = static::runTransaction(function () use (
@@ -170,6 +171,8 @@ class OrderService
             if ($assignStatus !== PayOrder::ASSIGN_STATUS_PENDING_CHOICE) {
                 throw new \RuntimeException('订单状态不允许选择支付方式');
             }
+
+            static::assertMonitorOnline();
 
             $availableTypes = array_column(
                 static::availablePayTypes((int) $order['type'], (string) $order['price']),
@@ -463,6 +466,25 @@ class OrderService
         return $type === PayOrder::TYPE_ALIPAY ? '支付宝' : '微信';
     }
 
+    protected static function assertMonitorOnline(): void
+    {
+        MonitorService::checkMonitorTimeout();
+
+        if (!static::hasFreshOnlineTerminal()) {
+            throw new \RuntimeException('监控端状态异常，请检查');
+        }
+    }
+
+    protected static function hasFreshOnlineTerminal(): bool
+    {
+        $threshold = time() - MonitorService::TERMINAL_HEARTBEAT_TIMEOUT_SECONDS;
+
+        return MonitorTerminal::where('status', 'enabled')
+            ->where('online_state', 'online')
+            ->where('last_heartbeat_at', '>=', $threshold)
+            ->find() !== null;
+    }
+
     protected static function hasRenderableChannelForType(int $type, string $price): bool
     {
         try {
@@ -545,12 +567,22 @@ class OrderService
                 'last_used_at' => (int) $channel['last_used_at'],
                 'terminal_name' => (string) $terminal['terminal_name'],
                 'terminal_status' => (string) $terminal['status'],
-                'online_state' => (string) $terminal['online_state'],
+                'online_state' => static::effectiveTerminalOnlineState($terminal),
                 'dispatch_priority' => (int) ($terminal['dispatch_priority'] ?? 100),
             ];
         }
 
         return $rows;
+    }
+
+    protected static function effectiveTerminalOnlineState(mixed $terminal): string
+    {
+        $threshold = time() - MonitorService::TERMINAL_HEARTBEAT_TIMEOUT_SECONDS;
+
+        return (string) $terminal['online_state'] === 'online'
+            && (int) $terminal['last_heartbeat_at'] >= $threshold
+            ? 'online'
+            : 'offline';
     }
 
     protected static function allocationStrategy(): string

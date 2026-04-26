@@ -13,6 +13,8 @@ use app\service\order\OrderStateManager;
 
 class MonitorService
 {
+    public const TERMINAL_HEARTBEAT_TIMEOUT_SECONDS = 90;
+
     private const REQUEST_CLEANUP_THROTTLE_SECONDS = 5;
 
     public static function heartbeatForTerminal(int $terminalId, string $ip): void
@@ -26,7 +28,7 @@ class MonitorService
      */
     public static function checkMonitorTimeout(): void
     {
-        $threshold = static::currentTimestamp() - 90;
+        $threshold = static::currentTimestamp() - self::TERMINAL_HEARTBEAT_TIMEOUT_SECONDS;
         MonitorTerminal::where('online_state', 'online')
             ->where('last_heartbeat_at', '<', $threshold)
             ->update([

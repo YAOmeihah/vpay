@@ -131,6 +131,28 @@ class OrderCreationServicesTest extends TestCase
         $this->assertSame(0, TmpPrice::where('oid', $result['orderId'])->count());
     }
 
+    public function test_create_order_rejects_stale_online_terminal_before_offering_fallback_type(): void
+    {
+        TerminalChannel::where('type', PayOrder::TYPE_WECHAT)->delete();
+        MonitorTerminal::where('id', 1)->update([
+            'online_state' => 'online',
+            'last_heartbeat_at' => time() - 120,
+            'updated_at' => time() - 120,
+        ]);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('监控端状态异常，请检查');
+
+        OrderService::createOrder([
+            'payId' => 'pending-choice-stale-terminal-001',
+            'type' => PayOrder::TYPE_WECHAT,
+            'price' => '23.50',
+            'param' => 'choice-stale-terminal',
+            'notifyUrl' => 'https://merchant.example/notify/choice-stale',
+            'returnUrl' => 'https://merchant.example/return/choice-stale',
+        ]);
+    }
+
     public function test_create_order_keeps_existing_error_when_requested_type_and_alternatives_are_unavailable(): void
     {
         TerminalChannel::where('type', PayOrder::TYPE_WECHAT)->delete();
@@ -269,6 +291,38 @@ class OrderCreationServicesTest extends TestCase
         $this->assertSame(PayOrder::ASSIGN_STATUS_PENDING_CHOICE, $order->getAttr('assign_status'));
         $this->assertSame(PayOrder::TYPE_WECHAT, $order->getAttr('type'));
         $this->assertEquals(0.0, (float) $order->getAttr('really_price'));
+        $this->assertSame(0, TmpPrice::where('oid', $pending['orderId'])->count());
+    }
+
+    public function test_select_order_pay_type_reports_monitor_offline_when_terminal_heartbeat_expires(): void
+    {
+        TerminalChannel::where('type', PayOrder::TYPE_WECHAT)->delete();
+
+        $pending = OrderService::createOrder([
+            'payId' => 'pending-select-stale-terminal-001',
+            'type' => PayOrder::TYPE_WECHAT,
+            'price' => '28.50',
+            'param' => 'select-stale-terminal',
+            'notifyUrl' => 'https://merchant.example/notify/select-stale',
+            'returnUrl' => 'https://merchant.example/return/select-stale',
+        ]);
+
+        MonitorTerminal::where('id', 1)->update([
+            'online_state' => 'online',
+            'last_heartbeat_at' => time() - 120,
+            'updated_at' => time() - 120,
+        ]);
+
+        try {
+            OrderService::selectOrderPayType($pending['orderId'], PayOrder::TYPE_ALIPAY);
+            $this->fail('Expired terminal heartbeats must surface as monitor offline.');
+        } catch (\RuntimeException $e) {
+            $this->assertSame('监控端状态异常，请检查', $e->getMessage());
+        }
+
+        $order = PayOrder::where('order_id', $pending['orderId'])->findOrFail();
+        $this->assertSame(PayOrder::ASSIGN_STATUS_PENDING_CHOICE, $order->getAttr('assign_status'));
+        $this->assertSame(PayOrder::TYPE_WECHAT, $order->getAttr('type'));
         $this->assertSame(0, TmpPrice::where('oid', $pending['orderId'])->count());
     }
 

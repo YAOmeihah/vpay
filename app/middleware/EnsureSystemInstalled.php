@@ -9,6 +9,7 @@ use app\service\update\UpdateStateStore;
 use Closure;
 use think\Request;
 use think\Response;
+use think\facade\View;
 
 class EnsureSystemInstalled
 {
@@ -22,6 +23,10 @@ class EnsureSystemInstalled
         $state = $this->installState();
         if (!$guard->shouldBlock((string) ($state['state'] ?? 'installed'))) {
             if ($this->hasUpdateLock() && !$this->shouldAllowDuringUpdate($request)) {
+                if ($this->shouldRenderMerchantUnavailablePage($request)) {
+                    return $this->merchantUnavailableResponse();
+                }
+
                 return json([
                     'code' => 50305,
                     'msg' => '系统正在更新，请稍后再试',
@@ -33,6 +38,10 @@ class EnsureSystemInstalled
         }
 
         $stateName = (string) ($state['state'] ?? 'installed');
+        if ($this->shouldRenderMerchantUnavailablePage($request)) {
+            return $this->merchantUnavailableResponse();
+        }
+
         $installUrl = $guard->installUrl($stateName);
         if (!$this->shouldReturnJson($request)) {
             return response('', 302, ['Location' => $installUrl]);
@@ -74,7 +83,19 @@ class EnsureSystemInstalled
             str_starts_with($path, 'admin/index/')
             || str_starts_with($path, 'merchant/')
             || str_starts_with($path, 'monitor/')
-            || in_array($path, ['login', 'enQrcode'], true)
+            || in_array($path, [
+                'login',
+                'enQrcode',
+                'createOrder',
+                'getOrder',
+                'selectOrderPayType',
+                'checkOrder',
+                'closeOrder',
+                'getState',
+                'appHeart',
+                'appPush',
+                'closeEndOrder',
+            ], true)
         ) {
             return true;
         }
@@ -87,5 +108,25 @@ class EnsureSystemInstalled
         $accept = strtolower((string) $request->header('Accept'));
 
         return str_contains($accept, 'application/json');
+    }
+
+    private function shouldRenderMerchantUnavailablePage(Request $request): bool
+    {
+        $isHtml = (string) $request->post('isHtml', $request->get('isHtml', '0'));
+
+        return ltrim($request->pathinfo(), '/') === 'createOrder'
+            && $isHtml === '1';
+    }
+
+    private function merchantUnavailableResponse(): Response
+    {
+        return response(View::fetch('merchant/error', [
+            'title' => '支付服务暂不可用',
+            'message' => '当前支付服务暂时不可用，请稍后重试。',
+            'helpText' => '如已发起支付，请勿重复付款，可返回商户页面稍后再试。',
+            'buttonText' => '返回上页',
+        ]), 503)->header([
+            'Content-Type' => 'text/html; charset=utf-8',
+        ]);
     }
 }

@@ -840,6 +840,47 @@ class ControllerEdgeServiceRegressionTest extends TestCase
         $this->assertStringNotContainsString('session_regenerate_id(', $adminController);
     }
 
+    // -----------------------------------------------------------------------
+    // Security regression: XSS fix (#1)
+    // -----------------------------------------------------------------------
+
+    public function test_create_order_html_path_uses_redirect_not_inline_script(): void
+    {
+        $source = (string) file_get_contents(self::$rootPath . 'app/controller/merchant/Order.php');
+
+        $this->assertStringNotContainsString(
+            '<script>window.location.href',
+            $source,
+            'XSS fix: createOrder must not echo an inline <script> redirect.'
+        );
+        $this->assertStringContainsString(
+            'return redirect(',
+            $source,
+            'XSS fix: createOrder must use a server-side redirect for the isHtml path.'
+        );
+        $this->assertStringContainsString(
+            'rawurlencode(',
+            $source,
+            'XSS fix: orderId must be URL-encoded before being placed in the redirect target.'
+        );
+    }
+
+    public function test_create_order_ishtml_cast_to_int_before_comparison(): void
+    {
+        $source = (string) file_get_contents(self::$rootPath . 'app/controller/merchant/Order.php');
+
+        $this->assertStringContainsString(
+            '$isHtml = (int)',
+            $source,
+            'isHtml must be cast to int to prevent loose-comparison bypass.'
+        );
+        $this->assertStringNotContainsString(
+            '$isHtml = $params[',
+            $source,
+            'isHtml must not be assigned raw from $params without a cast.'
+        );
+    }
+
     private static function configureCache(): void
     {
         $suffix = substr(sha1(self::$rootPath), 0, 12);

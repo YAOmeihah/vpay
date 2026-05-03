@@ -32,7 +32,7 @@ class Order extends BaseController
         $type = (int)$params['type'];
         $price = $params['price'];
         $sign = $params['sign'];
-        $isHtml = $params['isHtml'] ?? 0;
+        $isHtml = (int) ($params['isHtml'] ?? 0);
         $param = $params['param'] ?? '';
 
         if (!SignService::verifyCreateOrderSign($payId, $param, $type, $price, $sign)) {
@@ -51,8 +51,9 @@ class Order extends BaseController
 
             $orderInfo = \app\service\OrderService::createOrder($orderParams);
 
-            if ($isHtml == 1) {
-                echo "<script>window.location.href = 'payPage/pay.html?orderId=" . $orderInfo['orderId'] . "'</script>";
+            if ($isHtml === 1) {
+                $safeOrderId = rawurlencode((string) $orderInfo['orderId']);
+                return redirect('payPage/pay.html?orderId=' . $safeOrderId);
             } else {
                 return json($this->getReturn(1, "成功", $orderInfo));
             }
@@ -112,7 +113,11 @@ class Order extends BaseController
 
     public function getOrder()
     {
-        $orderId = $this->request->param("orderId");
+        $orderId = (string) $this->request->param('orderId', '');
+
+        if ($orderId === '') {
+            return json($this->getReturn(-1, '云端订单编号不能为空'));
+        }
 
         $cachedData = \app\service\CacheService::getOrder($orderId);
         if ($cachedData) {
@@ -136,7 +141,7 @@ class Order extends BaseController
         MonitorService::closeExpiredOrders();
 
         $orderId = (string) $this->request->param('orderId', '');
-        $type = (int) $this->request->param('type', 0);
+        $type    = (int)   $this->request->param('type', 0);
 
         if ($orderId === '') {
             return json($this->getReturn(-1, '云端订单编号不能为空'));
@@ -152,7 +157,13 @@ class Order extends BaseController
 
     public function checkOrder()
     {
-        $res = PayOrder::where("order_id", $this->request->param("orderId"))->find();
+        $orderId = (string) $this->request->param('orderId', '');
+
+        if ($orderId === '') {
+            return json($this->getReturn(-1, '云端订单编号不能为空'));
+        }
+
+        $res = PayOrder::where("order_id", $orderId)->find();
         if ($res) {
             $state = (int) $res['state'];
 

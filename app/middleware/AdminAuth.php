@@ -22,16 +22,6 @@ class AdminAuth
             return $this->unauthorizedResponse();
         }
 
-        if ($this->shouldCheckIp()) {
-            $loginIp = trim((string) Session::get('login_ip', ''));
-            $currentIp = trim((string) $request->ip());
-
-            if ($loginIp !== '' && $currentIp !== '' && $loginIp !== $currentIp) {
-                Session::clear();
-                return $this->unauthorizedResponse();
-            }
-        }
-
         return $next($request);
     }
 
@@ -43,10 +33,5 @@ class AdminAuth
     private function sessionTtl(): int
     {
         return (int) config('security.login.session_timeout', 28800);
-    }
-
-    private function shouldCheckIp(): bool
-    {
-        return (bool) config('security.login.check_ip', false);
     }
 }

@@ -66,43 +66,32 @@ final class AdminAuthMiddlewareTest extends BaseTestCase
         self::assertNull($payload['data']);
     }
 
-    public function test_admin_auth_rejects_session_when_login_ip_changes_and_ip_check_is_enabled(): void
+    public function test_admin_auth_does_not_reject_session_when_login_ip_changes(): void
     {
-        $originalSecurity = self::$app->config->get('security');
-        $security = is_array($originalSecurity) ? $originalSecurity : [];
-        $security['login'] = array_merge($security['login'] ?? [], [
-            'check_ip' => true,
-        ]);
-        self::$app->config->set($security, 'security');
+        Session::set('admin', 1);
+        Session::set('login_time', time());
 
-        try {
-            Session::set('admin', 1);
-            Session::set('login_time', time());
-            Session::set('login_ip', '10.0.0.1');
+        $request = (clone self::$app->request)
+            ->withServer([
+                'REQUEST_METHOD' => 'GET',
+                'REMOTE_ADDR' => '10.0.0.2',
+            ])
+            ->setMethod('GET');
 
-            $request = (clone self::$app->request)
-                ->withServer([
-                    'REQUEST_METHOD' => 'GET',
-                    'REMOTE_ADDR' => '10.0.0.2',
-                ])
-                ->setMethod('GET');
+        self::$app->instance('request', $request);
 
-            self::$app->instance('request', $request);
+        $middleware = new AdminAuth();
+        $response = $middleware->handle(
+            $request,
+            static fn ($nextRequest) => json(['code' => 1, 'msg' => 'ok', 'data' => null])
+        );
 
-            $middleware = new AdminAuth();
-            $response = $middleware->handle(
-                $request,
-                static fn ($nextRequest) => json(['code' => 1, 'msg' => 'ok', 'data' => null])
-            );
+        $payload = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
 
-            $payload = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame(200, $response->getCode());
+        self::assertSame(1, $payload['code']);
+        self::assertTrue(Session::has('admin'));
 
-            self::assertSame(401, $response->getCode());
-            self::assertSame(40101, $payload['code']);
-            self::assertFalse(Session::has('admin'));
-        } finally {
-            Session::clear();
-            self::$app->config->set($originalSecurity, 'security');
-        }
+        Session::clear();
     }
 }

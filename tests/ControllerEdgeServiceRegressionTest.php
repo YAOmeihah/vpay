@@ -178,11 +178,11 @@ class ControllerEdgeServiceRegressionTest extends TestCase
         $this->assertStringContainsString("'samesite'  => 'lax',", $cookieConfig);
     }
 
-    public function test_security_config_keeps_login_ip_check_opt_in(): void
+    public function test_security_config_does_not_expose_login_ip_binding_toggle(): void
     {
         $securityConfig = (string) file_get_contents(self::$rootPath . 'config/security.php');
 
-        $this->assertStringContainsString("'check_ip' => false,", $securityConfig);
+        $this->assertStringNotContainsString("'check_ip'", $securityConfig);
     }
 
     public function test_github_release_client_checks_http_status_in_stream_fallback(): void

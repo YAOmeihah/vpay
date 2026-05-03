@@ -50,7 +50,6 @@ class Auth extends BaseController
         Session::set("admin", 1);
         Session::set("admin_user", (string) $_user);
         Session::set("login_time", time());
-        Session::set("login_ip", $clientIp);
 
         return json($this->getReturn(1, "登录成功"));
     }

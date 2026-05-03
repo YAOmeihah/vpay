@@ -118,6 +118,12 @@ class PayPageStaticAssetsTest extends TestCase
         $this->assertStringNotContainsString('.check-result-icon.loading::before', $this->payCss);
     }
 
+    public function test_check_order_expired_branch_uses_response_message_field(): void
+    {
+        $this->assertStringContainsString("response.msg === '订单已过期'", $this->payHtml);
+        $this->assertStringNotContainsString("response.data === '订单已过期'", $this->payHtml);
+    }
+
     public function test_loading_status_icon_keeps_animation_without_extra_rings(): void
     {
         $this->assertStringContainsString('.check-result-icon.loading', $this->payCss);

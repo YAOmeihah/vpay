@@ -154,10 +154,13 @@ class Order extends BaseController
     {
         $res = PayOrder::where("order_id", $this->request->param("orderId"))->find();
         if ($res) {
-            if ($res['state'] == 0) {
+            $state = (int) $res['state'];
+
+            if ($state === PayOrder::STATE_UNPAID) {
                 return json($this->getReturn(-1, "订单未支付"));
             }
-            if ($res['state'] == -1) {
+
+            if ($state === PayOrder::STATE_EXPIRED) {
                 return json($this->getReturn(-1, "订单已过期"));
             }
 

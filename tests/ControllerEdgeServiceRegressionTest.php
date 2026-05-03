@@ -4,8 +4,10 @@ declare(strict_types=1);
 namespace tests;
 
 use app\controller\Admin;
+use app\controller\admin\Auth as AdminAuthController;
 use app\controller\merchant\Order as MerchantOrderController;
 use app\service\CacheService;
+use app\service\OrderCreationKernel;
 use app\service\admin\AdminPermissionService;
 use app\service\admin\AdminSettingsService;
 use app\service\admin\DashboardStatsService;
@@ -134,6 +136,73 @@ class ControllerEdgeServiceRegressionTest extends TestCase
         $this->assertStringContainsString('public function selectOrderPayType()', $controllerSource);
         $this->assertStringContainsString('OrderService::selectOrderPayType', $controllerSource);
         $this->assertStringContainsString('OrderService::buildPayloadFromOrder', $controllerSource);
+    }
+
+    public function test_merchant_check_order_keeps_only_unpaid_and_expired_as_error_states(): void
+    {
+        $controllerSource = (string) file_get_contents(self::$rootPath . 'app/controller/merchant/Order.php');
+
+        $this->assertStringContainsString('PayOrder::STATE_UNPAID', $controllerSource);
+        $this->assertStringContainsString('PayOrder::STATE_EXPIRED', $controllerSource);
+        $this->assertStringContainsString('订单已过期', $controllerSource);
+        $this->assertStringNotContainsString('PayOrder::STATE_CANCELLED', $controllerSource);
+        $this->assertStringNotContainsString('PayOrder::STATE_ASSIGN_FAILED', $controllerSource);
+    }
+
+    public function test_admin_write_routes_use_post_without_touching_merchant_contracts(): void
+    {
+        $adminRoutes = (string) file_get_contents(self::$rootPath . 'route/admin.php');
+        $merchantRoutes = (string) file_get_contents(self::$rootPath . 'route/merchant.php');
+
+        $this->assertStringContainsString("Route::post('login', 'admin.Auth/login');", $adminRoutes);
+        $this->assertStringContainsString("Route::post('saveSetting', 'admin/saveSetting');", $adminRoutes);
+        $this->assertStringContainsString("Route::post('addPayQrcode', 'admin/addPayQrcode');", $adminRoutes);
+        $this->assertStringContainsString("Route::post('delPayQrcode', 'admin/delPayQrcode');", $adminRoutes);
+        $this->assertStringContainsString("Route::post('delOrder', 'admin/delOrder');", $adminRoutes);
+        $this->assertStringContainsString("Route::post('setBd', 'admin/setBd');", $adminRoutes);
+        $this->assertStringContainsString("Route::post('delGqOrder', 'admin/delGqOrder');", $adminRoutes);
+        $this->assertStringContainsString("Route::post('delLastOrder', 'admin/delLastOrder');", $adminRoutes);
+
+        $this->assertStringContainsString("Route::any('createOrder', 'merchant.Order/createOrder');", $merchantRoutes);
+        $this->assertStringContainsString("Route::any('getOrder', 'merchant.Order/getOrder');", $merchantRoutes);
+        $this->assertStringContainsString("Route::any('checkOrder', 'merchant.Order/checkOrder');", $merchantRoutes);
+        $this->assertStringContainsString("Route::any('closeOrder', 'merchant.Order/closeOrder');", $merchantRoutes);
+    }
+
+    public function test_cookie_configuration_hardens_session_cookie_defaults(): void
+    {
+        $cookieConfig = (string) file_get_contents(self::$rootPath . 'config/cookie.php');
+
+        $this->assertStringContainsString("'secure'    => env('COOKIE_SECURE', false),", $cookieConfig);
+        $this->assertStringContainsString("'httponly'  => true,", $cookieConfig);
+        $this->assertStringContainsString("'samesite'  => 'lax',", $cookieConfig);
+    }
+
+    public function test_security_config_keeps_login_ip_check_opt_in(): void
+    {
+        $securityConfig = (string) file_get_contents(self::$rootPath . 'config/security.php');
+
+        $this->assertStringContainsString("'check_ip' => false,", $securityConfig);
+    }
+
+    public function test_github_release_client_checks_http_status_in_stream_fallback(): void
+    {
+        $source = (string) file_get_contents(self::$rootPath . 'app/service/update/GitHubReleaseClient.php');
+
+        $this->assertStringContainsString('$http_response_header', $source);
+        $this->assertStringContainsString('HTTP status', $source);
+        $this->assertStringContainsString('array_reverse', $source);
+        $this->assertStringNotContainsString('$http_response_header[0]', $source);
+    }
+
+    public function test_platform_order_ids_keep_legacy_18_digit_numeric_shape(): void
+    {
+        $first = OrderCreationKernel::generatePlatformOrderId();
+        $second = OrderCreationKernel::generatePlatformOrderId();
+
+        $this->assertMatchesRegularExpression('/^\d{18}$/', $first);
+        $this->assertMatchesRegularExpression('/^\d{18}$/', $second);
+        $this->assertNotSame($first, $second);
     }
 
     public function test_admin_settings_service_keeps_existing_field_list_and_masks_sensitive_values(): void
@@ -492,6 +561,78 @@ class ControllerEdgeServiceRegressionTest extends TestCase
 
         $limiter->recordLoginFailure($clientIp);
         $this->assertTrue($limiter->tooManyLoginAttempts($clientIp));
+    }
+
+    public function test_login_attempt_limiter_uses_configured_lockout_time(): void
+    {
+        $originalSecurity = self::$app->config->get('security');
+        $security = is_array($originalSecurity) ? $originalSecurity : [];
+        $security['login'] = array_merge($security['login'] ?? [], [
+            'lockout_time' => 1800,
+        ]);
+        self::$app->config->set($security, 'security');
+
+        try {
+            $limiter = new class extends LoginAttemptLimiter {
+                public ?int $lastTtl = null;
+
+                protected function get(string $key): mixed
+                {
+                    return 0;
+                }
+
+                protected function put(string $key, int $value, int $ttl): void
+                {
+                    $this->lastTtl = $ttl;
+                }
+            };
+
+            $limiter->recordLoginFailure('127.0.0.1');
+
+            $this->assertSame(1800, $limiter->lastTtl);
+        } finally {
+            self::$app->config->set($originalSecurity, 'security');
+        }
+    }
+
+    public function test_admin_login_lockout_message_tracks_configured_lockout_duration(): void
+    {
+        $originalSecurity = self::$app->config->get('security');
+        $security = is_array($originalSecurity) ? $originalSecurity : [];
+        $security['login'] = array_merge($security['login'] ?? [], [
+            'lockout_time' => 1800,
+        ]);
+        self::$app->config->set($security, 'security');
+
+        $request = (clone self::$app->request)
+            ->withServer(['REQUEST_METHOD' => 'POST'])
+            ->withPost([
+                'user' => 'admin',
+                'pass' => 'bad-password',
+            ])
+            ->setMethod('POST');
+
+        self::$app->instance('request', $request);
+
+        $originalLimiter = self::$app->make(LoginAttemptLimiter::class);
+        self::$app->instance(LoginAttemptLimiter::class, new class extends LoginAttemptLimiter {
+            public function tooManyLoginAttempts(string $clientIp): bool
+            {
+                return true;
+            }
+        });
+
+        try {
+            $controller = new AdminAuthController(self::$app);
+            $response = $controller->login();
+            $payload = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
+
+            $this->assertSame(-1, $payload['code']);
+            $this->assertSame('登录失败次数过多，请30分钟后重试', $payload['msg']);
+        } finally {
+            self::$app->instance(LoginAttemptLimiter::class, $originalLimiter);
+            self::$app->config->set($originalSecurity, 'security');
+        }
     }
 
     public function test_cache_manage_warmup_payload_builder_preserves_legacy_raw_value_shapes(): void

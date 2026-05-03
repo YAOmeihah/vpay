@@ -891,7 +891,7 @@
                 return;
             }
 
-            if (response.data === '订单已过期') {
+            if (response.msg === '订单已过期') {
                 showExpiredState('订单已过期，请返回网站重新发起支付。');
                 if (isManualCheck) {
                     showCheckResult('error', '检查失败', '订单已过期，请重新下单。');

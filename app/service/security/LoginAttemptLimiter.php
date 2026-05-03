@@ -14,12 +14,12 @@ class LoginAttemptLimiter
 
     public function tooManyLoginAttempts(string $clientIp): bool
     {
-        return $this->attemptsFor(self::LOGIN_PREFIX, $clientIp) >= self::LOGIN_THRESHOLD;
+        return $this->attemptsFor(self::LOGIN_PREFIX, $clientIp) >= $this->loginThreshold();
     }
 
     public function recordLoginFailure(string $clientIp): int
     {
-        return $this->increment(self::LOGIN_PREFIX, $clientIp, self::LOGIN_TTL);
+        return $this->increment(self::LOGIN_PREFIX, $clientIp, $this->loginLockoutTtl());
     }
 
     public function clearLoginAttempts(string $clientIp): void
@@ -50,6 +50,16 @@ class LoginAttemptLimiter
     protected function forget(string $key): void
     {
         cache($key, null);
+    }
+
+    protected function loginThreshold(): int
+    {
+        return (int) config('security.login.max_attempts', self::LOGIN_THRESHOLD);
+    }
+
+    protected function loginLockoutTtl(): int
+    {
+        return (int) config('security.login.lockout_time', self::LOGIN_TTL);
     }
 
     private function attemptsFor(string $prefix, string $clientIp): int

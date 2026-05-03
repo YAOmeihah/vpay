@@ -13,7 +13,7 @@ return [
         // Session超时时间（秒）
         'session_timeout' => 28800, // 8小时
         // 是否检查登录IP
-        'check_ip' => true,
+        'check_ip' => false,
     ],
 
     // 输入验证

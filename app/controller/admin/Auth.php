@@ -29,7 +29,7 @@ class Auth extends BaseController
         $limiter = $this->loginAttemptLimiter();
 
         if ($limiter->tooManyLoginAttempts($clientIp)) {
-            return json($this->getReturn(-1, "登录失败次数过多，请5分钟后重试"));
+            return json($this->getReturn(-1, $this->lockoutMessage()));
         }
 
         $settings = $this->adminSettingsService();
@@ -63,5 +63,15 @@ class Auth extends BaseController
     private function loginAttemptLimiter(): LoginAttemptLimiter
     {
         return $this->app->make(LoginAttemptLimiter::class);
+    }
+
+    private function lockoutMessage(): string
+    {
+        $lockoutSeconds = max(1, (int) config('security.login.lockout_time', 300));
+        if ($lockoutSeconds >= 60 && $lockoutSeconds % 60 === 0) {
+            return '登录失败次数过多，请' . (int) ($lockoutSeconds / 60) . '分钟后重试';
+        }
+
+        return '登录失败次数过多，请' . $lockoutSeconds . '秒后重试';
     }
 }

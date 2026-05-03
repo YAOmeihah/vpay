@@ -60,8 +60,22 @@ final class GitHubReleaseClient
             ],
         ]);
         $body = @file_get_contents($url, false, $context);
-        if (!is_string($body) || $body === '') {
-            throw new RuntimeException('GitHub Release 请求失败');
+        $statusLine = '';
+        if (is_array($http_response_header ?? null)) {
+            foreach (array_reverse($http_response_header) as $headerLine) {
+                if (str_starts_with((string) $headerLine, 'HTTP/')) {
+                    $statusLine = (string) $headerLine;
+                    break;
+                }
+            }
+        }
+
+        preg_match('/\s(\d{3})\s/', $statusLine, $matches);
+        $status = isset($matches[1]) ? (int) $matches[1] : 0;
+
+        if (!is_string($body) || $body === '' || $status < 200 || $status >= 300) {
+            $detail = $status > 0 ? 'HTTP status ' . $status : 'HTTP status unavailable';
+            throw new RuntimeException('GitHub Release 请求失败: ' . $detail);
         }
 
         return $body;

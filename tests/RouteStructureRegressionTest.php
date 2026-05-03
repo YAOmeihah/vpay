@@ -26,7 +26,7 @@ final class RouteStructureRegressionTest extends TestCase
         $this->assertRouteMapping($output, 'install/check', 'install.Wizard/check', '\*');
         $this->assertRouteMapping($output, 'install/run', 'install.Wizard/run', 'post');
         $this->assertRouteMapping($output, 'install/recover', 'install.Wizard/recover', '\*');
-        $this->assertRouteMapping($output, 'login', 'admin.Auth/login', '\*');
+        $this->assertRouteMapping($output, 'login', 'admin.Auth/login', 'post');
         $this->assertDoesNotMatchRegularExpression('/\|\s+getMenu\s+\|/', $output);
         $this->assertRouteMapping($output, 'admin/index/getMain', 'admin/getMain', '\*');
         $this->assertRouteMapping($output, 'createOrder', 'merchant.Order/createOrder', '\*');

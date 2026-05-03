@@ -5,6 +5,7 @@ namespace app\service\admin;
 
 use app\service\CacheService;
 use app\service\config\SettingConfigRepository;
+use app\service\security\KeyEncryptionService;
 
 class AdminSettingsService
 {
@@ -16,14 +17,14 @@ class AdminSettingsService
     public function getSettings(): array
     {
         $settings = [
-            'user' => $this->getConfigValue('user'),
-            'pass' => '',
-            'notifyUrl' => $this->getConfigValue('notifyUrl'),
-            'returnUrl' => $this->getConfigValue('returnUrl'),
-            'key' => $this->getConfigValue('key'),
-            'notify_ssl_verify' => $this->getConfigValue('notify_ssl_verify', '1'),
-            'close' => $this->getConfigValue('close'),
-            'payQf' => $this->getConfigValue('payQf'),
+            'user'               => $this->getConfigValue('user'),
+            'pass'               => '',
+            'notifyUrl'          => $this->getConfigValue('notifyUrl'),
+            'returnUrl'          => $this->getConfigValue('returnUrl'),
+            'key'                => $this->getDecryptedSignKey(),
+            'notify_ssl_verify'  => $this->getConfigValue('notify_ssl_verify', '1'),
+            'close'              => $this->getConfigValue('close'),
+            'payQf'              => $this->getConfigValue('payQf'),
             'allocationStrategy' => $this->getConfigValue('allocationStrategy', 'fixed_priority'),
         ];
 
@@ -71,6 +72,10 @@ class AdminSettingsService
                 throw new \RuntimeException('分配策略无效');
             }
 
+            if ($param === 'key' && $value !== '') {
+                $value = $this->keyEncryptionService()->encrypt($value);
+            }
+
             $this->setConfigValue($param, $value);
         }
 
@@ -85,6 +90,16 @@ class AdminSettingsService
     public function getAdminPasswordHash(): string
     {
         return $this->getConfigValue('pass');
+    }
+
+    public function getDecryptedSignKey(): string
+    {
+        $raw = $this->getConfigValue('key');
+        if ($raw === '') {
+            return '';
+        }
+
+        return $this->keyEncryptionService()->decrypt($raw);
     }
 
     public function warmSettingsCache(): int
@@ -132,9 +147,14 @@ class AdminSettingsService
         }
 
         $generated = $this->generateKey();
-        $this->setConfigValue($settingKey, $generated);
+        $this->setConfigValue($settingKey, $this->keyEncryptionService()->encrypt($generated));
 
         return $generated;
+    }
+
+    protected function keyEncryptionService(): KeyEncryptionService
+    {
+        return new KeyEncryptionService();
     }
 
     protected function dashboardStatsService(): DashboardStatsService

@@ -12,8 +12,8 @@ class OrderValidate extends Validate
         'type'      => 'require|in:1,2',
         'price'     => 'require|float|gt:0|lt:1000000',
         'sign'      => 'require',
-        'notifyUrl' => 'max:1000',
-        'returnUrl' => 'max:1000',
+        'notifyUrl' => 'url|max:1000',
+        'returnUrl' => 'url|max:1000',
     ];
 
     protected $message = [
@@ -26,7 +26,9 @@ class OrderValidate extends Validate
         'price.gt'       => '订单金额必须大于0',
         'price.lt'       => '订单金额超出限制',
         'sign.require'   => '请传入签名',
+        'notifyUrl.url'  => '回调地址格式不正确',
         'notifyUrl.max'  => '回调地址长度超限',
+        'returnUrl.url'  => '返回地址格式不正确',
         'returnUrl.max'  => '返回地址长度超限',
     ];
 }

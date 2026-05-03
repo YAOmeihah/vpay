@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace app\service\config;
 
+use app\service\security\KeyEncryptionService;
+
 class SettingSystemConfig implements SystemConfig
 {
     public function getNotifyUrl(): string
@@ -17,7 +19,12 @@ class SettingSystemConfig implements SystemConfig
 
     public function getSignKey(): string
     {
-        return $this->getConfigValue('key');
+        $raw = $this->getConfigValue('key');
+        if ($raw === '') {
+            return '';
+        }
+
+        return (new KeyEncryptionService())->decrypt($raw);
     }
 
     public function getOrderCloseMinutes(): int

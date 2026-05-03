@@ -36,6 +36,5 @@ Route::group('admin/index', function () {
     Route::post('delLastOrder', 'admin/delLastOrder');
     Route::any('profile', 'admin/profile');
     Route::post('logout', 'admin/logout');
+    Route::any('enQrcode', 'admin/enQrcode');
 })->middleware(\app\middleware\AdminAuth::class);
-
-Route::any('enQrcode', 'admin/enQrcode');

@@ -17,6 +17,26 @@ class KeyEncryptionService
     private const TAG_LEN   = 16;
     private const PREFIX    = 'enc:';
 
+    public function __construct(private readonly string $configuredAppKey = '')
+    {
+    }
+
+    public static function generateAppKey(): string
+    {
+        try {
+            return bin2hex(random_bytes(32));
+        } catch (\Throwable $e) {
+            throw new \RuntimeException('安全随机数生成失败，无法生成应用密钥', 0, $e);
+        }
+    }
+
+    public static function isValidAppKey(string $value): bool
+    {
+        $hex = trim($value);
+
+        return ctype_xdigit($hex) && strlen($hex) === 64;
+    }
+
     public function encrypt(string $plaintext): string
     {
         $masterKey = $this->masterKey();
@@ -80,13 +100,16 @@ class KeyEncryptionService
 
     private function masterKey(): string
     {
-        $hex = trim((string) env('APP_KEY', ''));
+        $hex = trim($this->configuredAppKey);
+        if ($hex === '') {
+            $hex = trim((string) env('APP_KEY', ''));
+        }
 
         if ($hex === '') {
             throw new \RuntimeException('APP_KEY 未配置，无法保护签名密钥');
         }
 
-        if (!ctype_xdigit($hex) || strlen($hex) !== 64) {
+        if (!self::isValidAppKey($hex)) {
             throw new \RuntimeException('APP_KEY 格式无效，需为 64 位十六进制字符串');
         }
 

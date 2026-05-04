@@ -5,8 +5,8 @@
 // +----------------------------------------------------------------------
 
 return [
-    // 默认缓存驱动（临时使用文件缓存）
-    'default' => 'redis',
+    // 默认缓存驱动：生产可通过 CACHE_DRIVER=redis 启用 Redis
+    'default' => env('CACHE_DRIVER', 'file'),
 
     // 缓存连接方式配置
     'stores'  => [
@@ -28,21 +28,21 @@ return [
             // 驱动方式
             'type'       => 'redis',
             // 服务器地址
-            'host'       => '127.0.0.1',
+            'host'       => env('CACHE_REDIS_HOST', '127.0.0.1'),
             // 端口
-            'port'       => 6379,
+            'port'       => (int) env('CACHE_REDIS_PORT', 6379),
             // 密码
-            'password'   => '',
+            'password'   => env('CACHE_REDIS_PASSWORD', ''),
             // 数据库
-            'select'     => 0,
+            'select'     => (int) env('CACHE_REDIS_SELECT', 0),
             // 超时时间
-            'timeout'    => 0,
+            'timeout'    => (float) env('CACHE_REDIS_TIMEOUT', 0),
             // 缓存前缀
-            'prefix'     => 'vmq_',
+            'prefix'     => env('CACHE_REDIS_PREFIX', 'vmq_'),
             // 缓存有效期 0表示永久缓存
             'expire'     => 0,
             // 是否持久连接
-            'persistent' => false,
+            'persistent' => env('CACHE_REDIS_PERSISTENT', false),
             // 序列化机制
             'serialize'  => ['serialize', 'unserialize'],
         ],

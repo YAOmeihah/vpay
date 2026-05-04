@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace app\service\install;
 
 use app\model\Setting;
+use app\service\security\KeyEncryptionService;
 use PDO;
 
 class AdminBootstrapService
@@ -15,7 +16,7 @@ class AdminBootstrapService
     {
         $this->persistValue('user', trim((string) ($payload['admin_user'] ?? '')), $pdo);
         $this->persistValue('pass', password_hash((string) ($payload['admin_pass'] ?? ''), PASSWORD_DEFAULT), $pdo);
-        $this->persistValue('key', $this->generateKey(), $pdo);
+        $this->persistValue('key', $this->encryptSignKey($this->generateKey(), (string) ($payload['app_key'] ?? '')), $pdo);
         $this->persistValue('notify_ssl_verify', $this->currentNotifySslVerify($pdo), $pdo);
         $this->persistValue('install_status', (string) ($payload['install_status'] ?? 'installed'), $pdo);
         $this->persistValue('schema_version', (string) ($payload['schema_version'] ?? ''), $pdo);
@@ -28,9 +29,14 @@ class AdminBootstrapService
     {
         try {
             return bin2hex(random_bytes(16));
-        } catch (\Throwable) {
-            return md5(uniqid((string) mt_rand(), true));
+        } catch (\Throwable $e) {
+            throw new \RuntimeException('安全随机数生成失败，无法生成密钥', 0, $e);
         }
+    }
+
+    private function encryptSignKey(string $key, string $appKey): string
+    {
+        return (new KeyEncryptionService($appKey))->encrypt($key);
     }
 
     private function currentNotifySslVerify(?PDO $pdo): string

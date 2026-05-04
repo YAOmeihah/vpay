@@ -10,7 +10,7 @@ return [
     // cookie 有效域名
     'domain'    => '',
     //  cookie 启用安全传输
-    'secure'    => env('COOKIE_SECURE', false),
+    'secure'    => env('COOKIE_SECURE', true),
     // httponly设置
     'httponly'  => true,
     // 是否使用 setcookie

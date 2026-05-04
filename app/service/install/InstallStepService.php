@@ -23,7 +23,8 @@ class InstallStepService
     public function install(array $payload): array
     {
         $env = $this->envWriter()->write($payload['env']);
-        $pdo = $this->connect($payload['env']);
+        $effectiveEnv = (array) ($env['values'] ?? $payload['env']);
+        $pdo = $this->connect($effectiveEnv);
 
         $this->databaseBootstrap()->importBootstrapSql($pdo);
         // vmq.sql disables autocommit during bootstrap; restore it before persisting install metadata.
@@ -34,6 +35,7 @@ class InstallStepService
             'schema_version' => (string) config('app.ver'),
             'app_version' => (string) config('app.ver'),
             'install_status' => $env['written'] ? 'installed' : 'pending',
+            'app_key' => (string) ($effectiveEnv['APP_KEY'] ?? ''),
         ], $pdo);
 
         return [

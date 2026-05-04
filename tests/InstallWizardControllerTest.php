@@ -4,7 +4,10 @@ declare(strict_types=1);
 namespace tests;
 
 use app\controller\install\Wizard;
+use app\model\Setting;
+use app\service\install\EnvWriter;
 use app\service\install\MigrationRunner;
+use app\service\security\KeyEncryptionService;
 use think\exception\HttpException;
 
 final class InstallWizardControllerTest extends TestCase
@@ -172,6 +175,9 @@ final class InstallWizardControllerTest extends TestCase
 
         self::assertStringContainsString('数据库配置', $html);
         self::assertStringContainsString('name="env[DB_HOST]"', $html);
+        self::assertStringContainsString('name="env[COOKIE_SECURE]"', $html);
+        self::assertStringContainsString('name="env[SESSION_TYPE]"', $html);
+        self::assertStringContainsString('name="env[SESSION_STORE]"', $html);
         self::assertStringContainsString('value="127.0.0.1"', $html);
         self::assertStringNotContainsString('root-secret', $html);
         self::assertStringContainsString('name="admin_user"', $html);
@@ -473,6 +479,9 @@ final class InstallWizardControllerTest extends TestCase
         self::assertStringContainsString('完成', $html);
         self::assertSame('2.0.0', $runner->fromVersion);
         self::assertSame((string) config('app.ver'), $runner->toVersion);
+        $storedKey = Setting::getConfigValue('key');
+        self::assertStringStartsWith('enc:', $storedKey);
+        self::assertSame('legacy-sign-key', (new KeyEncryptionService())->decrypt($storedKey));
     }
 
     public function test_run_requires_admin_credentials_before_executing_upgrade(): void
@@ -520,5 +529,78 @@ final class InstallWizardControllerTest extends TestCase
         self::assertFalse($runner->called);
         self::assertStringContainsString('管理员账号或密码不正确', $html);
         self::assertStringContainsString('name="upgrade_admin_user"', $html);
+    }
+
+    public function test_upgrade_stops_before_migrations_when_app_key_cannot_be_written(): void
+    {
+        $this->app->view->forgetDriver();
+        $adminPass = 'upgrade-password-123';
+        $this->seedSettings([
+            'user' => 'admin',
+            'pass' => password_hash($adminPass, PASSWORD_DEFAULT),
+            'key' => 'legacy-sign-key',
+            'notify_ssl_verify' => '1',
+        ]);
+
+        $runner = new class extends MigrationRunner {
+            public bool $called = false;
+
+            public function runPending(string $current, string $target): void
+            {
+                $this->called = true;
+            }
+        };
+        $this->app->instance(MigrationRunner::class, $runner);
+
+        $request = (clone $this->app->request)
+            ->withServer(['REQUEST_METHOD' => 'POST'])
+            ->setMethod('POST');
+        $request->withPost([
+            'upgrade_admin_user' => 'admin',
+            'upgrade_admin_pass' => $adminPass,
+        ]);
+        $this->app->instance('request', $request);
+
+        $envWriter = new class extends EnvWriter {
+            public function ensureAppKey(): array
+            {
+                return [
+                    'written' => false,
+                    'path' => '/var/www/vpay/.env',
+                    'content' => 'APP_KEY = ' . str_repeat('b', 64) . PHP_EOL,
+                    'values' => ['APP_KEY' => str_repeat('b', 64)],
+                    'changed' => true,
+                ];
+            }
+        };
+
+        $controller = new class($this->app, $envWriter) extends Wizard {
+            public function __construct($app, private readonly EnvWriter $writer)
+            {
+                parent::__construct($app);
+            }
+
+            protected function state(): array
+            {
+                return [
+                    'state' => 'upgrade_required',
+                    'message' => '系统待升级',
+                    'current_version' => '2.0.0',
+                    'target_version' => '2.1.0',
+                ];
+            }
+
+            protected function envWriter(): EnvWriter
+            {
+                return $this->writer;
+            }
+        };
+
+        $html = (string) $controller->run()->getContent();
+
+        self::assertFalse($runner->called);
+        self::assertStringContainsString('配置文件写入失败', $html);
+        self::assertStringContainsString('/var/www/vpay/.env', $html);
+        self::assertStringContainsString('APP_KEY = ' . str_repeat('b', 64), $html);
     }
 }

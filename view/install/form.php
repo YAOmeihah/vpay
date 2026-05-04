@@ -12,6 +12,18 @@
   <?php endif; ?>
   <form method="post" action="/install/run" data-install-form>
     <input type="hidden" name="env[APP_DEBUG]" value="<?= install_e($install['env']['APP_DEBUG'] ?? 'false') ?>" />
+    <input type="hidden" name="env[APP_KEY]" value="<?= install_e($install['env']['APP_KEY'] ?? '') ?>" />
+    <input type="hidden" name="env[COOKIE_SECURE]" value="<?= install_e($install['env']['COOKIE_SECURE'] ?? 'true') ?>" />
+    <input type="hidden" name="env[CACHE_DRIVER]" value="<?= install_e($install['env']['CACHE_DRIVER'] ?? 'file') ?>" />
+    <input type="hidden" name="env[CACHE_REDIS_HOST]" value="<?= install_e($install['env']['CACHE_REDIS_HOST'] ?? '127.0.0.1') ?>" />
+    <input type="hidden" name="env[CACHE_REDIS_PORT]" value="<?= install_e($install['env']['CACHE_REDIS_PORT'] ?? '6379') ?>" />
+    <input type="hidden" name="env[CACHE_REDIS_PASSWORD]" value="<?= install_e($install['env']['CACHE_REDIS_PASSWORD'] ?? '') ?>" />
+    <input type="hidden" name="env[CACHE_REDIS_SELECT]" value="<?= install_e($install['env']['CACHE_REDIS_SELECT'] ?? '0') ?>" />
+    <input type="hidden" name="env[CACHE_REDIS_TIMEOUT]" value="<?= install_e($install['env']['CACHE_REDIS_TIMEOUT'] ?? '0') ?>" />
+    <input type="hidden" name="env[CACHE_REDIS_PREFIX]" value="<?= install_e($install['env']['CACHE_REDIS_PREFIX'] ?? 'vmq_') ?>" />
+    <input type="hidden" name="env[CACHE_REDIS_PERSISTENT]" value="<?= install_e($install['env']['CACHE_REDIS_PERSISTENT'] ?? 'false') ?>" />
+    <input type="hidden" name="env[SESSION_TYPE]" value="<?= install_e($install['env']['SESSION_TYPE'] ?? 'cache') ?>" />
+    <input type="hidden" name="env[SESSION_STORE]" value="<?= install_e($install['env']['SESSION_STORE'] ?? '') ?>" />
     <input type="hidden" name="env[DB_TYPE]" value="<?= install_e($install['env']['DB_TYPE'] ?? 'mysql') ?>" />
 
     <h3>数据库配置</h3>

@@ -20,6 +20,7 @@ abstract class TestCase extends BaseTestCase
     protected static string $rootPath;
     protected static string $testDatabase;
     protected static array $envConfig;
+    protected static bool $databaseCreated = false;
     public static function setUpBeforeClass(): void
     {
         parent::setUpBeforeClass();
@@ -28,7 +29,16 @@ abstract class TestCase extends BaseTestCase
         self::$envConfig = self::loadTestEnv();
         self::$testDatabase = (self::$envConfig['DB_NAME'] ?? 'vmqphp8') . '_codex_test';
 
-        self::recreateDatabase();
+        try {
+            self::recreateDatabase();
+            self::$databaseCreated = true;
+        } catch (\PDOException $exception) {
+            if (!filter_var(getenv('TEST_SKIP_DB_UNAVAILABLE'), FILTER_VALIDATE_BOOLEAN)) {
+                throw $exception;
+            }
+
+            self::markTestSkipped('MySQL test database is unavailable: ' . $exception->getMessage());
+        }
 
         self::$sharedApp = new App(self::$rootPath);
         self::$sharedApp->initialize();
@@ -36,7 +46,10 @@ abstract class TestCase extends BaseTestCase
 
     public static function tearDownAfterClass(): void
     {
-        self::dropDatabase();
+        if (self::$databaseCreated) {
+            self::dropDatabase();
+            self::$databaseCreated = false;
+        }
         parent::tearDownAfterClass();
     }
 

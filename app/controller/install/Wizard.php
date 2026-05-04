@@ -5,10 +5,12 @@ namespace app\controller\install;
 
 use app\BaseController;
 use app\model\Setting;
+use app\service\install\EnvWriter;
 use app\service\install\InstallStepService;
 use app\service\install\InstallStateService;
 use app\service\install\MigrationScanner;
 use app\service\install\MigrationRunner;
+use app\service\security\KeyEncryptionService;
 use think\Response;
 use think\facade\Db;
 use think\facade\View;
@@ -178,6 +180,19 @@ class Wizard extends BaseController
             $targetVersion = (string) $upgrade['target_version'];
 
             return $this->withExecutionLock(function () use ($currentVersion, $targetVersion, $upgrade): array {
+                $appKey = $this->envWriter()->ensureAppKey();
+                if (($appKey['written'] ?? false) !== true) {
+                    return [
+                        'installed' => false,
+                        'status' => 'pending_app_key',
+                        'env' => [
+                            'path' => (string) ($appKey['path'] ?? ''),
+                            'content' => (string) ($appKey['content'] ?? ''),
+                        ],
+                    ];
+                }
+
+                $this->migrateLegacySignKey((string) ($appKey['values']['APP_KEY'] ?? ''));
                 $this->app->make(MigrationRunner::class)->runPending($currentVersion, $targetVersion);
 
                 return [
@@ -281,6 +296,11 @@ class Wizard extends BaseController
         return $this->app->make(MigrationScanner::class);
     }
 
+    protected function envWriter(): EnvWriter
+    {
+        return $this->app->make(EnvWriter::class);
+    }
+
     /**
      * @return array{
      *   env: array<string, string>,
@@ -298,6 +318,18 @@ class Wizard extends BaseController
         return [
             'env' => [
                 'APP_DEBUG' => (string) ($env['APP_DEBUG'] ?? env('APP_DEBUG', 'false')),
+                'APP_KEY' => $this->resolveInstallAppKey($env),
+                'COOKIE_SECURE' => (string) ($env['COOKIE_SECURE'] ?? env('COOKIE_SECURE', 'true')),
+                'CACHE_DRIVER' => (string) ($env['CACHE_DRIVER'] ?? env('CACHE_DRIVER', 'file')),
+                'CACHE_REDIS_HOST' => (string) ($env['CACHE_REDIS_HOST'] ?? env('CACHE_REDIS_HOST', '127.0.0.1')),
+                'CACHE_REDIS_PORT' => (string) ($env['CACHE_REDIS_PORT'] ?? env('CACHE_REDIS_PORT', '6379')),
+                'CACHE_REDIS_PASSWORD' => '',
+                'CACHE_REDIS_SELECT' => (string) ($env['CACHE_REDIS_SELECT'] ?? env('CACHE_REDIS_SELECT', '0')),
+                'CACHE_REDIS_TIMEOUT' => (string) ($env['CACHE_REDIS_TIMEOUT'] ?? env('CACHE_REDIS_TIMEOUT', '0')),
+                'CACHE_REDIS_PREFIX' => (string) ($env['CACHE_REDIS_PREFIX'] ?? env('CACHE_REDIS_PREFIX', 'vmq_')),
+                'CACHE_REDIS_PERSISTENT' => (string) ($env['CACHE_REDIS_PERSISTENT'] ?? env('CACHE_REDIS_PERSISTENT', 'false')),
+                'SESSION_TYPE' => (string) ($env['SESSION_TYPE'] ?? env('SESSION_TYPE', 'cache')),
+                'SESSION_STORE' => (string) ($env['SESSION_STORE'] ?? env('SESSION_STORE', '')),
                 'DB_TYPE' => (string) ($env['DB_TYPE'] ?? env('DB_TYPE', 'mysql')),
                 'DB_HOST' => (string) ($env['DB_HOST'] ?? env('DB_HOST', '127.0.0.1')),
                 'DB_NAME' => (string) ($env['DB_NAME'] ?? env('DB_NAME', '')),
@@ -356,6 +388,26 @@ class Wizard extends BaseController
             }
         }
 
+        $appKey = trim((string) ($env['APP_KEY'] ?? ''));
+        if (!KeyEncryptionService::isValidAppKey($appKey)) {
+            $errors[] = 'APP_KEY 格式无效，需为 64 位十六进制字符串';
+        }
+
+        $cacheDriver = trim((string) ($env['CACHE_DRIVER'] ?? 'file'));
+        if (!in_array($cacheDriver, ['file', 'redis'], true)) {
+            $errors[] = '缓存驱动仅支持 file 或 redis';
+        }
+
+        $cookieSecure = trim((string) ($env['COOKIE_SECURE'] ?? 'true'));
+        if (!in_array($cookieSecure, ['true', 'false', '1', '0'], true)) {
+            $errors[] = 'COOKIE_SECURE 仅支持 true 或 false';
+        }
+
+        $sessionType = trim((string) ($env['SESSION_TYPE'] ?? 'cache'));
+        if (!in_array($sessionType, ['file', 'cache'], true)) {
+            $errors[] = 'Session 驱动仅支持 file 或 cache';
+        }
+
         if (trim((string) $this->request->post('admin_user', '')) === '') {
             $errors[] = '管理员账号不能为空';
         }
@@ -372,6 +424,32 @@ class Wizard extends BaseController
         }
 
         return $errors;
+    }
+
+    /**
+     * @param array<string, mixed> $env
+     */
+    private function resolveInstallAppKey(array $env): string
+    {
+        $candidate = (string) ($env['APP_KEY'] ?? env('APP_KEY', ''));
+        if (KeyEncryptionService::isValidAppKey($candidate)) {
+            return trim($candidate);
+        }
+
+        return KeyEncryptionService::generateAppKey();
+    }
+
+    private function migrateLegacySignKey(string $appKey): void
+    {
+        $storedKey = Setting::getConfigValue('key');
+        $encryption = new KeyEncryptionService($appKey);
+        if ($storedKey === '' || $encryption->isEncrypted($storedKey)) {
+            return;
+        }
+
+        if (!Setting::setConfigValue('key', $encryption->encrypt($storedKey))) {
+            throw new \RuntimeException('旧版签名密钥迁移失败');
+        }
     }
 
     /**

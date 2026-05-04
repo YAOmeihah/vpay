@@ -8,7 +8,9 @@ use app\service\install\AdminBootstrapService;
 use app\service\install\DatabaseBootstrapService;
 use app\service\install\EnvWriter;
 use app\service\install\InstallStepService;
+use app\service\security\KeyEncryptionService;
 use PDO;
+use think\facade\Env as EnvFacade;
 
 final class InstallBootstrapServicesTest extends TestCase
 {
@@ -28,7 +30,9 @@ final class InstallBootstrapServicesTest extends TestCase
 
         self::assertSame('owner', Setting::getConfigValue('user'));
         self::assertTrue(password_verify('owner-password-123', Setting::getConfigValue('pass')));
-        self::assertNotSame('', Setting::getConfigValue('key'));
+        $storedKey = Setting::getConfigValue('key');
+        self::assertStringStartsWith('enc:', $storedKey);
+        self::assertNotSame('', (new KeyEncryptionService())->decrypt($storedKey));
         self::assertSame('installed', Setting::getConfigValue('install_status'));
         self::assertSame('2.1.0', Setting::getConfigValue('schema_version'));
         self::assertSame('2.1.0', Setting::getConfigValue('app_version'));
@@ -51,6 +55,50 @@ final class InstallBootstrapServicesTest extends TestCase
         self::assertFalse($result['written']);
         self::assertStringContainsString('DB_HOST = 127.0.0.1', $result['content']);
         self::assertStringContainsString('DB_NAME = vmqphp8', $result['content']);
+        self::assertStringContainsString('COOKIE_SECURE = true', $result['content']);
+        self::assertStringContainsString('SESSION_TYPE = cache', $result['content']);
+        self::assertSame('file', $result['values']['CACHE_DRIVER']);
+        self::assertSame('true', $result['values']['COOKIE_SECURE']);
+        self::assertSame('cache', $result['values']['SESSION_TYPE']);
+        self::assertTrue(KeyEncryptionService::isValidAppKey($result['values']['APP_KEY']));
+    }
+
+    public function test_env_writer_can_backfill_missing_app_key_for_upgrade(): void
+    {
+        $original = (string) env('APP_KEY', '');
+        $writer = new class extends EnvWriter {
+            public string $writtenContent = '';
+
+            protected function mergeAppKeyIntoEnvFile(string $path, string $appKey): string
+            {
+                return 'APP_KEY = ' . $appKey . PHP_EOL;
+            }
+
+            protected function writeTarget(string $path, string $content): bool
+            {
+                $this->writtenContent = $content;
+
+                return true;
+            }
+        };
+
+        $_ENV['APP_KEY'] = '';
+        EnvFacade::set('APP_KEY', '');
+        putenv('PHP_APP_KEY=');
+
+        try {
+            $result = $writer->ensureAppKey();
+
+            self::assertTrue($result['written']);
+            self::assertTrue($result['changed']);
+            self::assertTrue(KeyEncryptionService::isValidAppKey($result['values']['APP_KEY']));
+            self::assertStringContainsString('APP_KEY = ' . $result['values']['APP_KEY'], $writer->writtenContent);
+            self::assertSame($result['values']['APP_KEY'], env('APP_KEY'));
+        } finally {
+            $_ENV['APP_KEY'] = $original;
+            EnvFacade::set('APP_KEY', $original);
+            putenv('PHP_APP_KEY=' . $original);
+        }
     }
 
     public function test_database_bootstrap_split_statements_skips_bom_prefixed_comment_lines(): void
@@ -131,6 +179,7 @@ final class InstallBootstrapServicesTest extends TestCase
                             'written' => true,
                             'path' => '/tmp/.env',
                             'content' => 'APP_DEBUG = false',
+                            'values' => ['APP_KEY' => str_repeat('a', 64)],
                         ];
                     }
                 };
@@ -180,6 +229,7 @@ final class InstallBootstrapServicesTest extends TestCase
 
         self::assertSame('owner', $rows['user']);
         self::assertSame('installed', $rows['install_status']);
-        self::assertNotSame('', $rows['key']);
+        self::assertStringStartsWith('enc:', $rows['key']);
+        self::assertNotSame('', (new KeyEncryptionService(str_repeat('a', 64)))->decrypt($rows['key']));
     }
 }

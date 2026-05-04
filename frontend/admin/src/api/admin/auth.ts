@@ -20,7 +20,14 @@ export const adminLogin = (data: { user: string; pass: string }) =>
   });
 
 export const getAdminProfile = () =>
-  http.request<AdminProfile>("get", "/admin/index/profile");
+  http.request<AdminProfile>(
+    "get",
+    "/admin/index/profile",
+    {},
+    {
+      skipUnauthorizedLogout: true
+    }
+  );
 
 export const adminLogout = () =>
   http.request<{ code: number; msg: string; data: null }>(

@@ -176,7 +176,7 @@ class ControllerEdgeServiceRegressionTest extends TestCase
         $securityConfig = (string) file_get_contents(self::$rootPath . 'config/security.php');
         $sessionConfig = (string) file_get_contents(self::$rootPath . 'config/session.php');
 
-        $this->assertStringContainsString("'secure'    => env('COOKIE_SECURE', true),", $cookieConfig);
+        $this->assertStringContainsString("'secure'    => env('COOKIE_SECURE', !filter_var(env('APP_DEBUG', false), FILTER_VALIDATE_BOOLEAN)),", $cookieConfig);
         $this->assertStringContainsString("'httponly'  => true,", $cookieConfig);
         $this->assertStringContainsString("'samesite'  => 'lax',", $cookieConfig);
         $this->assertStringContainsString("'Strict-Transport-Security'", $securityConfig);

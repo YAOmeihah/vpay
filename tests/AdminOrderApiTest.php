@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace tests;
 
-use app\controller\Admin;
+use app\controller\admin\Order as AdminOrderController;
 use app\model\MonitorTerminal;
 use app\model\PayOrder;
 use think\facade\Db;
@@ -62,7 +62,7 @@ final class AdminOrderApiTest extends TestCase
 
         $this->app->instance('request', $request);
 
-        $controller = new Admin($this->app);
+        $controller = new AdminOrderController($this->app);
         $response = $controller->getOrders();
         $payload = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
 

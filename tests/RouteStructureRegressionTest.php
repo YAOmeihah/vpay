@@ -28,9 +28,9 @@ final class RouteStructureRegressionTest extends TestCase
         $this->assertRouteMapping($output, 'install/recover', 'install.Wizard/recover', '\*');
         $this->assertRouteMapping($output, 'login', 'admin.Auth/login', 'post');
         $this->assertRootRouteMapping($output);
-        $this->assertRouteMapping($output, 'enQrcode', 'admin/enQrcode', 'get');
+        $this->assertRouteMapping($output, 'enQrcode', 'admin.Qrcode/enQrcode', 'get');
         $this->assertDoesNotMatchRegularExpression('/\|\s+getMenu\s+\|/', $output);
-        $this->assertRouteMapping($output, 'admin/index/getMain', 'admin/getMain', '\*');
+        $this->assertRouteMapping($output, 'admin/index/getMain', 'admin.Dashboard/getMain', '\*');
         $this->assertRouteMapping($output, 'createOrder', 'merchant.Order/createOrder', '\*');
         $this->assertRouteMapping($output, 'getOrder', 'merchant.Order/getOrder', '\*');
         $this->assertRouteMapping($output, 'checkOrder', 'merchant.Order/checkOrder', '\*');
@@ -40,8 +40,8 @@ final class RouteStructureRegressionTest extends TestCase
         $monitorRoutes = (string) file_get_contents(dirname(__DIR__) . DIRECTORY_SEPARATOR . 'route' . DIRECTORY_SEPARATOR . 'monitor.php');
         $this->assertStringContainsString("Route::post('appPush', 'monitor.Monitor/appPush');", $monitorRoutes);
         $this->assertRouteMapping($output, 'closeEndOrder', 'monitor.Monitor/closeEndOrder', '\*');
-        $this->assertRouteMapping($output, 'admin/index/profile', 'admin/profile', '\*');
-        $this->assertRouteMapping($output, 'admin/index/logout', 'admin/logout', 'post');
+        $this->assertRouteMapping($output, 'admin/index/profile', 'admin.Profile/profile', '\*');
+        $this->assertRouteMapping($output, 'admin/index/logout', 'admin.Profile/logout', 'post');
 
         $installRoutes = (string) file_get_contents(dirname(__DIR__) . DIRECTORY_SEPARATOR . 'route' . DIRECTORY_SEPARATOR . 'install.php');
         $this->assertLessThan(

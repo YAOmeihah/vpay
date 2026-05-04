@@ -36,7 +36,7 @@ class EnsureSystemInstalled
 
     public function handle(Request $request, Closure $next): Response
     {
-        $guard = new InstallGuardService();
+        $guard = app()->make(InstallGuardService::class);
         if ($guard->shouldBypass($request)) {
             return $next($request);
         }

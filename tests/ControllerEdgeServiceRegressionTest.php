@@ -5,6 +5,7 @@ namespace tests;
 
 use app\controller\Admin;
 use app\controller\admin\Auth as AdminAuthController;
+use app\controller\admin\Dashboard as AdminDashboardController;
 use app\controller\merchant\Order as MerchantOrderController;
 use app\service\CacheService;
 use app\service\OrderCreationKernel;
@@ -157,19 +158,148 @@ class ControllerEdgeServiceRegressionTest extends TestCase
 
         $this->assertStringContainsString('use app\\middleware\\AdminCsrf;', $adminRoutes);
         $this->assertStringContainsString("Route::post('login', 'admin.Auth/login')->middleware(AdminCsrf::class);", $adminRoutes);
-        $this->assertStringContainsString("Route::post('saveSetting', 'admin/saveSetting');", $adminRoutes);
-        $this->assertStringContainsString("Route::post('addPayQrcode', 'admin/addPayQrcode');", $adminRoutes);
-        $this->assertStringContainsString("Route::post('delPayQrcode', 'admin/delPayQrcode');", $adminRoutes);
-        $this->assertStringContainsString("Route::post('delOrder', 'admin/delOrder');", $adminRoutes);
-        $this->assertStringContainsString("Route::post('setBd', 'admin/setBd');", $adminRoutes);
-        $this->assertStringContainsString("Route::post('delGqOrder', 'admin/delGqOrder');", $adminRoutes);
-        $this->assertStringContainsString("Route::post('delLastOrder', 'admin/delLastOrder');", $adminRoutes);
+        $this->assertStringContainsString("Route::post('saveSetting', 'admin.Settings/saveSetting');", $adminRoutes);
+        $this->assertStringContainsString("Route::post('addPayQrcode', 'admin.Qrcode/addPayQrcode');", $adminRoutes);
+        $this->assertStringContainsString("Route::post('delPayQrcode', 'admin.Qrcode/delPayQrcode');", $adminRoutes);
+        $this->assertStringContainsString("Route::post('delOrder', 'admin.Order/delOrder');", $adminRoutes);
+        $this->assertStringContainsString("Route::post('setBd', 'admin.Order/setBd');", $adminRoutes);
+        $this->assertStringContainsString("Route::post('delGqOrder', 'admin.Order/delGqOrder');", $adminRoutes);
+        $this->assertStringContainsString("Route::post('delLastOrder', 'admin.Order/delLastOrder');", $adminRoutes);
         $this->assertStringContainsString('->middleware(AdminCsrf::class);', $adminRoutes);
 
         $this->assertStringContainsString("Route::any('createOrder', 'merchant.Order/createOrder');", $merchantRoutes);
         $this->assertStringContainsString("Route::any('getOrder', 'merchant.Order/getOrder');", $merchantRoutes);
         $this->assertStringContainsString("Route::any('checkOrder', 'merchant.Order/checkOrder');", $merchantRoutes);
         $this->assertStringContainsString("Route::any('closeOrder', 'merchant.Order/closeOrder');", $merchantRoutes);
+    }
+
+    public function test_admin_index_routes_keep_paths_but_delegate_to_smaller_controllers(): void
+    {
+        $adminRoutes = (string) file_get_contents(self::$rootPath . 'route/admin.php');
+
+        foreach ([
+            "Route::any('getMain', 'admin.Dashboard/getMain');",
+            "Route::any('getSettings', 'admin.Settings/getSettings');",
+            "Route::post('saveSetting', 'admin.Settings/saveSetting');",
+            "Route::any('getTerminals', 'admin.Terminal/getTerminals');",
+            "Route::any('getTerminal', 'admin.Terminal/getTerminal');",
+            "Route::post('saveTerminal', 'admin.Terminal/saveTerminal');",
+            "Route::post('deleteTerminal', 'admin.Terminal/deleteTerminal');",
+            "Route::post('toggleTerminal', 'admin.Terminal/toggleTerminal');",
+            "Route::post('resetTerminalKey', 'admin.Terminal/resetTerminalKey');",
+            "Route::any('getTerminalChannels', 'admin.Terminal/getTerminalChannels');",
+            "Route::post('saveTerminalChannel', 'admin.Terminal/saveTerminalChannel');",
+            "Route::post('toggleTerminalChannel', 'admin.Terminal/toggleTerminalChannel');",
+            "Route::post('addPayQrcode', 'admin.Qrcode/addPayQrcode');",
+            "Route::any('getPayQrcodes', 'admin.Qrcode/getPayQrcodes');",
+            "Route::post('delPayQrcode', 'admin.Qrcode/delPayQrcode');",
+            "Route::post('decodeQrcode', 'admin.Qrcode/decodeQrcode');",
+            "Route::any('getOrders', 'admin.Order/getOrders');",
+            "Route::post('createPaymentTestOrder', 'admin.PaymentTest/createPaymentTestOrder');",
+            "Route::any('getPaymentTestOrder', 'admin.PaymentTest/getPaymentTestOrder');",
+            "Route::any('getPaymentTestCallback', 'admin.PaymentTest/getPaymentTestCallback');",
+            "Route::post('delOrder', 'admin.Order/delOrder');",
+            "Route::post('setBd', 'admin.Order/setBd');",
+            "Route::post('delGqOrder', 'admin.Order/delGqOrder');",
+            "Route::post('delLastOrder', 'admin.Order/delLastOrder');",
+            "Route::any('profile', 'admin.Profile/profile');",
+            "Route::post('logout', 'admin.Profile/logout');",
+            "Route::any('enQrcode', 'admin.Qrcode/enQrcode');",
+        ] as $routeDefinition) {
+            $this->assertStringContainsString($routeDefinition, $adminRoutes);
+        }
+
+        foreach ([
+            "'admin/getMain'",
+            "'admin/getSettings'",
+            "'admin/saveSetting'",
+            "'admin/getTerminals'",
+            "'admin/getPayQrcodes'",
+            "'admin/getOrders'",
+            "'admin/createPaymentTestOrder'",
+            "'admin/profile'",
+            "'admin/enQrcode'",
+        ] as $legacyTarget) {
+            $this->assertStringNotContainsString($legacyTarget, $adminRoutes);
+        }
+    }
+
+    public function test_admin_controller_does_not_keep_proxy_methods_for_moved_actions(): void
+    {
+        $methods = get_class_methods(Admin::class);
+
+        $this->assertContains('index', $methods);
+
+        foreach ([
+            'getMain',
+            'profile',
+            'logout',
+            'createPaymentTestOrder',
+            'getPaymentTestOrder',
+            'getPaymentTestCallback',
+            'checkUpdate',
+            'getSettings',
+            'saveSetting',
+            'getTerminals',
+            'getTerminal',
+            'saveTerminal',
+            'toggleTerminal',
+            'deleteTerminal',
+            'resetTerminalKey',
+            'getTerminalChannels',
+            'saveTerminalChannel',
+            'toggleTerminalChannel',
+            'addPayQrcode',
+            'getPayQrcodes',
+            'delPayQrcode',
+            'decodeQrcode',
+            'getOrders',
+            'delOrder',
+            'setBd',
+            'delGqOrder',
+            'delLastOrder',
+            'enQrcode',
+        ] as $movedMethod) {
+            $this->assertNotContains($movedMethod, $methods);
+        }
+    }
+
+    public function test_moved_admin_controllers_return_api_responses_through_helpers(): void
+    {
+        foreach ([
+            'app/controller/admin/Dashboard.php',
+            'app/controller/admin/Settings.php',
+            'app/controller/admin/Profile.php',
+            'app/controller/admin/PaymentTest.php',
+            'app/controller/admin/Terminal.php',
+            'app/controller/admin/Qrcode.php',
+            'app/controller/admin/Order.php',
+        ] as $relativePath) {
+            $source = (string) file_get_contents(self::$rootPath . $relativePath);
+            $this->assertStringNotContainsString(
+                'json($this->getReturn(',
+                $source,
+                $relativePath . ' should use ApiResponse helpers instead of redundant json(getReturn()) wrapping.'
+            );
+        }
+    }
+
+    public function test_reviewed_services_resolve_collaborators_through_container(): void
+    {
+        $adminSettingsSource = (string) file_get_contents(self::$rootPath . 'app/service/admin/AdminSettingsService.php');
+        $securityMiddlewareSource = (string) file_get_contents(self::$rootPath . 'app/middleware/Security.php');
+        $installMiddlewareSource = (string) file_get_contents(self::$rootPath . 'app/middleware/EnsureSystemInstalled.php');
+
+        foreach ([
+            'new KeyEncryptionService',
+            'new DashboardStatsService',
+            'new SettingConfigRepository',
+        ] as $directInstantiation) {
+            $this->assertStringNotContainsString($directInstantiation, $adminSettingsSource);
+        }
+
+        $this->assertStringNotContainsString('new LoginAttemptLimiter', $securityMiddlewareSource);
+        $this->assertStringNotContainsString('new InstallGuardService', $installMiddlewareSource);
     }
 
     public function test_cookie_configuration_hardens_session_cookie_defaults(): void
@@ -858,7 +988,7 @@ class ControllerEdgeServiceRegressionTest extends TestCase
 
     public function test_admin_sys_uptime_degrades_gracefully_when_proc_probe_is_blocked(): void
     {
-        $controller = new class(self::$app) extends Admin {
+        $controller = new class(self::$app) extends AdminDashboardController {
             public bool $osProbeUsed = false;
             public bool $procProbeUsed = false;
 
@@ -875,7 +1005,7 @@ class ControllerEdgeServiceRegressionTest extends TestCase
             }
         };
 
-        $method = new \ReflectionMethod(Admin::class, 'sys_uptime');
+        $method = new \ReflectionMethod(AdminDashboardController::class, 'sys_uptime');
         $method->setAccessible(true);
         $result = $method->invoke($controller);
 
@@ -887,12 +1017,14 @@ class ControllerEdgeServiceRegressionTest extends TestCase
     public function test_admin_and_monitor_sources_avoid_risky_legacy_patterns(): void
     {
         $adminSource = (string) file_get_contents(self::$rootPath . 'app/controller/Admin.php');
+        $dashboardSource = (string) file_get_contents(self::$rootPath . 'app/controller/admin/Dashboard.php');
         $monitorSource = (string) file_get_contents(self::$rootPath . 'app/service/MonitorService.php');
         $installStateSource = (string) file_get_contents(self::$rootPath . 'app/service/install/InstallStateService.php');
 
         $this->assertStringNotContainsString('executeShellCommand(', $adminSource);
         $this->assertStringNotContainsString('SELECT VERSION()', $adminSource);
         $this->assertStringNotContainsString('<font', $adminSource);
+        $this->assertStringNotContainsString('@file_get_contents', $dashboardSource);
         $this->assertStringNotContainsString('TmpPrice::select()', $monitorSource);
         $this->assertStringContainsString('whereNotIn', $monitorSource);
         $this->assertStringContainsString('whereNotNull', $monitorSource);
@@ -901,10 +1033,10 @@ class ControllerEdgeServiceRegressionTest extends TestCase
 
     public function test_admin_decode_qrcode_uses_business_error_code_for_decode_failures(): void
     {
-        $source = (string) file_get_contents(self::$rootPath . 'app/controller/Admin.php');
+        $source = (string) file_get_contents(self::$rootPath . 'app/controller/admin/Qrcode.php');
 
         $this->assertStringContainsString(
-            'getReturn(-2, "二维码识别失败")',
+            'error("二维码识别失败", -2)',
             $source,
             'QR decode failure should not reuse the -1 unauthorized code path.'
         );

@@ -154,16 +154,16 @@ class AdminSettingsService
 
     protected function keyEncryptionService(): KeyEncryptionService
     {
-        return new KeyEncryptionService();
+        return app()->make(KeyEncryptionService::class);
     }
 
     protected function dashboardStatsService(): DashboardStatsService
     {
-        return new DashboardStatsService();
+        return app()->make(DashboardStatsService::class);
     }
 
     protected function configRepository(): SettingConfigRepository
     {
-        return new SettingConfigRepository();
+        return app()->make(SettingConfigRepository::class);
     }
 }

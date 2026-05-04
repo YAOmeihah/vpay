@@ -70,6 +70,6 @@ class Security
 
     private function loginAttemptLimiter(): LoginAttemptLimiter
     {
-        return new LoginAttemptLimiter();
+        return app()->make(LoginAttemptLimiter::class);
     }
 }

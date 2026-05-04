@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace tests;
 
-use app\controller\Admin;
+use app\controller\admin\Profile as AdminProfileController;
 use app\middleware\AdminAuth;
 use PHPUnit\Framework\TestCase as BaseTestCase;
 use think\App;
@@ -56,7 +56,7 @@ final class AdminAuthMiddlewareTest extends BaseTestCase
 
         self::$app->instance('request', $request);
 
-        $controller = new Admin(self::$app);
+        $controller = new AdminProfileController(self::$app);
         $response = $controller->profile();
         $payload = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
 

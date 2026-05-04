@@ -6,7 +6,7 @@ namespace app\service\payment;
 use app\model\PayOrder;
 use app\service\CacheService;
 use app\service\NotifyService;
-use app\service\OrderService;
+use app\service\SignService;
 use think\facade\Cache;
 
 class PaymentTestLabService
@@ -49,6 +49,7 @@ class PaymentTestLabService
             $returnUrl = $this->internalCallbackUrl($normalizedBase, 'return', $callbackToken);
         }
 
+        $signType = $this->normalizeSignType($input['signType'] ?? '');
         $request = [
             'payId' => $payId,
             'type' => $type,
@@ -56,10 +57,23 @@ class PaymentTestLabService
             'param' => $param,
             'notifyUrl' => $notifyUrl,
             'returnUrl' => $returnUrl,
+            'signType' => $signType,
         ];
+        $request['sign'] = SignService::makeCreateOrderSign(
+            $payId,
+            $param,
+            $type,
+            $price,
+            $signType
+        );
 
-        $order = OrderService::createOrder($request);
+        $merchantResponse = $this->postCreateOrder($normalizedBase . '/createOrder', $request);
+        $order = $this->extractCreatedOrder($merchantResponse);
         $record = PayOrder::where('order_id', $order['orderId'])->find();
+        if (!$record) {
+            throw new \RuntimeException('测试订单创建后未找到订单记录');
+        }
+
         $this->cacheCallbackToken($payId, $callbackToken);
         $this->cacheCallbackToken((string)$order['orderId'], $callbackToken);
 
@@ -207,6 +221,86 @@ class PaymentTestLabService
             'assignStatus' => (string)$record['assign_status'],
             'assignReason' => (string)$record['assign_reason'],
         ];
+    }
+
+    private function normalizeSignType(mixed $value): string
+    {
+        $signType = SignService::normalizeRequestedSignType((string)$value);
+        if ($signType === null) {
+            throw new \RuntimeException('签名算法不支持');
+        }
+
+        return $signType;
+    }
+
+    /**
+     * @param array<string, mixed> $response
+     * @return array<string, mixed>
+     */
+    private function extractCreatedOrder(array $response): array
+    {
+        if ((int)($response['code'] ?? -1) !== 1) {
+            $message = trim((string)($response['msg'] ?? ''));
+            throw new \RuntimeException($message !== '' ? $message : '商户下单失败');
+        }
+
+        $data = $response['data'] ?? null;
+        if (!is_array($data) || trim((string)($data['orderId'] ?? '')) === '') {
+            throw new \RuntimeException('商户下单接口返回格式错误');
+        }
+
+        return $data;
+    }
+
+    /**
+     * @param array<string, mixed> $request
+     * @return array<string, mixed>
+     */
+    protected function postCreateOrder(string $url, array $request): array
+    {
+        if (!function_exists('curl_init')) {
+            throw new \RuntimeException('PHP cURL 扩展不可用，无法调用商户下单接口');
+        }
+
+        $curl = curl_init($url);
+        if ($curl === false) {
+            throw new \RuntimeException('调用商户下单接口失败');
+        }
+
+        curl_setopt_array($curl, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => http_build_query($request),
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 10,
+            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_FOLLOWLOCATION => false,
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
+            CURLOPT_ENCODING => 'gzip',
+            CURLOPT_HTTPHEADER => [
+                'Content-Type: application/x-www-form-urlencoded',
+            ],
+        ]);
+
+        $body = curl_exec($curl);
+        $error = trim(curl_error($curl));
+        $httpCode = (int)(curl_getinfo($curl, CURLINFO_RESPONSE_CODE) ?: 0);
+        curl_close($curl);
+
+        if (!is_string($body)) {
+            throw new \RuntimeException($error !== '' ? '调用商户下单接口失败: ' . $error : '调用商户下单接口失败');
+        }
+
+        if ($httpCode < 200 || $httpCode >= 300) {
+            throw new \RuntimeException('调用商户下单接口失败: HTTP ' . $httpCode);
+        }
+
+        $decoded = json_decode($body, true);
+        if (!is_array($decoded)) {
+            throw new \RuntimeException('商户下单接口返回格式错误');
+        }
+
+        return $decoded;
     }
 
     private function normalizePrice(mixed $value): string

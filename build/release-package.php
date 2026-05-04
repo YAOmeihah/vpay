@@ -8,7 +8,7 @@ require __DIR__ . '/release/ReleasePackageBuilder.php';
 $root = dirname(__DIR__);
 $options = getopt('', ['version::', 'output::']);
 $version = (string) ($options['version'] ?? getenv('GITHUB_REF_NAME') ?: detectAppVersion($root));
-$output = (string) ($options['output'] ?? ($root . DIRECTORY_SEPARATOR . 'build' . DIRECTORY_SEPARATOR . 'releases'));
+$output = (string) ($options['output'] ?? (sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'vpay-release-packages'));
 
 $builder = new ReleasePackageBuilder($root);
 $packageDir = $builder->stage($version, $output);

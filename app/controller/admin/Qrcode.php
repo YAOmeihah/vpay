@@ -5,6 +5,7 @@ namespace app\controller\admin;
 
 use app\BaseController;
 use app\model\PayQrcode;
+use chillerlan\QRCode\Output\QROutputInterface;
 use chillerlan\QRCode\QRCode as ChillerlanQRCode;
 use chillerlan\QRCode\QROptions;
 
@@ -108,25 +109,20 @@ class Qrcode extends BaseController
         }
 
         try {
-            $qrCode = new \Endroid\QrCode\QrCode(
-                data: $url,
-                encoding: new \Endroid\QrCode\Encoding\Encoding('UTF-8'),
-                errorCorrectionLevel: \Endroid\QrCode\ErrorCorrectionLevel::Low,
-                size: 200,
-                margin: 10,
-                roundBlockSizeMode: \Endroid\QrCode\RoundBlockSizeMode::Margin,
-                foregroundColor: new \Endroid\QrCode\Color\Color(0, 0, 0),
-                backgroundColor: new \Endroid\QrCode\Color\Color(255, 255, 255)
-            );
-
-            $writer = new \Endroid\QrCode\Writer\PngWriter();
-            $result = $writer->write($qrCode);
-
-            return response($result->getString(), 200, [
-                'Content-Type' => 'image/png',
-                'Content-Length' => strlen($result->getString())
+            $options = new QROptions([
+                'outputType' => QROutputInterface::GDIMAGE_PNG,
+                'outputBase64' => false,
+                'scale' => 5,
+                'addQuietzone' => true,
+                'quietzoneSize' => 2,
             ]);
-        } catch (\Exception $e) {
+            $imageBlob = (string)(new ChillerlanQRCode($options))->render($url);
+
+            return response($imageBlob, 200, [
+                'Content-Type' => 'image/png',
+                'Content-Length' => strlen($imageBlob)
+            ]);
+        } catch (\Throwable $e) {
             return $this->error("二维码生成失败: " . $e->getMessage());
         }
     }

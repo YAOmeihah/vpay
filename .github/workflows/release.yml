@@ -73,12 +73,12 @@ jobs:
           echo "package_name=vpay-$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Stage release package
-        run: php build/release-package.php --version="${{ steps.version.outputs.version }}" --output=build/releases
+        run: php build/release-package.php --version="${{ steps.version.outputs.version }}" --output="${{ runner.temp }}/vpay-releases"
 
       - name: Archive release package
         shell: bash
         run: |
-          cd build/releases
+          cd "${{ runner.temp }}/vpay-releases"
           zip -r "${{ steps.version.outputs.package_name }}.zip" "${{ steps.version.outputs.package_name }}"
           sha256sum "${{ steps.version.outputs.package_name }}.zip" > "${{ steps.version.outputs.package_name }}.zip.sha256"
 
@@ -87,8 +87,8 @@ jobs:
         with:
           name: "${{ steps.version.outputs.package_name }}-full"
           path: |
-            build/releases/${{ steps.version.outputs.package_name }}.zip
-            build/releases/${{ steps.version.outputs.package_name }}.zip.sha256
+            ${{ runner.temp }}/vpay-releases/${{ steps.version.outputs.package_name }}.zip
+            ${{ runner.temp }}/vpay-releases/${{ steps.version.outputs.package_name }}.zip.sha256
           if-no-files-found: error
 
       - name: Publish GitHub Release asset
@@ -98,8 +98,8 @@ jobs:
         shell: bash
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          ZIP="build/releases/${{ steps.version.outputs.package_name }}.zip"
-          SHA256="build/releases/${{ steps.version.outputs.package_name }}.zip.sha256"
+          ZIP="${{ runner.temp }}/vpay-releases/${{ steps.version.outputs.package_name }}.zip"
+          SHA256="${{ runner.temp }}/vpay-releases/${{ steps.version.outputs.package_name }}.zip.sha256"
           if gh release view "$VERSION" >/dev/null 2>&1; then
             gh release upload "$VERSION" "$ZIP" "$SHA256" --clobber
           else

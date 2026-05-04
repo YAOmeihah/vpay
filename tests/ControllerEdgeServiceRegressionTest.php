@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace tests;
 
-use app\controller\Admin;
 use app\controller\admin\Auth as AdminAuthController;
 use app\controller\admin\Dashboard as AdminDashboardController;
 use app\controller\merchant\Order as MerchantOrderController;
@@ -17,12 +16,9 @@ use app\service\order\OrderStateManager;
 use app\service\security\KeyEncryptionService;
 use app\service\security\LoginAttemptLimiter;
 use app\command\CacheManage;
+use chillerlan\QRCode\Output\QROutputInterface;
 use chillerlan\QRCode\QRCode;
 use chillerlan\QRCode\QROptions;
-use Endroid\QrCode\Color\Color;
-use Endroid\QrCode\Encoding\Encoding;
-use Endroid\QrCode\RoundBlockSizeMode;
-use Endroid\QrCode\Writer\PngWriter;
 use PHPUnit\Framework\TestCase;
 use think\App;
 use think\facade\View;
@@ -224,44 +220,9 @@ class ControllerEdgeServiceRegressionTest extends TestCase
         }
     }
 
-    public function test_admin_controller_does_not_keep_proxy_methods_for_moved_actions(): void
+    public function test_legacy_admin_controller_placeholder_is_removed(): void
     {
-        $methods = get_class_methods(Admin::class);
-
-        $this->assertContains('index', $methods);
-
-        foreach ([
-            'getMain',
-            'profile',
-            'logout',
-            'createPaymentTestOrder',
-            'getPaymentTestOrder',
-            'getPaymentTestCallback',
-            'checkUpdate',
-            'getSettings',
-            'saveSetting',
-            'getTerminals',
-            'getTerminal',
-            'saveTerminal',
-            'toggleTerminal',
-            'deleteTerminal',
-            'resetTerminalKey',
-            'getTerminalChannels',
-            'saveTerminalChannel',
-            'toggleTerminalChannel',
-            'addPayQrcode',
-            'getPayQrcodes',
-            'delPayQrcode',
-            'decodeQrcode',
-            'getOrders',
-            'delOrder',
-            'setBd',
-            'delGqOrder',
-            'delLastOrder',
-            'enQrcode',
-        ] as $movedMethod) {
-            $this->assertNotContains($movedMethod, $methods);
-        }
+        $this->assertFileDoesNotExist(self::$rootPath . 'app/controller/Admin.php');
     }
 
     public function test_moved_admin_controllers_return_api_responses_through_helpers(): void
@@ -1016,14 +977,10 @@ class ControllerEdgeServiceRegressionTest extends TestCase
 
     public function test_admin_and_monitor_sources_avoid_risky_legacy_patterns(): void
     {
-        $adminSource = (string) file_get_contents(self::$rootPath . 'app/controller/Admin.php');
         $dashboardSource = (string) file_get_contents(self::$rootPath . 'app/controller/admin/Dashboard.php');
         $monitorSource = (string) file_get_contents(self::$rootPath . 'app/service/MonitorService.php');
         $installStateSource = (string) file_get_contents(self::$rootPath . 'app/service/install/InstallStateService.php');
 
-        $this->assertStringNotContainsString('executeShellCommand(', $adminSource);
-        $this->assertStringNotContainsString('SELECT VERSION()', $adminSource);
-        $this->assertStringNotContainsString('<font', $adminSource);
         $this->assertStringNotContainsString('@file_get_contents', $dashboardSource);
         $this->assertStringNotContainsString('TmpPrice::select()', $monitorSource);
         $this->assertStringContainsString('whereNotIn', $monitorSource);
@@ -1055,17 +1012,13 @@ class ControllerEdgeServiceRegressionTest extends TestCase
     public function test_chillerlan_decoder_can_read_a_generated_payment_qr_blob(): void
     {
         $payload = 'weixin://wxpay/mock-merchant-pay-code';
-        $qrCode = new \Endroid\QrCode\QrCode(
-            data: $payload,
-            encoding: new Encoding('UTF-8'),
-            errorCorrectionLevel: \Endroid\QrCode\ErrorCorrectionLevel::Low,
-            size: 240,
-            margin: 12,
-            roundBlockSizeMode: RoundBlockSizeMode::Margin,
-            foregroundColor: new Color(0, 0, 0),
-            backgroundColor: new Color(255, 255, 255)
-        );
-        $blob = (new PngWriter())->write($qrCode)->getString();
+        $blob = (new QRCode(new QROptions([
+            'outputType' => QROutputInterface::GDIMAGE_PNG,
+            'outputBase64' => false,
+            'scale' => 5,
+            'addQuietzone' => true,
+            'quietzoneSize' => 2,
+        ])))->render($payload);
 
         $result = (new QRCode(new QROptions([
             'readerUseImagickIfAvailable' => true,
@@ -1077,14 +1030,10 @@ class ControllerEdgeServiceRegressionTest extends TestCase
     public function test_admin_auth_session_flow_uses_framework_session_api_only(): void
     {
         $authController = (string) file_get_contents(self::$rootPath . 'app/controller/admin/Auth.php');
-        $adminController = (string) file_get_contents(self::$rootPath . 'app/controller/Admin.php');
 
         $this->assertStringContainsString('Session::regenerate(false);', $authController);
         $this->assertStringNotContainsString('session_start(', $authController);
         $this->assertStringNotContainsString('session_regenerate_id(', $authController);
-
-        $this->assertStringNotContainsString('session_start(', $adminController);
-        $this->assertStringNotContainsString('session_regenerate_id(', $adminController);
     }
 
     // -----------------------------------------------------------------------

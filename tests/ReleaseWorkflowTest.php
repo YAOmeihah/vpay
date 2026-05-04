@@ -66,6 +66,18 @@ final class ReleaseWorkflowTest extends TestCase
         self::assertStringContainsString('gh release upload "$VERSION" "$ZIP" "$SHA256" --clobber', $workflow);
     }
 
+    public function test_release_workflow_stages_packages_outside_workspace(): void
+    {
+        $workflowPath = dirname(__DIR__) . DIRECTORY_SEPARATOR . '.github/workflows/release.yml';
+
+        self::assertFileExists($workflowPath);
+
+        $workflow = (string) file_get_contents($workflowPath);
+
+        self::assertStringContainsString('${{ runner.temp }}/vpay-releases', $workflow);
+        self::assertStringNotContainsString('--output=build/releases', $workflow);
+    }
+
     public function test_release_output_directory_is_ignored_by_git(): void
     {
         $gitignorePath = dirname(__DIR__) . DIRECTORY_SEPARATOR . '.gitignore';
@@ -75,5 +87,28 @@ final class ReleaseWorkflowTest extends TestCase
         $gitignore = (string) file_get_contents($gitignorePath);
 
         self::assertStringContainsString('/build/releases/', $gitignore);
+    }
+
+    public function test_local_release_package_default_output_stays_outside_project_tree(): void
+    {
+        $scriptPath = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'build' . DIRECTORY_SEPARATOR . 'release-package.php';
+
+        self::assertFileExists($scriptPath);
+
+        $script = (string) file_get_contents($scriptPath);
+
+        self::assertStringContainsString('sys_get_temp_dir()', $script);
+        self::assertStringNotContainsString("'build' . DIRECTORY_SEPARATOR . 'releases'", $script);
+    }
+
+    public function test_build_directory_denies_web_access_under_apache(): void
+    {
+        $htaccessPath = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'build' . DIRECTORY_SEPARATOR . '.htaccess';
+
+        self::assertFileExists($htaccessPath);
+
+        $htaccess = (string) file_get_contents($htaccessPath);
+
+        self::assertStringContainsString('Require all denied', $htaccess);
     }
 }

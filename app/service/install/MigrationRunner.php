@@ -32,6 +32,10 @@ class MigrationRunner
                         continue;
                     }
 
+                    if ($this->shouldSkipExistingColumnAdd($trimmed)) {
+                        continue;
+                    }
+
                     Db::execute($trimmed);
                 }
             } catch (\Throwable $exception) {
@@ -80,6 +84,31 @@ class MigrationRunner
         }
 
         return $statements;
+    }
+
+    private function shouldSkipExistingColumnAdd(string $statement): bool
+    {
+        if (!preg_match(
+            '/\AALTER\s+TABLE\s+`?([a-z0-9_]+)`?\s+ADD\s+(?:COLUMN\s+)?`?([a-z0-9_]+)`?\b/is',
+            $statement,
+            $matches
+        )) {
+            return false;
+        }
+
+        return $this->columnExists((string) $matches[1], (string) $matches[2]);
+    }
+
+    private function columnExists(string $table, string $column): bool
+    {
+        try {
+            $quotedTable = '`' . str_replace('`', '``', $table) . '`';
+            $escapedColumn = str_replace(["\\", "'"], ["\\\\", "\\'"], $column);
+
+            return Db::query("SHOW COLUMNS FROM {$quotedTable} LIKE '{$escapedColumn}'") !== [];
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     private function resolveTrustedMigrationPath(string $path): string

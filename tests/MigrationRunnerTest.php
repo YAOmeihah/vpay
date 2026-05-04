@@ -49,6 +49,19 @@ final class MigrationRunnerTest extends TestCase
         self::assertSame('2.1.1', Setting::getConfigValue('app_version'));
     }
 
+    public function test_runner_skips_add_column_migration_when_column_already_exists(): void
+    {
+        Setting::setConfigValue('schema_version', '2.1.12');
+        Setting::setConfigValue('app_version', '2.1.12');
+        Setting::setConfigValue('install_status', 'installed');
+
+        $runner = new MigrationRunner();
+        $runner->runPending('2.1.12', '2.1.13');
+
+        self::assertSame('2.1.13', Setting::getConfigValue('schema_version'));
+        self::assertSame('2.1.13', Setting::getConfigValue('app_version'));
+    }
+
     public function test_runner_statement_parser_skips_utf8_comment_lines(): void
     {
         $runner = new MigrationRunner();

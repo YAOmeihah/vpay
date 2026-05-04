@@ -44,7 +44,15 @@ class NotifyService
 
         if (static::isPaymentTestLabNotifyUrl($url)) {
             parse_str((string)(parse_url($url, PHP_URL_QUERY) ?? ''), $payload);
-            static::paymentTestLabService()->recordCallback('notify', $payload);
+            try {
+                static::paymentTestLabService()->recordCallback('notify', $payload);
+            } catch (\RuntimeException $e) {
+                return [
+                    'ok' => false,
+                    'detail' => $e->getMessage(),
+                    'response' => '',
+                ];
+            }
 
             return [
                 'ok' => true,

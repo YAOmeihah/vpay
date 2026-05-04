@@ -12,6 +12,7 @@ use think\facade\Cache;
 class PaymentTestLabService
 {
     private const CALLBACK_PREFIX = 'payment-test-lab:callback:';
+    private const CALLBACK_TOKEN_PREFIX = 'payment-test-lab:callback-token:';
     private const CALLBACK_TTL = 7200;
 
     /**
@@ -37,14 +38,15 @@ class PaymentTestLabService
         }
 
         $normalizedBase = $this->normalizeBaseUrl($baseUrl);
+        $callbackToken = $this->generateCallbackToken();
         $notifyUrl = trim((string)($input['notifyUrl'] ?? ''));
         if ($notifyUrl === '') {
-            $notifyUrl = $normalizedBase . '/payment-test/notify?vpayPaymentLab=1';
+            $notifyUrl = $this->internalCallbackUrl($normalizedBase, 'notify', $callbackToken);
         }
 
         $returnUrl = trim((string)($input['returnUrl'] ?? ''));
         if ($returnUrl === '') {
-            $returnUrl = $normalizedBase . '/payment-test/return?vpayPaymentLab=1';
+            $returnUrl = $this->internalCallbackUrl($normalizedBase, 'return', $callbackToken);
         }
 
         $request = [
@@ -58,6 +60,8 @@ class PaymentTestLabService
 
         $order = OrderService::createOrder($request);
         $record = PayOrder::where('order_id', $order['orderId'])->find();
+        $this->cacheCallbackToken($payId, $callbackToken);
+        $this->cacheCallbackToken((string)$order['orderId'], $callbackToken);
 
         return [
             'request' => $request,
@@ -126,6 +130,7 @@ class PaymentTestLabService
         $payId = trim((string)($normalizedPayload['payId'] ?? ''));
         $record = $payId !== '' ? PayOrder::where('pay_id', $payId)->find() : null;
         $orderId = $record ? (string)$record['order_id'] : trim((string)($normalizedPayload['orderId'] ?? ''));
+        $this->assertValidCallbackToken($normalizedPayload, $payId, $orderId);
 
         $callback = [
             'kind' => $kind,
@@ -240,5 +245,55 @@ class PaymentTestLabService
     private function callbackKey(string $value): string
     {
         return self::CALLBACK_PREFIX . sha1($value);
+    }
+
+    private function callbackTokenKey(string $value): string
+    {
+        return self::CALLBACK_TOKEN_PREFIX . sha1($value);
+    }
+
+    private function generateCallbackToken(): string
+    {
+        return bin2hex(random_bytes(16));
+    }
+
+    private function internalCallbackUrl(string $baseUrl, string $kind, string $token): string
+    {
+        return $baseUrl . '/payment-test/' . $kind
+            . '?vpayPaymentLab=1&token=' . rawurlencode($token);
+    }
+
+    private function cacheCallbackToken(string $key, string $token): void
+    {
+        $normalizedKey = trim($key);
+        if ($normalizedKey === '') {
+            return;
+        }
+
+        Cache::set($this->callbackTokenKey($normalizedKey), $token, self::CALLBACK_TTL);
+    }
+
+    /**
+     * @param array<string, string> $payload
+     */
+    private function assertValidCallbackToken(array $payload, string $payId, string $orderId): void
+    {
+        $providedToken = trim((string)($payload['token'] ?? ''));
+        if ($providedToken === '') {
+            throw new \RuntimeException('测试回调令牌无效');
+        }
+
+        foreach ([trim($payId), trim($orderId)] as $key) {
+            if ($key === '') {
+                continue;
+            }
+
+            $expectedToken = (string)Cache::get($this->callbackTokenKey($key), '');
+            if ($expectedToken !== '' && hash_equals($expectedToken, $providedToken)) {
+                return;
+            }
+        }
+
+        throw new \RuntimeException('测试回调令牌无效');
     }
 }

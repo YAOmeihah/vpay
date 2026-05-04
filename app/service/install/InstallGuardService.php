@@ -13,8 +13,7 @@ class InstallGuardService
 
         return $path === ''
             || $path === 'install'
-            || str_starts_with($path, 'install/')
-            || str_starts_with($path, 'payment-test/');
+            || str_starts_with($path, 'install/');
     }
 
     public function shouldBlock(string $state): bool

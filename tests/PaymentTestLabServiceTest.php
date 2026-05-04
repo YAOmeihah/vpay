@@ -31,6 +31,10 @@ class PaymentTestLabServiceTest extends TestCase
         $this->assertSame('debug-payload', $result['request']['param']);
         $this->assertStringStartsWith('http://vpay.test/payment-test/notify', $result['request']['notifyUrl']);
         $this->assertStringStartsWith('http://vpay.test/payment-test/return', $result['request']['returnUrl']);
+        parse_str((string) parse_url($result['request']['notifyUrl'], PHP_URL_QUERY), $notifyQuery);
+        parse_str((string) parse_url($result['request']['returnUrl'], PHP_URL_QUERY), $returnQuery);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{32}$/', (string) ($notifyQuery['token'] ?? ''));
+        $this->assertSame($notifyQuery['token'], $returnQuery['token']);
         $this->assertSame('默认终端', $result['assignment']['terminalName']);
         $this->assertSame('默认微信通道', $result['assignment']['channelName']);
     }
@@ -57,5 +61,40 @@ class PaymentTestLabServiceTest extends TestCase
         $this->assertSame('lab-order-notify', $callback['payload']['payId']);
         $this->assertSame('8.88', $callback['payload']['price']);
         $this->assertSame($created['order']['orderId'], $callback['orderId']);
+    }
+
+    public function test_notify_service_reports_invalid_internal_callback_token_as_failure(): void
+    {
+        $service = new PaymentTestLabService();
+        $created = $service->createOrder([
+            'type' => '1',
+            'price' => '6.66',
+            'payId' => 'lab-order-invalid-token',
+            'param' => 'notify-invalid-token',
+        ], 'http://vpay.test');
+
+        $order = PayOrder::where('order_id', $created['order']['orderId'])->findOrFail();
+        $orderPayload = $order->toArray();
+        $orderPayload['notify_url'] = 'http://vpay.test/payment-test/notify?vpayPaymentLab=1';
+
+        $notifyResult = NotifyService::sendNotifyDetailed($orderPayload);
+
+        $this->assertFalse($notifyResult['ok']);
+        $this->assertSame('测试回调令牌无效', $notifyResult['detail']);
+        $this->assertSame('', $notifyResult['response']);
+    }
+
+    public function test_payment_test_callback_requires_generated_token(): void
+    {
+        $service = new PaymentTestLabService();
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('测试回调令牌无效');
+
+        $service->recordCallback('notify', [
+            'payId' => 'lab-order-without-token',
+            'orderId' => 'order-without-token',
+            'vpayPaymentLab' => '1',
+        ]);
     }
 }

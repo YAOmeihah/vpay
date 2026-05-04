@@ -27,6 +27,8 @@ final class RouteStructureRegressionTest extends TestCase
         $this->assertRouteMapping($output, 'install/run', 'install.Wizard/run', 'post');
         $this->assertRouteMapping($output, 'install/recover', 'install.Wizard/recover', '\*');
         $this->assertRouteMapping($output, 'login', 'admin.Auth/login', 'post');
+        $this->assertRootRouteMapping($output);
+        $this->assertRouteMapping($output, 'enQrcode', 'admin/enQrcode', 'get');
         $this->assertDoesNotMatchRegularExpression('/\|\s+getMenu\s+\|/', $output);
         $this->assertRouteMapping($output, 'admin/index/getMain', 'admin/getMain', '\*');
         $this->assertRouteMapping($output, 'createOrder', 'merchant.Order/createOrder', '\*');
@@ -46,11 +48,19 @@ final class RouteStructureRegressionTest extends TestCase
             strpos($installRoutes, "Route::any('install', 'install.Wizard/index');"),
             strpos($installRoutes, "Route::any('install/check', 'install.Wizard/check');")
         );
+
+        $routeConfig = (string) file_get_contents(dirname(__DIR__) . DIRECTORY_SEPARATOR . 'config' . DIRECTORY_SEPARATOR . 'route.php');
+        $this->assertStringContainsString("'url_route_must'        => true,", $routeConfig);
     }
 
     private function assertRouteMapping(string $output, string $rule, string $route, string $methodPattern): void
     {
         $pattern = '/\|\s+' . preg_quote($rule, '/') . '\s+\|\s+' . preg_quote($route, '/') . '\s+\|\s+' . $methodPattern . '\s+\|/';
         $this->assertMatchesRegularExpression($pattern, $output);
+    }
+
+    private function assertRootRouteMapping(string $output): void
+    {
+        $this->assertMatchesRegularExpression('/\|\s*\|\s+Index\/index\s+\|\s+get\s+\|/', $output);
     }
 }

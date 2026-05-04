@@ -156,6 +156,38 @@ final class EnsureSystemInstalledMiddlewareTest extends BaseTestCase
         self::assertSame('/install', $payload['data']['installUrl']);
     }
 
+    public function test_payment_test_callback_does_not_bypass_install_guard(): void
+    {
+        $request = (clone self::$app->request)
+            ->withServer([
+                'REQUEST_METHOD' => 'POST',
+                'HTTP_ACCEPT' => '*/*',
+            ])
+            ->setMethod('POST')
+            ->setPathinfo('payment-test/notify');
+
+        self::$app->instance('request', $request);
+
+        $middleware = new class extends EnsureSystemInstalled {
+            protected function installState(): array
+            {
+                return ['state' => 'not_installed', 'message' => '系统尚未安装'];
+            }
+        };
+
+        $response = $middleware->handle(
+            $request,
+            static function () {
+                self::fail('Payment test callbacks must not bypass install guard');
+            }
+        );
+
+        $payload = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame(503, $response->getCode());
+        self::assertSame(50301, $payload['code']);
+    }
+
     public function test_redirects_html_request_to_installer_when_upgrade_is_required(): void
     {
         $request = (clone self::$app->request)

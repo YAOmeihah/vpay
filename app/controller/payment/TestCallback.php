@@ -10,22 +10,30 @@ class TestCallback extends BaseController
 {
     public function notify()
     {
-        $this->paymentTestLabService()->recordCallback(
-            'notify',
-            (array)$this->request->param(),
-            (string)$this->request->ip()
-        );
+        try {
+            $this->paymentTestLabService()->recordCallback(
+                'notify',
+                (array)$this->request->param(),
+                (string)$this->request->ip()
+            );
+        } catch (\RuntimeException) {
+            return response('forbidden', 403)->header(['Content-Type' => 'text/plain; charset=utf-8']);
+        }
 
         return response('success')->header(['Content-Type' => 'text/plain; charset=utf-8']);
     }
 
     public function returnUrl()
     {
-        $callback = $this->paymentTestLabService()->recordCallback(
-            'return',
-            (array)$this->request->param(),
-            (string)$this->request->ip()
-        );
+        try {
+            $callback = $this->paymentTestLabService()->recordCallback(
+                'return',
+                (array)$this->request->param(),
+                (string)$this->request->ip()
+            );
+        } catch (\RuntimeException) {
+            return response('forbidden', 403)->header(['Content-Type' => 'text/plain; charset=utf-8']);
+        }
 
         $payId = htmlspecialchars((string)$callback['payId'], ENT_QUOTES, 'UTF-8');
         $orderId = htmlspecialchars((string)$callback['orderId'], ENT_QUOTES, 'UTF-8');

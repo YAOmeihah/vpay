@@ -13,6 +13,27 @@ use think\facade\View;
 
 class EnsureSystemInstalled
 {
+    private const JSON_PATH_PREFIXES = [
+        'admin/index/',
+        'merchant/',
+        'monitor/',
+    ];
+
+    private const JSON_PATHS = [
+        'login',
+        'enQrcode',
+        'createOrder',
+        'getOrder',
+        'selectOrderPayType',
+        'checkOrder',
+        'closeOrder',
+        'getState',
+        'appHeart',
+        'appPush',
+        'closeEndOrder',
+        'payment-test/notify',
+    ];
+
     public function handle(Request $request, Closure $next): Response
     {
         $guard = new InstallGuardService();
@@ -79,24 +100,23 @@ class EnsureSystemInstalled
     private function shouldReturnJson(Request $request): bool
     {
         $path = ltrim($request->pathinfo(), '/');
-        if (
-            str_starts_with($path, 'admin/index/')
-            || str_starts_with($path, 'merchant/')
-            || str_starts_with($path, 'monitor/')
-            || in_array($path, [
-                'login',
-                'enQrcode',
-                'createOrder',
-                'getOrder',
-                'selectOrderPayType',
-                'checkOrder',
-                'closeOrder',
-                'getState',
-                'appHeart',
-                'appPush',
-                'closeEndOrder',
-            ], true)
-        ) {
+
+        $route = $request->rule();
+        if ($route !== null && $route->getOption('response_type') === 'json') {
+            return true;
+        }
+
+        foreach (self::JSON_PATH_PREFIXES as $prefix) {
+            if (str_starts_with($path, $prefix)) {
+                return true;
+            }
+        }
+
+        if (in_array($path, self::JSON_PATHS, true)) {
+            return true;
+        }
+
+        if (!in_array(strtoupper($request->method()), ['GET', 'HEAD'], true)) {
             return true;
         }
 

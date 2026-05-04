@@ -155,7 +155,8 @@ class ControllerEdgeServiceRegressionTest extends TestCase
         $adminRoutes = (string) file_get_contents(self::$rootPath . 'route/admin.php');
         $merchantRoutes = (string) file_get_contents(self::$rootPath . 'route/merchant.php');
 
-        $this->assertStringContainsString("Route::post('login', 'admin.Auth/login');", $adminRoutes);
+        $this->assertStringContainsString('use app\\middleware\\AdminCsrf;', $adminRoutes);
+        $this->assertStringContainsString("Route::post('login', 'admin.Auth/login')->middleware(AdminCsrf::class);", $adminRoutes);
         $this->assertStringContainsString("Route::post('saveSetting', 'admin/saveSetting');", $adminRoutes);
         $this->assertStringContainsString("Route::post('addPayQrcode', 'admin/addPayQrcode');", $adminRoutes);
         $this->assertStringContainsString("Route::post('delPayQrcode', 'admin/delPayQrcode');", $adminRoutes);
@@ -163,6 +164,7 @@ class ControllerEdgeServiceRegressionTest extends TestCase
         $this->assertStringContainsString("Route::post('setBd', 'admin/setBd');", $adminRoutes);
         $this->assertStringContainsString("Route::post('delGqOrder', 'admin/delGqOrder');", $adminRoutes);
         $this->assertStringContainsString("Route::post('delLastOrder', 'admin/delLastOrder');", $adminRoutes);
+        $this->assertStringContainsString('->middleware(AdminCsrf::class);', $adminRoutes);
 
         $this->assertStringContainsString("Route::any('createOrder', 'merchant.Order/createOrder');", $merchantRoutes);
         $this->assertStringContainsString("Route::any('getOrder', 'merchant.Order/getOrder');", $merchantRoutes);

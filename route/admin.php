@@ -1,8 +1,10 @@
 <?php
 
+use app\middleware\AdminAuth;
+use app\middleware\AdminCsrf;
 use think\facade\Route;
 
-Route::post('login', 'admin.Auth/login');
+Route::post('login', 'admin.Auth/login')->middleware(AdminCsrf::class);
 
 Route::group('admin/index', function () {
     Route::any('getMain', 'admin/getMain');
@@ -37,4 +39,5 @@ Route::group('admin/index', function () {
     Route::any('profile', 'admin/profile');
     Route::post('logout', 'admin/logout');
     Route::any('enQrcode', 'admin/enQrcode');
-})->middleware(\app\middleware\AdminAuth::class);
+})->middleware(AdminAuth::class)
+    ->middleware(AdminCsrf::class);

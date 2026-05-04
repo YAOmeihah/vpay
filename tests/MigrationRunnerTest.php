@@ -64,4 +64,29 @@ final class MigrationRunnerTest extends TestCase
             "INSERT INTO `setting` (`vkey`, `vvalue`) VALUES ('migration_utf8_test', '1');",
         ], $statements);
     }
+
+    public function test_runner_rejects_sql_files_outside_packaged_migration_directory(): void
+    {
+        $runner = new MigrationRunner();
+        self::assertTrue(
+            method_exists($runner, 'resolveTrustedMigrationPath'),
+            'MigrationRunner must validate SQL file paths before execution.'
+        );
+
+        $path = tempnam(sys_get_temp_dir(), 'vpay-migration-');
+        self::assertIsString($path);
+        file_put_contents($path, 'SELECT 1;');
+
+        $method = new \ReflectionMethod($runner, 'resolveTrustedMigrationPath');
+        $method->setAccessible(true);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Untrusted migration path');
+
+        try {
+            $method->invoke($runner, $path);
+        } finally {
+            @unlink($path);
+        }
+    }
 }

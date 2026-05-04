@@ -25,7 +25,8 @@ class MigrationRunner
             $logger->started($migration, $fromVersion);
 
             try {
-                foreach ($this->splitStatements((string) file_get_contents((string) $migration['path'])) as $statement) {
+                $path = $this->resolveTrustedMigrationPath((string) $migration['path']);
+                foreach ($this->splitStatements((string) file_get_contents($path)) as $statement) {
                     $trimmed = trim($statement);
                     if ($trimmed === '') {
                         continue;
@@ -79,5 +80,29 @@ class MigrationRunner
         }
 
         return $statements;
+    }
+
+    private function resolveTrustedMigrationPath(string $path): string
+    {
+        $root = realpath(app()->getRootPath() . 'database' . DIRECTORY_SEPARATOR . 'migrations');
+        $realPath = realpath($path);
+
+        if ($root === false || $realPath === false) {
+            throw new \RuntimeException('Untrusted migration path: ' . $path);
+        }
+
+        $normalizedRoot = rtrim(str_replace('\\', '/', $root), '/') . '/';
+        $normalizedPath = str_replace('\\', '/', $realPath);
+
+        if (!str_starts_with($normalizedPath, $normalizedRoot)) {
+            throw new \RuntimeException('Untrusted migration path: ' . $path);
+        }
+
+        $relativePath = substr($normalizedPath, strlen($normalizedRoot));
+        if (!preg_match('/^\d+\.\d+\.\d+\/\d{3}-[a-z0-9][a-z0-9-]*\.sql$/i', $relativePath)) {
+            throw new \RuntimeException('Untrusted migration path: ' . $path);
+        }
+
+        return $realPath;
     }
 }

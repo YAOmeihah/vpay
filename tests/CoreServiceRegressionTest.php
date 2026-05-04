@@ -541,6 +541,35 @@ namespace tests {
             );
         }
 
+        public function test_create_order_sign_helper_supports_md5_and_hmac_sha256(): void
+        {
+            SignServiceAdapterProbe::$config = new FakeSystemConfig(signKey: 'adapter-sign-key');
+
+            $this->assertSame(
+                md5('merchant-001attach112.34' . 'adapter-sign-key'),
+                SignServiceAdapterProbe::makeCreateOrderSign('merchant-001', 'attach', 1, '12.34')
+            );
+
+            $this->assertSame(
+                hash_hmac('sha256', 'merchant-001attach112.34', 'adapter-sign-key'),
+                SignServiceAdapterProbe::makeCreateOrderSign(
+                    'merchant-001',
+                    'attach',
+                    1,
+                    '12.34',
+                    'HMAC_SHA256'
+                )
+            );
+        }
+
+        public function test_requested_sign_type_normalization_is_public_and_strict(): void
+        {
+            $this->assertSame('MD5', SignServiceAdapterProbe::normalizeRequestedSignType(''));
+            $this->assertSame('MD5', SignServiceAdapterProbe::normalizeRequestedSignType('md5'));
+            $this->assertSame('HMAC_SHA256', SignServiceAdapterProbe::normalizeRequestedSignType('hmac_sha256'));
+            $this->assertNull(SignServiceAdapterProbe::normalizeRequestedSignType('SHA1'));
+        }
+
         public function test_notify_query_uses_saved_signature_type_and_includes_sign_type(): void
         {
             $this->seedSettings(['key' => 'db-sign-key']);

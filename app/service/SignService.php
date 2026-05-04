@@ -31,6 +31,27 @@ class SignService
     }
 
     /**
+     * 生成 createOrder 请求签名
+     * 签名规则：payId + param + type + price + key
+     */
+    public static function makeCreateOrderSign(
+        string $payId,
+        string $param,
+        int $type,
+        string $price,
+        string $signType = self::SIGN_TYPE_MD5
+    ): string {
+        $normalizedSignType = static::normalizeRequestedSignType($signType);
+        if ($normalizedSignType === null) {
+            throw new \RuntimeException('签名算法不支持');
+        }
+
+        $key = static::systemConfig()->getSignKey();
+
+        return static::makeSignature($payId . $param . $type . $price, $key, $normalizedSignType);
+    }
+
+    /**
      * 构建带签名的回调查询字符串
      * @param bool $formatPrice 是否对 price/reallyPrice 做 number_format
      *   - checkOrder (同步跳转) 场景：true（与原代码一致）
@@ -154,7 +175,7 @@ class SignService
         return static::normalizeRequestedSignType($signType ?? '') ?? self::SIGN_TYPE_MD5;
     }
 
-    private static function normalizeRequestedSignType(string $signType): ?string
+    public static function normalizeRequestedSignType(string $signType): ?string
     {
         $normalized = strtoupper(trim($signType));
         if ($normalized === '') {

@@ -30,6 +30,7 @@ export type PaymentLabCallback = {
   payload: Record<string, string>;
   ip: string;
   receivedAt: number;
+  signatureValid: boolean;
 };
 
 export type PaymentLabResult = {

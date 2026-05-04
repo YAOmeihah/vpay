@@ -145,6 +145,7 @@ class PaymentTestLabService
         $record = $payId !== '' ? PayOrder::where('pay_id', $payId)->find() : null;
         $orderId = $record ? (string)$record['order_id'] : trim((string)($normalizedPayload['orderId'] ?? ''));
         $this->assertValidCallbackToken($normalizedPayload, $payId, $orderId);
+        $signatureValid = $this->verifyCallbackSignature($normalizedPayload);
 
         $callback = [
             'kind' => $kind,
@@ -153,6 +154,7 @@ class PaymentTestLabService
             'payload' => $normalizedPayload,
             'ip' => $ip,
             'receivedAt' => time(),
+            'signatureValid' => $signatureValid,
         ];
 
         if ($payId !== '') {
@@ -163,6 +165,35 @@ class PaymentTestLabService
         }
 
         return $callback;
+    }
+
+    /**
+     * @param array<string, string> $payload
+     */
+    private function verifyCallbackSignature(array $payload): bool
+    {
+        $sign = trim((string)($payload['sign'] ?? ''));
+        $signType = (string)($payload['signType'] ?? '');
+        if ($sign === '' || SignService::normalizeRequestedSignType($signType) === null) {
+            return false;
+        }
+
+        foreach (['payId', 'type', 'price', 'reallyPrice'] as $requiredKey) {
+            if (!array_key_exists($requiredKey, $payload)) {
+                return false;
+            }
+        }
+
+        $expected = SignService::makeOrderSign(
+            (string)$payload['payId'],
+            (string)($payload['param'] ?? ''),
+            (int)$payload['type'],
+            (string)$payload['price'],
+            (string)$payload['reallyPrice'],
+            $signType
+        );
+
+        return hash_equals($expected, $sign);
     }
 
     /**

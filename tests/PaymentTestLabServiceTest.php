@@ -113,6 +113,33 @@ class PaymentTestLabServiceTest extends TestCase
         $this->assertSame('lab-order-notify', $callback['payload']['payId']);
         $this->assertSame('8.88', $callback['payload']['price']);
         $this->assertSame($created['order']['orderId'], $callback['orderId']);
+        $this->assertTrue($callback['signatureValid']);
+        $this->assertSame('MD5', $callback['payload']['signType']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{32}$/', $callback['payload']['sign']);
+    }
+
+    public function test_callback_records_signature_failure_after_valid_token(): void
+    {
+        $service = new PaymentTestLabMerchantFlowProbe();
+        $created = $service->createOrder([
+            'type' => '1',
+            'price' => '7.77',
+            'payId' => 'lab-order-bad-callback-sign',
+            'param' => 'bad-callback-sign',
+            'signType' => 'HMAC_SHA256',
+        ], 'http://vpay.test');
+
+        $order = PayOrder::where('order_id', $created['order']['orderId'])->findOrFail();
+        $signedUrl = \app\service\SignService::buildSignedUrl((string)$order['notify_url'], $order->toArray());
+        parse_str((string)parse_url($signedUrl, PHP_URL_QUERY), $payload);
+        $payload['sign'] = str_repeat('0', 64);
+
+        $callback = $service->recordCallback('notify', $payload);
+
+        $this->assertSame('notify', $callback['kind']);
+        $this->assertSame('lab-order-bad-callback-sign', $callback['payId']);
+        $this->assertFalse($callback['signatureValid']);
+        $this->assertSame('HMAC_SHA256', $callback['payload']['signType']);
     }
 
     public function test_notify_service_reports_invalid_internal_callback_token_as_failure(): void

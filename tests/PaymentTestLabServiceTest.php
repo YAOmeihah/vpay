@@ -88,7 +88,7 @@ class PaymentTestLabServiceTest extends TestCase
         }
 
         $this->assertSame('', $service->lastPost['url']);
-        $this->assertSame(0, PayOrder::where('pay_id', 'lab-order-invalid-sign-type')->count());
+        $this->assertNull(PayOrder::where('pay_id', 'lab-order-invalid-sign-type')->find());
     }
 
     public function test_notify_service_records_internal_payment_lab_callback_without_http_round_trip(): void

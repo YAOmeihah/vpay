@@ -9,8 +9,11 @@ use app\service\terminal\TerminalCredentialService;
 
 class SignService
 {
+    public const SIGN_TYPE_MD5 = 'MD5';
+    public const SIGN_TYPE_HMAC_SHA256 = 'HMAC_SHA256';
+
     /**
-     * 生成原生 VPay 签名（MD5）
+     * 生成原生 VPay 签名
      * 签名规则：payId + param + type + price + reallyPrice + key
      */
     public static function makeOrderSign(
@@ -18,10 +21,13 @@ class SignService
         string $param,
         int $type,
         string $price,
-        string $reallyPrice
+        string $reallyPrice,
+        string $signType = self::SIGN_TYPE_MD5
     ): string {
         $key = static::systemConfig()->getSignKey();
-        return md5($payId . $param . $type . $price . $reallyPrice . $key);
+        $payload = $payId . $param . $type . $price . $reallyPrice;
+
+        return static::makeSignature($payload, $key, static::normalizeStoredSignType($signType));
     }
 
     /**
@@ -40,12 +46,14 @@ class SignService
             $reallyPrice = (string)$order['really_price'];
         }
 
+        $signType = static::normalizeStoredSignType((string)($order['sign_type'] ?? ''));
         $sign = static::makeOrderSign(
             (string)$order['pay_id'],
             (string)$order['param'],
             (int)$order['type'],
             $price,
-            $reallyPrice
+            $reallyPrice,
+            $signType
         );
 
         return http_build_query([
@@ -54,6 +62,7 @@ class SignService
             'type' => $order['type'],
             'price' => $price,
             'reallyPrice' => $reallyPrice,
+            'signType' => $signType,
             'sign' => $sign,
         ]);
     }
@@ -82,20 +91,36 @@ class SignService
         string $param,
         int $type,
         string $price,
-        string $sign
+        string $sign,
+        string $signType = self::SIGN_TYPE_MD5
     ): bool {
+        $normalizedSignType = static::normalizeRequestedSignType($signType);
+        if ($normalizedSignType === null) {
+            return false;
+        }
+
         $key = static::systemConfig()->getSignKey();
-        $expected = md5($payId . $param . $type . $price . $key);
+        $expected = static::makeSignature($payId . $param . $type . $price, $key, $normalizedSignType);
+
         return hash_equals($expected, $sign);
     }
 
     /**
      * 验证简单签名（用于 closeOrder, getState, appHeart, appPush）
      */
-    public static function verifySimpleSign(string $data, string $sign): bool
-    {
+    public static function verifySimpleSign(
+        string $data,
+        string $sign,
+        string $signType = self::SIGN_TYPE_MD5
+    ): bool {
+        $normalizedSignType = static::normalizeRequestedSignType($signType);
+        if ($normalizedSignType === null) {
+            return false;
+        }
+
         $key = static::systemConfig()->getSignKey();
-        return hash_equals(md5($data . $key), $sign);
+
+        return hash_equals(static::makeSignature($data, $key, $normalizedSignType), $sign);
     }
 
     public static function verifyTerminalMonitorSimpleSign(string $terminalCode, string $data, string $sign): bool
@@ -122,6 +147,33 @@ class SignService
         );
 
         return hash_equals($expected, $sign);
+    }
+
+    public static function normalizeStoredSignType(?string $signType): string
+    {
+        return static::normalizeRequestedSignType($signType ?? '') ?? self::SIGN_TYPE_MD5;
+    }
+
+    private static function normalizeRequestedSignType(string $signType): ?string
+    {
+        $normalized = strtoupper(trim($signType));
+        if ($normalized === '') {
+            return self::SIGN_TYPE_MD5;
+        }
+
+        return match ($normalized) {
+            self::SIGN_TYPE_MD5 => self::SIGN_TYPE_MD5,
+            self::SIGN_TYPE_HMAC_SHA256 => self::SIGN_TYPE_HMAC_SHA256,
+            default => null,
+        };
+    }
+
+    private static function makeSignature(string $payload, string $key, string $signType): string
+    {
+        return match ($signType) {
+            self::SIGN_TYPE_HMAC_SHA256 => hash_hmac('sha256', $payload, $key),
+            default => md5($payload . $key),
+        };
     }
 
     protected static function systemConfig(): SystemConfig

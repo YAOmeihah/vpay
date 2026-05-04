@@ -475,6 +475,110 @@ namespace tests {
             );
         }
 
+        public function test_sign_service_supports_hmac_sha256_without_breaking_md5_default(): void
+        {
+            $this->seedSettings(['key' => 'db-sign-key']);
+
+            SignServiceAdapterProbe::$config = new FakeSystemConfig(signKey: 'adapter-sign-key');
+
+            $this->assertSame('MD5', SignServiceAdapterProbe::normalizeStoredSignType(''));
+            $this->assertSame('MD5', SignServiceAdapterProbe::normalizeStoredSignType('md5'));
+            $this->assertSame('HMAC_SHA256', SignServiceAdapterProbe::normalizeStoredSignType('hmac_sha256'));
+
+            $this->assertSame(
+                md5('merchant-001' . 'attach' . 1 . '12.34' . '12.35' . 'adapter-sign-key'),
+                SignServiceAdapterProbe::makeOrderSign('merchant-001', 'attach', 1, '12.34', '12.35')
+            );
+
+            $this->assertSame(
+                hash_hmac('sha256', 'merchant-001' . 'attach' . 1 . '12.34' . '12.35', 'adapter-sign-key'),
+                SignServiceAdapterProbe::makeOrderSign(
+                    'merchant-001',
+                    'attach',
+                    1,
+                    '12.34',
+                    '12.35',
+                    'HMAC_SHA256'
+                )
+            );
+
+            $this->assertTrue(
+                SignServiceAdapterProbe::verifyCreateOrderSign(
+                    'merchant-001',
+                    'attach',
+                    1,
+                    '12.34',
+                    hash_hmac('sha256', 'merchant-001' . 'attach' . 1 . '12.34', 'adapter-sign-key'),
+                    'HMAC_SHA256'
+                )
+            );
+
+            $this->assertTrue(
+                SignServiceAdapterProbe::verifySimpleSign(
+                    'heartbeat',
+                    hash_hmac('sha256', 'heartbeat', 'adapter-sign-key'),
+                    'HMAC_SHA256'
+                )
+            );
+
+            $this->assertFalse(
+                SignServiceAdapterProbe::verifySimpleSign(
+                    'heartbeat',
+                    md5('heartbeat' . 'adapter-sign-key'),
+                    'HMAC_SHA256'
+                )
+            );
+
+            $this->assertFalse(
+                SignServiceAdapterProbe::verifyCreateOrderSign(
+                    'merchant-001',
+                    'attach',
+                    1,
+                    '12.34',
+                    hash_hmac('sha256', 'merchant-001' . 'attach' . 1 . '12.34', 'adapter-sign-key'),
+                    'SHA256'
+                )
+            );
+        }
+
+        public function test_notify_query_uses_saved_signature_type_and_includes_sign_type(): void
+        {
+            $this->seedSettings(['key' => 'db-sign-key']);
+
+            SignServiceAdapterProbe::$config = new FakeSystemConfig(signKey: 'adapter-sign-key');
+
+            $hmacQuery = SignServiceAdapterProbe::buildNotifyQuery([
+                'pay_id' => 'merchant-001',
+                'param' => 'attach',
+                'type' => 1,
+                'price' => '12.34',
+                'really_price' => '12.35',
+                'sign_type' => 'HMAC_SHA256',
+            ]);
+            parse_str($hmacQuery, $hmacPayload);
+
+            $this->assertSame('HMAC_SHA256', $hmacPayload['signType']);
+            $this->assertSame(
+                hash_hmac('sha256', 'merchant-001' . 'attach' . 1 . '12.34' . '12.35', 'adapter-sign-key'),
+                $hmacPayload['sign']
+            );
+
+            $legacyQuery = SignServiceAdapterProbe::buildNotifyQuery([
+                'pay_id' => 'merchant-001',
+                'param' => 'attach',
+                'type' => 1,
+                'price' => '12.34',
+                'really_price' => '12.35',
+            ]);
+            parse_str($legacyQuery, $legacyPayload);
+
+            $this->assertSame('MD5', $legacyPayload['signType']);
+            $this->assertSame(
+                md5('merchant-001' . 'attach' . 1 . '12.34' . '12.35' . 'adapter-sign-key'),
+                $legacyPayload['sign']
+            );
+        }
+
         public function test_terminal_monitor_push_signature_uses_terminal_specific_key_and_terminal_code_payload(): void
         {
             $this->assertTrue(

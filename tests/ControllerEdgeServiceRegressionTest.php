@@ -761,6 +761,34 @@ class ControllerEdgeServiceRegressionTest extends TestCase
         );
     }
 
+    public function test_merchant_order_controller_passes_sign_type_to_signature_verifiers(): void
+    {
+        $source = (string) file_get_contents(self::$rootPath . 'app/controller/merchant/Order.php');
+
+        $this->assertStringContainsString('$signType = (string) ($params[\'signType\'] ?? \'\');', $source);
+        $this->assertStringContainsString(
+            'SignService::verifyCreateOrderSign($payId, $param, $type, $price, $sign, $signType)',
+            $source
+        );
+        $this->assertStringContainsString('\'signType\'  => $signType', $source);
+        $this->assertStringContainsString(
+            "SignService::verifySimpleSign(\$orderId, \$this->request->param('sign', ''), (string) \$this->request->param('signType', ''))",
+            $source
+        );
+    }
+
+    public function test_merchant_docs_describe_hmac_sha256_sign_type(): void
+    {
+        $readme = (string) file_get_contents(self::$rootPath . 'README-MERCHANT-INTEGRATION.md');
+        $html = (string) file_get_contents(self::$rootPath . 'public/payment-api.html');
+
+        foreach ([$readme, $html] as $content) {
+            $this->assertStringContainsString('signType', $content);
+            $this->assertStringContainsString('HMAC_SHA256', $content);
+            $this->assertStringContainsString("hash_hmac('sha256'", $content);
+        }
+    }
+
     public function test_index_controller_no_longer_exposes_legacy_monitor_compat_entrypoints(): void
     {
         $source = (string) file_get_contents(self::$rootPath . 'app/controller/Index.php');
@@ -813,6 +841,7 @@ class ControllerEdgeServiceRegressionTest extends TestCase
         $this->assertStringContainsString('`notify_url` varchar(1000)', $schema);
         $this->assertStringContainsString('`pay_url` varchar(1000)', $schema);
         $this->assertStringContainsString('`return_url` varchar(1000)', $schema);
+        $this->assertStringContainsString('`sign_type` varchar(32) not null default \'md5\'', $schema);
         $this->assertStringContainsString('`vvalue` text', $schema);
         $this->assertStringContainsString('`price` decimal(10,2) not null', $schema);
         $this->assertStringContainsString('`really_price` decimal(10,2) not null', $schema);

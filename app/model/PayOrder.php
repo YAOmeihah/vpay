@@ -31,6 +31,7 @@ class PayOrder extends Model
         'price'       => 'float',
         'really_price'=> 'float',
         'return_url'  => 'string',
+        'sign_type'   => 'string',
         'terminal_id' => 'bigint',
         'channel_id'  => 'bigint',
         'assign_status' => 'string',

@@ -30,6 +30,9 @@ test("payment lab page submits through admin api and redirects into the original
   assert.match(source, /createPaymentTestOrder/);
   assert.match(source, /payPageUrl/);
   assert.match(source, /window\.location\.href/);
+  assert.match(source, /signType:\s*"MD5"/);
+  assert.match(source, /HMAC_SHA256/);
+  assert.match(source, /signature-switch/);
   assert.doesNotMatch(source, /getPaymentTestOrder/);
   assert.doesNotMatch(source, /getPaymentTestCallback/);
   assert.doesNotMatch(source, /\/enQrcode\?url=/);
@@ -52,4 +55,14 @@ test("payment lab launcher uses scoped visual styles for a readable launch butto
   assert.doesNotMatch(source, /launcher-meter/);
   assert.doesNotMatch(source, />LAB</);
   assert.doesNotMatch(source, />READY</);
+});
+
+test("payment lab api types include selected sign type", () => {
+  const source = readFileSync(
+    resolve("frontend/admin/src/api/admin/paymentLab.ts"),
+    "utf8"
+  );
+
+  assert.match(source, /signType\?:\s*"MD5"\s*\|\s*"HMAC_SHA256"/);
+  assert.match(source, /signatureValid:\s*boolean/);
 });

@@ -8,6 +8,7 @@ defineOptions({ name: "PaymentLab" });
 const form = reactive({
   type: 1,
   price: "0.10",
+  signType: "MD5" as "MD5" | "HMAC_SHA256",
   payId: buildPayId(),
   param: "VPay Payment Lab",
   notifyUrl: "",
@@ -21,6 +22,11 @@ const payTypes = [
   { label: "微信支付", value: 1, accent: "#22c55e" },
   { label: "支付宝", value: 2, accent: "#38bdf8" }
 ];
+
+const signTypes = [
+  { label: "MD5", value: "MD5", hint: "兼容旧商户" },
+  { label: "HMAC-SHA256", value: "HMAC_SHA256", hint: "推荐新接入" }
+] as const;
 
 const activeType = computed(() => payTypes.find(item => item.value === form.type) ?? payTypes[0]);
 
@@ -99,6 +105,20 @@ async function submitOrder() {
           >
             <span class="type-mark" />
             {{ item.label }}
+          </button>
+        </div>
+
+        <div class="signature-switch" role="radiogroup" aria-label="签名算法">
+          <button
+            v-for="item in signTypes"
+            :key="item.value"
+            type="button"
+            class="signature-button"
+            :class="{ active: form.signType === item.value }"
+            @click="form.signType = item.value"
+          >
+            <span>{{ item.label }}</span>
+            <small>{{ item.hint }}</small>
           </button>
         </div>
 
@@ -364,6 +384,41 @@ button:disabled {
   background: var(--accent);
 }
 
+.signature-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.signature-button {
+  display: grid;
+  gap: 4px;
+  min-height: 58px;
+  padding: 10px 12px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.58);
+  color: #e2e8f0;
+  text-align: left;
+}
+
+.signature-button span {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.signature-button small {
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+.signature-button.active {
+  border-color: rgba(34, 197, 94, 0.7);
+  background: rgba(34, 197, 94, 0.14);
+  color: #dcfce7;
+}
+
 .message-line {
   margin: 4px 0 16px;
   color: #fbbf24;
@@ -441,6 +496,10 @@ button:disabled {
 
   h1 {
     font-size: 36px;
+  }
+
+  .signature-switch {
+    grid-template-columns: 1fr;
   }
 }
 

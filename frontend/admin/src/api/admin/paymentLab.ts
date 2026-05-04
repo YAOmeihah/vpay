@@ -45,6 +45,7 @@ export type PaymentLabResult = {
 export type PaymentLabCreatePayload = {
   type: number;
   price: string;
+  signType?: "MD5" | "HMAC_SHA256";
   payId?: string;
   param?: string;
   notifyUrl?: string;

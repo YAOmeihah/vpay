@@ -65,6 +65,24 @@ class OrderCreationServicesTest extends TestCase
         $this->assertSame($result, CacheService::getOrder($result['orderId']));
     }
 
+    public function test_create_order_persists_requested_signature_type(): void
+    {
+        $this->insertQrcode(PayOrder::TYPE_WECHAT, 10.00, 'weixin://matched-qrcode');
+
+        $result = OrderService::createOrder([
+            'payId' => 'native-order-hmac',
+            'type' => PayOrder::TYPE_WECHAT,
+            'price' => '10.00',
+            'param' => 'native-param',
+            'signType' => 'HMAC_SHA256',
+        ]);
+
+        $order = PayOrder::where('order_id', $result['orderId'])->find();
+
+        $this->assertNotNull($order);
+        $this->assertSame('HMAC_SHA256', $order->getAttr('sign_type'));
+    }
+
     public function test_native_order_service_assigns_default_terminal_and_channel_metadata(): void
     {
         $result = OrderService::createOrder([

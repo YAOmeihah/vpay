@@ -150,6 +150,7 @@ abstract class TestCase extends BaseTestCase
                 `price` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
                 `really_price` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
                 `return_url` VARCHAR(1000) NOT NULL DEFAULT \'\',
+                `sign_type` VARCHAR(32) NOT NULL DEFAULT \'MD5\',
                 `terminal_id` BIGINT NULL DEFAULT NULL,
                 `channel_id` BIGINT NULL DEFAULT NULL,
                 `assign_status` VARCHAR(32) NOT NULL DEFAULT \'assigned\',

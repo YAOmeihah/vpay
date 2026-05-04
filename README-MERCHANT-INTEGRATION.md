@@ -47,12 +47,21 @@ https://pay.example.com/payPage/pay.html?orderId=平台订单号
 
 ## 3. 签名规则
 
-所有签名都使用小写 MD5。拼接时不加分隔符。
+签名算法由可选参数 `signType` 控制，拼接时不加分隔符。
+
+- 不传 `signType` 或传 `MD5`：兼容旧规则，使用 `md5(payload + key)`。
+- 传 `signType=HMAC_SHA256`：使用 `hash_hmac('sha256', payload, key)`。
 
 ### 3.1 创建订单签名
 
 ```text
 sign = md5(payId + param + type + price + key)
+```
+
+使用 `signType=HMAC_SHA256` 时：
+
+```text
+sign = hash_hmac('sha256', payId + param + type + price, key)
 ```
 
 字段说明：
@@ -75,7 +84,9 @@ $param = 'user=10001';
 $type = '1';
 $price = '99.00';
 
-$sign = md5($payId . $param . $type . $price . $key);
+$signType = 'HMAC_SHA256';
+$payload = $payId . $param . $type . $price;
+$sign = hash_hmac('sha256', $payload, $key);
 ```
 
 ### 3.2 关闭订单签名
@@ -84,18 +95,30 @@ $sign = md5($payId . $param . $type . $price . $key);
 sign = md5(orderId + key)
 ```
 
+使用 `signType=HMAC_SHA256` 时：
+
+```text
+sign = hash_hmac('sha256', orderId, key)
+```
+
 ### 3.3 回调验签
 
 异步通知和同步跳转都会携带以下字段：
 
 ```text
-payId, param, type, price, reallyPrice, sign
+payId, param, type, price, reallyPrice, signType, sign
 ```
 
 验签规则：
 
 ```text
 sign = md5(payId + param + type + price + reallyPrice + key)
+```
+
+使用 `signType=HMAC_SHA256` 时：
+
+```text
+sign = hash_hmac('sha256', payId + param + type + price + reallyPrice, key)
 ```
 
 验签时请使用收到的字段原文拼接，不要自行改变金额格式。
@@ -118,6 +141,7 @@ POST|GET /createOrder
 | `type` | 是 | 支付方式：`1` 微信，`2` 支付宝 |
 | `price` | 是 | 订单金额，必须大于 `0` 且小于 `1000000` |
 | `sign` | 是 | 下单签名 |
+| `signType` | 否 | 签名算法：`MD5` 或 `HMAC_SHA256`。不传默认 `MD5` |
 | `param` | 否 | 商户透传参数，建议不超过 255 字符 |
 | `notifyUrl` | 否 | 本订单异步通知地址，最长 1000 字符；不传则使用后台默认值 |
 | `returnUrl` | 否 | 本订单同步跳转地址，最长 1000 字符；不传则使用后台默认值 |
@@ -133,7 +157,8 @@ curl -X POST "https://pay.example.com/createOrder" \
   -d "param=user=10001" \
   -d "notifyUrl=https://merchant.example.com/vpay/notify" \
   -d "returnUrl=https://merchant.example.com/order/result" \
-  -d "sign=按签名规则生成的MD5"
+  -d "signType=HMAC_SHA256" \
+  -d "sign=按签名规则生成的HMAC-SHA256"
 ```
 
 成功响应示例：
@@ -298,13 +323,15 @@ POST|GET /closeOrder
 | --- | --- | --- |
 | `orderId` | 是 | `/createOrder` 返回的平台订单号 |
 | `sign` | 是 | `md5(orderId + key)` |
+| `signType` | 否 | 签名算法：`MD5` 或 `HMAC_SHA256`。不传默认 `MD5` |
 
 请求示例：
 
 ```bash
 curl -X POST "https://pay.example.com/closeOrder" \
   -d "orderId=202604251830001234" \
-  -d "sign=按关闭订单规则生成的MD5"
+  -d "signType=HMAC_SHA256" \
+  -d "sign=按关闭订单规则生成的HMAC-SHA256"
 ```
 
 成功响应：
@@ -374,9 +401,13 @@ $param = $_GET['param'] ?? '';
 $type = $_GET['type'] ?? '';
 $price = $_GET['price'] ?? '';
 $reallyPrice = $_GET['reallyPrice'] ?? '';
+$signType = strtoupper($_GET['signType'] ?? 'MD5');
 $sign = $_GET['sign'] ?? '';
 
-$expected = md5($payId . $param . $type . $price . $reallyPrice . $key);
+$payload = $payId . $param . $type . $price . $reallyPrice;
+$expected = $signType === 'HMAC_SHA256'
+    ? hash_hmac('sha256', $payload, $key)
+    : md5($payload . $key);
 
 if (!hash_equals($expected, $sign)) {
     http_response_code(400);
@@ -432,9 +463,9 @@ payId, param, type, price, reallyPrice, sign
 | `type` 只允许 `1`、`2` | `app/validate/OrderValidate.php`、`app/model/PayOrder.php` | 一致 |
 | `price` 必须为 float、大于 0、小于 1000000 | `app/validate/OrderValidate.php` | 一致 |
 | `notifyUrl`、`returnUrl` 最大 1000 字符 | `app/validate/OrderValidate.php` | 一致 |
-| 下单签名为 `md5(payId + param + type + price + key)` | `app/service/SignService.php::verifyCreateOrderSign` | 一致 |
-| 关闭订单签名为 `md5(orderId + key)` | `app/controller/merchant/Order.php::closeOrder`、`app/service/SignService.php::verifySimpleSign` | 一致 |
-| 回调签名为 `md5(payId + param + type + price + reallyPrice + key)` | `app/service/SignService.php::makeOrderSign`、`buildNotifyQuery` | 一致 |
+| 下单签名默认 `md5(payId + param + type + price + key)`，`signType=HMAC_SHA256` 时使用 `hash_hmac('sha256', payload, key)` | `app/service/SignService.php::verifyCreateOrderSign` | 一致 |
+| 关闭订单签名默认 `md5(orderId + key)`，支持 `signType=HMAC_SHA256` | `app/controller/merchant/Order.php::closeOrder`、`app/service/SignService.php::verifySimpleSign` | 一致 |
+| 回调签名默认 `md5(payId + param + type + price + reallyPrice + key)`，并回传 `signType` | `app/service/SignService.php::makeOrderSign`、`buildNotifyQuery` | 一致 |
 | 下单返回 `payId`、`orderId`、`payType`、`price`、`reallyPrice`、`payUrl`、`isAuto`、`state`、`timeOut`、`date` | `app/service/order/OrderPayloadFactory.php` | 一致 |
 | 下单额外返回终端和通道快照字段 | `app/service/OrderCreationKernel.php::buildAndCacheOrderInfo` | 一致 |
 | `reallyPrice` 由通道级金额占位服务生成，最多尝试 10 个金额 | `app/service/terminal/ChannelPriceReservationService.php` | 一致 |

@@ -34,6 +34,7 @@ CREATE TABLE `pay_order` (
   `price` decimal(10,2) NOT NULL,
   `really_price` decimal(10,2) NOT NULL,
   `return_url` varchar(1000) DEFAULT NULL,
+  `sign_type` varchar(32) NOT NULL DEFAULT 'MD5',
   `terminal_id` bigint(20) DEFAULT NULL,
   `channel_id` bigint(20) DEFAULT NULL,
   `assign_status` varchar(32) NOT NULL DEFAULT 'assigned',

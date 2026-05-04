@@ -34,6 +34,7 @@ class OrderService
         $param = $params['param'] ?? '';
         $notifyUrl = $params['notifyUrl'] ?? static::systemConfig()->getNotifyUrl();
         $returnUrl = $params['returnUrl'] ?? static::systemConfig()->getReturnUrl();
+        $signType = SignService::normalizeStoredSignType((string)($params['signType'] ?? ''));
 
         $orderId = OrderCreationKernel::generatePlatformOrderId();
         OrderCreationKernel::assertMerchantOrderNotExists($payId);
@@ -47,6 +48,7 @@ class OrderService
                 $param,
                 $notifyUrl,
                 $returnUrl,
+                $signType,
                 $orderId
             ): array {
                 try {
@@ -66,6 +68,7 @@ class OrderService
                         'price'        => $price,
                         'really_price' => $reallyPrice,
                         'return_url'   => $returnUrl,
+                        'sign_type'    => $signType,
                         'terminal_id'  => (int) $channel['terminal_id'],
                         'channel_id'   => (int) $channel['id'],
                         'assign_status' => PayOrder::ASSIGN_STATUS_ASSIGNED,
@@ -123,6 +126,7 @@ class OrderService
                 $param,
                 $notifyUrl,
                 $returnUrl,
+                $signType,
                 $e->getMessage(),
                 $availablePayTypes
             );
@@ -398,6 +402,7 @@ class OrderService
         string $param,
         string $notifyUrl,
         string $returnUrl,
+        string $signType,
         string $assignReason,
         array $availablePayTypes
     ): array {
@@ -411,6 +416,7 @@ class OrderService
             $param,
             $notifyUrl,
             $returnUrl,
+            $signType,
             $assignReason,
             $createDate
         ): void {
@@ -427,6 +433,7 @@ class OrderService
                 'price'        => $price,
                 'really_price' => '0.00',
                 'return_url'   => $returnUrl,
+                'sign_type'    => $signType,
                 'terminal_id'  => null,
                 'channel_id'   => null,
                 'assign_status' => PayOrder::ASSIGN_STATUS_PENDING_CHOICE,

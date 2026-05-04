@@ -32,10 +32,11 @@ class Order extends BaseController
         $type = (int)$params['type'];
         $price = $params['price'];
         $sign = $params['sign'];
+        $signType = (string) ($params['signType'] ?? '');
         $isHtml = (int) ($params['isHtml'] ?? 0);
         $param = $params['param'] ?? '';
 
-        if (!SignService::verifyCreateOrderSign($payId, $param, $type, $price, $sign)) {
+        if (!SignService::verifyCreateOrderSign($payId, $param, $type, $price, $sign, $signType)) {
             return json($this->getReturn(-1, "签名错误"));
         }
 
@@ -47,6 +48,7 @@ class Order extends BaseController
                 'param'     => $param,
                 'notifyUrl' => $params['notifyUrl'] ?? null,
                 'returnUrl' => $params['returnUrl'] ?? null,
+                'signType'  => $signType,
             ];
 
             $orderInfo = \app\service\OrderService::createOrder($orderParams);
@@ -187,7 +189,7 @@ class Order extends BaseController
     {
         $orderId = $this->request->param("orderId");
 
-        if (!SignService::verifySimpleSign($orderId, $this->request->param('sign', ''))) {
+        if (!SignService::verifySimpleSign($orderId, $this->request->param('sign', ''), (string) $this->request->param('signType', ''))) {
             return json($this->getReturn(-1, "签名校验不通过"));
         }
 

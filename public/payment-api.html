@@ -201,7 +201,7 @@
           <h2 id="flow-title">商户支付流程</h2>
           <ol class="doc-list">
             <li>商户系统创建本地订单，生成唯一商户订单号 <code>payId</code>。</li>
-            <li>按 <code>md5(payId + param + type + price + key)</code> 生成下单签名，调用 <code>/createOrder</code>。</li>
+            <li>按签名规则生成下单签名，调用 <code>/createOrder</code>；新接入推荐使用 <code>signType=HMAC_SHA256</code>。</li>
             <li>下单成功后，使用返回的 <code>orderId</code> 跳转到 <code>/payPage/pay.html?orderId=平台订单号</code>。</li>
             <li>用户扫码付款后，VPay 会请求商户 <code>notifyUrl</code>，商户验签、更新订单并返回 <code>success</code>。</li>
             <li>支付页检测到成功后调用 <code>/checkOrder</code> 获取同步跳转地址，并跳转到商户 <code>returnUrl</code>。</li>
@@ -210,6 +210,7 @@
 
         <section class="doc-section" id="sign" aria-labelledby="sign-title">
           <h2 id="sign-title">签名规则</h2>
+          <p>签名算法由可选参数 <code>signType</code> 控制。不传或传 <code>MD5</code> 时兼容旧规则：<code>md5(payload + key)</code>。传 <code>HMAC_SHA256</code> 时使用 <code>hash_hmac('sha256', payload, key)</code>。</p>
           <div class="doc-table-wrap">
             <table class="doc-table">
               <thead>
@@ -222,17 +223,17 @@
               <tbody>
                 <tr>
                   <td>创建订单</td>
-                  <td><code>md5(payId + param + type + price + key)</code></td>
+                  <td><code>payId + param + type + price</code></td>
                   <td><code>param</code> 未传时按空字符串参与签名；<code>type</code> 和 <code>price</code> 使用请求中的原始值拼接。</td>
                 </tr>
                 <tr>
                   <td>关闭订单</td>
-                  <td><code>md5(orderId + key)</code></td>
+                  <td><code>orderId</code></td>
                   <td>只用于关闭未支付的平台订单。</td>
                 </tr>
                 <tr>
                   <td>异步通知与同步跳转</td>
-                  <td><code>md5(payId + param + type + price + reallyPrice + key)</code></td>
+                  <td><code>payId + param + type + price + reallyPrice</code></td>
                   <td>商户验签时使用收到的字段字符串原文拼接，不要自行改金额格式。</td>
                 </tr>
               </tbody>
@@ -243,7 +244,9 @@ payId = "M202604250001"
 param = "user=10001"
 type = "1"
 price = "99.00"
-sign = md5(payId + param + type + price + key)</code></pre>
+payload = payId + param + type + price
+signType = "HMAC_SHA256"
+sign = hash_hmac('sha256', payload, key)</code></pre>
         </section>
 
         <section class="doc-section" id="create-order" aria-labelledby="create-title">
@@ -277,7 +280,12 @@ sign = md5(payId + param + type + price + key)</code></pre>
                 <tr>
                   <td><code>sign</code></td>
                   <td>是</td>
-                  <td>下单签名：<code>md5(payId + param + type + price + key)</code>。</td>
+                  <td>下单签名；算法由 <code>signType</code> 控制。</td>
+                </tr>
+                <tr>
+                  <td><code>signType</code></td>
+                  <td>否</td>
+                  <td>签名算法：<code>MD5</code> 或 <code>HMAC_SHA256</code>。不传默认 <code>MD5</code>。</td>
                 </tr>
                 <tr>
                   <td><code>param</code></td>
@@ -309,7 +317,8 @@ sign = md5(payId + param + type + price + key)</code></pre>
   -d "param=user=10001" \
   -d "notifyUrl=https://merchant.example.com/vpay/notify" \
   -d "returnUrl=https://merchant.example.com/order/result" \
-  -d "sign=按签名规则生成的MD5"</code></pre>
+  -d "signType=HMAC_SHA256" \
+  -d "sign=按签名规则生成的HMAC-SHA256"</code></pre>
           <pre><code>{
   "code": 1,
   "msg": "成功",
@@ -433,7 +442,7 @@ sign = md5(payId + param + type + price + key)</code></pre>
           <pre><code>{
   "code": 1,
   "msg": "成功",
-  "data": "https://merchant.example.com/order/result?payId=M202604250001&amp;param=user%3D10001&amp;type=1&amp;price=99.00&amp;reallyPrice=99.01&amp;sign=..."
+  "data": "https://merchant.example.com/order/result?payId=M202604250001&amp;param=user%3D10001&amp;type=1&amp;price=99.00&amp;reallyPrice=99.01&amp;signType=HMAC_SHA256&amp;sign=..."
 }</code></pre>
           <p>未支付时返回 <code>code=-1</code>、<code>msg=订单未支付</code>；过期时返回 <code>msg=订单已过期</code>。</p>
         </section>
@@ -459,7 +468,12 @@ sign = md5(payId + param + type + price + key)</code></pre>
                 <tr>
                   <td><code>sign</code></td>
                   <td>是</td>
-                  <td><code>md5(orderId + key)</code>。</td>
+                  <td>关闭订单签名；算法由 <code>signType</code> 控制。</td>
+                </tr>
+                <tr>
+                  <td><code>signType</code></td>
+                  <td>否</td>
+                  <td>签名算法：<code>MD5</code> 或 <code>HMAC_SHA256</code>。不传默认 <code>MD5</code>。</td>
                 </tr>
               </tbody>
             </table>
@@ -501,12 +515,16 @@ sign = md5(payId + param + type + price + key)</code></pre>
                 </tr>
                 <tr>
                   <td><code>sign</code></td>
-                  <td>回调签名：<code>md5(payId + param + type + price + reallyPrice + key)</code>。</td>
+                  <td>回调签名；算法由 <code>signType</code> 控制。</td>
+                </tr>
+                <tr>
+                  <td><code>signType</code></td>
+                  <td>签名算法：<code>MD5</code> 或 <code>HMAC_SHA256</code>。旧订单默认 <code>MD5</code>。</td>
                 </tr>
               </tbody>
             </table>
           </div>
-          <pre><code>GET https://merchant.example.com/vpay/notify?payId=M202604250001&amp;param=user%3D10001&amp;type=1&amp;price=99.00&amp;reallyPrice=99.01&amp;sign=...</code></pre>
+          <pre><code>GET https://merchant.example.com/vpay/notify?payId=M202604250001&amp;param=user%3D10001&amp;type=1&amp;price=99.00&amp;reallyPrice=99.01&amp;signType=HMAC_SHA256&amp;sign=...</code></pre>
           <div class="doc-note">
             商户通知接口验签成功并完成业务处理后，响应正文必须返回小写 <code>success</code>。返回其他内容、请求超时或网络失败都会被视为通知失败。
           </div>
@@ -514,7 +532,7 @@ sign = md5(payId + param + type + price + key)</code></pre>
 
         <section class="doc-section" id="return-url" aria-labelledby="return-title">
           <h2 id="return-title">同步跳转</h2>
-          <p>支付页检测到订单已支付后，会跳转到 <code>returnUrl</code>。跳转 URL 会追加与异步通知相同的字段：<code>payId</code>、<code>param</code>、<code>type</code>、<code>price</code>、<code>reallyPrice</code>、<code>sign</code>。</p>
+          <p>支付页检测到订单已支付后，会跳转到 <code>returnUrl</code>。跳转 URL 会追加与异步通知相同的字段：<code>payId</code>、<code>param</code>、<code>type</code>、<code>price</code>、<code>reallyPrice</code>、<code>signType</code>、<code>sign</code>。</p>
           <p>同步跳转只适合给用户展示支付结果，商户订单最终状态应以异步通知验签后的处理结果为准。</p>
         </section>
 
@@ -527,8 +545,10 @@ $payId = 'M' . date('YmdHis');
 $param = 'user=10001';
 $type = '1';
 $price = '99.00';
+$signType = 'HMAC_SHA256';
 
-$sign = md5($payId . $param . $type . $price . $key);</code></pre>
+$payload = $payId . $param . $type . $price;
+$sign = hash_hmac('sha256', $payload, $key);</code></pre>
           <h3>异步通知验签</h3>
           <pre><code>&lt;?php
 $key = '你的通讯密钥';
@@ -538,9 +558,13 @@ $param = $_GET['param'] ?? '';
 $type = $_GET['type'] ?? '';
 $price = $_GET['price'] ?? '';
 $reallyPrice = $_GET['reallyPrice'] ?? '';
+$signType = strtoupper($_GET['signType'] ?? 'MD5');
 $sign = $_GET['sign'] ?? '';
 
-$expected = md5($payId . $param . $type . $price . $reallyPrice . $key);
+$payload = $payId . $param . $type . $price . $reallyPrice;
+$expected = $signType === 'HMAC_SHA256'
+    ? hash_hmac('sha256', $payload, $key)
+    : md5($payload . $key);
 
 if (!hash_equals($expected, $sign)) {
     http_response_code(400);

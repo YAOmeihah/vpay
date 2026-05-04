@@ -124,6 +124,14 @@ class PayPageStaticAssetsTest extends TestCase
         $this->assertStringNotContainsString("response.data === '订单已过期'", $this->payHtml);
     }
 
+    public function test_order_id_query_value_is_decoded_and_rendered_as_text(): void
+    {
+        $this->assertStringContainsString('decodeQueryValue(result[2])', $this->payHtml);
+        $this->assertStringContainsString('{{ orderId }}', $this->payHtml);
+        $this->assertStringNotContainsString('v-html="orderId"', $this->payHtml);
+        $this->assertStringNotContainsString('innerHTML = orderId', $this->payHtml);
+    }
+
     public function test_loading_status_icon_keeps_animation_without_extra_rings(): void
     {
         $this->assertStringContainsString('.check-result-icon.loading', $this->payCss);

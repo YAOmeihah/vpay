@@ -142,8 +142,8 @@ class TerminalAdminService
     {
         try {
             return bin2hex(random_bytes(16));
-        } catch (\Throwable) {
-            return md5(uniqid((string) mt_rand(), true));
+        } catch (\Throwable $e) {
+            throw new \RuntimeException('安全随机数生成失败，无法生成密钥', 0, $e);
         }
     }
 

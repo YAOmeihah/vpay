@@ -13,6 +13,7 @@ use app\service\admin\AdminSettingsService;
 use app\service\admin\DashboardStatsService;
 use app\service\order\ExpiredOrderCleanupGate;
 use app\service\order\OrderStateManager;
+use app\service\security\KeyEncryptionService;
 use app\service\security\LoginAttemptLimiter;
 use app\command\CacheManage;
 use chillerlan\QRCode\QRCode;
@@ -172,10 +173,14 @@ class ControllerEdgeServiceRegressionTest extends TestCase
     public function test_cookie_configuration_hardens_session_cookie_defaults(): void
     {
         $cookieConfig = (string) file_get_contents(self::$rootPath . 'config/cookie.php');
+        $securityConfig = (string) file_get_contents(self::$rootPath . 'config/security.php');
+        $sessionConfig = (string) file_get_contents(self::$rootPath . 'config/session.php');
 
-        $this->assertStringContainsString("'secure'    => env('COOKIE_SECURE', false),", $cookieConfig);
+        $this->assertStringContainsString("'secure'    => env('COOKIE_SECURE', true),", $cookieConfig);
         $this->assertStringContainsString("'httponly'  => true,", $cookieConfig);
         $this->assertStringContainsString("'samesite'  => 'lax',", $cookieConfig);
+        $this->assertStringContainsString("'Strict-Transport-Security'", $securityConfig);
+        $this->assertStringContainsString("env('SESSION_TYPE', 'cache')", $sessionConfig);
     }
 
     public function test_security_config_does_not_expose_login_ip_binding_toggle(): void
@@ -195,14 +200,30 @@ class ControllerEdgeServiceRegressionTest extends TestCase
         $this->assertStringNotContainsString('$http_response_header[0]', $source);
     }
 
-    public function test_platform_order_ids_keep_legacy_18_digit_numeric_shape(): void
+    public function test_platform_order_ids_are_opaque_high_entropy_values(): void
     {
         $first = OrderCreationKernel::generatePlatformOrderId();
         $second = OrderCreationKernel::generatePlatformOrderId();
 
-        $this->assertMatchesRegularExpression('/^\d{18}$/', $first);
-        $this->assertMatchesRegularExpression('/^\d{18}$/', $second);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{32}$/', $first);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{32}$/', $second);
         $this->assertNotSame($first, $second);
+    }
+
+    public function test_security_sensitive_generators_do_not_fall_back_to_predictable_values(): void
+    {
+        foreach ([
+            'app/service/admin/AdminSettingsService.php',
+            'app/service/admin/TerminalAdminService.php',
+            'app/service/install/AdminBootstrapService.php',
+        ] as $relativePath) {
+            $source = (string) file_get_contents(self::$rootPath . $relativePath);
+
+            $this->assertStringContainsString('random_bytes(16)', $source, $relativePath);
+            $this->assertStringNotContainsString('mt_rand', $source, $relativePath);
+            $this->assertStringNotContainsString('uniqid', $source, $relativePath);
+            $this->assertStringNotContainsString('md5(', $source, $relativePath);
+        }
     }
 
     public function test_admin_settings_service_keeps_existing_field_list_and_masks_sensitive_values(): void
@@ -268,9 +289,8 @@ class ControllerEdgeServiceRegressionTest extends TestCase
         $this->assertSame('admin', $settings['user']);
         $this->assertSame('', $settings['pass']);
         $this->assertSame('generated-sign-key', $settings['key']);
-        $this->assertSame([
-            'key' => 'generated-sign-key',
-        ], $service->savedSettings);
+        $this->assertArrayHasKey('key', $service->savedSettings);
+        $this->assertEncryptedSettingValue('generated-sign-key', $service->savedSettings['key']);
     }
 
     public function test_admin_settings_service_regenerates_zero_key(): void
@@ -308,9 +328,8 @@ class ControllerEdgeServiceRegressionTest extends TestCase
 
         $settings = $service->getSettings();
         $this->assertSame('generated-sign-key', $settings['key']);
-        $this->assertSame([
-            'key' => 'generated-sign-key',
-        ], $service->savedSettings);
+        $this->assertArrayHasKey('key', $service->savedSettings);
+        $this->assertEncryptedSettingValue('generated-sign-key', $service->savedSettings['key']);
     }
 
     public function test_admin_settings_service_ignores_zero_password(): void
@@ -371,9 +390,8 @@ class ControllerEdgeServiceRegressionTest extends TestCase
         $settings = $service->getSettings();
 
         $this->assertSame('legacy-empty-regenerated-key', $settings['key']);
-        $this->assertSame([
-            'key' => 'legacy-empty-regenerated-key',
-        ], $service->savedSettings);
+        $this->assertArrayHasKey('key', $service->savedSettings);
+        $this->assertEncryptedSettingValue('legacy-empty-regenerated-key', $service->savedSettings['key']);
     }
 
     public function test_admin_settings_service_ignores_password_value_zero_to_match_legacy_empty_semantics(): void
@@ -439,14 +457,23 @@ class ControllerEdgeServiceRegressionTest extends TestCase
             'payQf' => '2',
         ]);
 
+        $this->assertArrayHasKey('key', $service->savedSettings);
+        $this->assertEncryptedSettingValue('next-sign-key', $service->savedSettings['key']);
+        unset($service->savedSettings['key']);
+
         $this->assertSame([
             'notifyUrl' => 'https://merchant.example/new-notify',
             'returnUrl' => 'https://merchant.example/new-return',
-            'key' => 'next-sign-key',
             'notify_ssl_verify' => '0',
             'close' => '30',
             'payQf' => '2',
         ], $service->savedSettings);
+    }
+
+    private function assertEncryptedSettingValue(string $expectedPlaintext, string $storedValue): void
+    {
+        $this->assertStringStartsWith('enc:', $storedValue);
+        $this->assertSame($expectedPlaintext, (new KeyEncryptionService())->decrypt($storedValue));
     }
 
     public function test_admin_permission_service_keeps_canonical_admin_permissions_list(): void
@@ -590,6 +617,48 @@ class ControllerEdgeServiceRegressionTest extends TestCase
             $limiter->recordLoginFailure('127.0.0.1');
 
             $this->assertSame(1800, $limiter->lastTtl);
+        } finally {
+            self::$app->config->set($originalSecurity, 'security');
+        }
+    }
+
+    public function test_login_attempt_limiter_uses_configured_general_rate_limit(): void
+    {
+        $originalSecurity = self::$app->config->get('security');
+        $security = is_array($originalSecurity) ? $originalSecurity : [];
+        $security['rate_limit'] = [
+            'max_requests' => 3,
+            'window_seconds' => 7,
+        ];
+        self::$app->config->set($security, 'security');
+
+        try {
+            $limiter = new class extends LoginAttemptLimiter {
+                public ?int $lastTtl = null;
+                /** @var array<string, int> */
+                public array $store = [];
+
+                protected function get(string $key): mixed
+                {
+                    return $this->store[$key] ?? 0;
+                }
+
+                protected function put(string $key, int $value, int $ttl): void
+                {
+                    $this->store[$key] = $value;
+                    $this->lastTtl = $ttl;
+                }
+            };
+
+            $clientIp = '127.0.0.1-rate-limit';
+            $this->assertFalse($limiter->tooManyRequests($clientIp));
+            $limiter->recordRequest($clientIp);
+            $limiter->recordRequest($clientIp);
+            $this->assertFalse($limiter->tooManyRequests($clientIp));
+            $limiter->recordRequest($clientIp);
+
+            $this->assertTrue($limiter->tooManyRequests($clientIp));
+            $this->assertSame(7, $limiter->lastTtl);
         } finally {
             self::$app->config->set($originalSecurity, 'security');
         }
@@ -782,6 +851,21 @@ class ControllerEdgeServiceRegressionTest extends TestCase
         $this->assertTrue($controller->osProbeUsed);
         $this->assertTrue($controller->procProbeUsed);
         $this->assertSame('无法获取', $result);
+    }
+
+    public function test_admin_and_monitor_sources_avoid_risky_legacy_patterns(): void
+    {
+        $adminSource = (string) file_get_contents(self::$rootPath . 'app/controller/Admin.php');
+        $monitorSource = (string) file_get_contents(self::$rootPath . 'app/service/MonitorService.php');
+        $installStateSource = (string) file_get_contents(self::$rootPath . 'app/service/install/InstallStateService.php');
+
+        $this->assertStringNotContainsString('executeShellCommand(', $adminSource);
+        $this->assertStringNotContainsString('SELECT VERSION()', $adminSource);
+        $this->assertStringNotContainsString('<font', $adminSource);
+        $this->assertStringNotContainsString('TmpPrice::select()', $monitorSource);
+        $this->assertStringContainsString('whereNotIn', $monitorSource);
+        $this->assertStringContainsString('whereNotNull', $monitorSource);
+        $this->assertStringNotContainsString('SHOW TABLES LIKE', $installStateSource);
     }
 
     public function test_admin_decode_qrcode_uses_business_error_code_for_decode_failures(): void

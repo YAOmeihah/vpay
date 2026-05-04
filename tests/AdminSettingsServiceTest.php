@@ -5,6 +5,7 @@ namespace tests;
 
 use app\model\Setting;
 use app\service\admin\AdminSettingsService;
+use app\service\security\KeyEncryptionService;
 
 class AdminSettingsServiceTest extends TestCase
 {
@@ -20,7 +21,9 @@ class AdminSettingsServiceTest extends TestCase
 
         $this->assertNotSame('', $settings['key']);
         $this->assertArrayNotHasKey('monitorKey', $settings);
-        $this->assertSame($settings['key'], Setting::getConfigValue('key'));
+        $storedKey = Setting::getConfigValue('key');
+        $this->assertStringStartsWith('enc:', $storedKey);
+        $this->assertSame($settings['key'], (new KeyEncryptionService())->decrypt($storedKey));
     }
 
     public function test_get_settings_keeps_only_global_payment_and_security_fields(): void

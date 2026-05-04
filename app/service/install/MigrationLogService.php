@@ -81,7 +81,8 @@ class MigrationLogService
     private function tableAvailable(): bool
     {
         try {
-            return Db::query("SHOW TABLES LIKE 'system_migration_log'") !== [];
+            Db::name('system_migration_log')->limit(1)->value('migration_key');
+            return true;
         } catch (\Throwable) {
             return false;
         }

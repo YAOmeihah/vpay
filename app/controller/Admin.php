@@ -60,14 +60,13 @@ class Admin extends BaseController
             $countOrder = PayOrder::count();
             $countMoney = PayOrder::where("state", ">=", 1)->sum("price");
 
-            $version = Db::query("SELECT VERSION()");
-            $mysqlVersion = $version[0]['VERSION()'];
+            $mysqlVersion = (string) Db::connect()->getPdo()->getAttribute(\PDO::ATTR_SERVER_VERSION);
 
             if (function_exists("gd_info")) {
                 $gdInfo = @gd_info();
                 $gdVersion = $gdInfo["GD Version"];
             } else {
-                $gdVersion = '<font color="red">GD库未开启！</font>';
+                $gdVersion = 'GD库未开启';
             }
 
             return $this->dashboardStatsService()->buildPayload([
@@ -189,7 +188,7 @@ class Admin extends BaseController
         // Windows系统或其他系统
         if ($this->currentOsFamily() === 'Windows') {
             // Windows下获取系统启动时间
-            $uptime = $this->executeShellCommand('wmic os get lastbootuptime /value 2>nul');
+            $uptime = $this->readWindowsLastBootUptimeRaw();
             if ($uptime) {
                 preg_match('/LastBootUpTime=(\d{14})/', $uptime, $matches);
                 if (isset($matches[1])) {
@@ -226,9 +225,9 @@ class Admin extends BaseController
         return $content === false ? false : $content;
     }
 
-    protected function executeShellCommand(string $command): string|false|null
+    protected function readWindowsLastBootUptimeRaw(): string|false|null
     {
-        return shell_exec($command);
+        return shell_exec('wmic os get lastbootuptime /value 2>nul');
     }
 
     protected function isPathAllowedByOpenBaseDir(string $path): bool

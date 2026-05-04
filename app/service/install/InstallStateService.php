@@ -73,7 +73,8 @@ class InstallStateService
     protected function settingsTableAvailable(): bool
     {
         try {
-            return Db::query("SHOW TABLES LIKE 'setting'") !== [];
+            Db::name('setting')->limit(1)->value('vkey');
+            return true;
         } catch (\Throwable) {
             return false;
         }

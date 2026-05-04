@@ -16,7 +16,7 @@ class OrderCreationKernel
 {
     public static function generatePlatformOrderId(): string
     {
-        return date('YmdHis') . random_int(1000, 9999);
+        return bin2hex(random_bytes(16));
     }
 
     public static function assertMerchantOrderNotExists(string $merchantOrderId): void

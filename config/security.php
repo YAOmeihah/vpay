@@ -14,6 +14,12 @@ return [
         'session_timeout' => 28800, // 8小时
     ],
 
+    // 通用请求频率限制
+    'rate_limit' => [
+        'max_requests' => (int) env('SECURITY_RATE_LIMIT_MAX_REQUESTS', 120),
+        'window_seconds' => (int) env('SECURITY_RATE_LIMIT_WINDOW_SECONDS', 60),
+    ],
+
     // 输入验证
     'validation' => [
         // 最大字符串长度
@@ -42,6 +48,7 @@ return [
         'X-Content-Type-Options' => 'nosniff',
         'X-XSS-Protection' => '1; mode=block',
         'Referrer-Policy' => 'strict-origin-when-cross-origin',
+        'Strict-Transport-Security' => 'max-age=31536000; includeSubDomains',
         'Content-Security-Policy' => "default-src 'self'; script-src 'self' 'unsafe-inline' cdn.jsdelivr.net lib.baomitu.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:;",
     ],
 

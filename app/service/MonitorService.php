@@ -75,17 +75,12 @@ class MonitorService
 
     /**
      * 清理无对应订单的 TmpPrice 记录
-     * 注意：当前实现为全表扫描，数据量大时需优化为 JOIN 查询
      */
     private static function cleanOrphanTmpPrices(): void
     {
-        $rows = TmpPrice::select();
-        foreach ($rows as $row) {
-            $exists = PayOrder::where('order_id', $row['oid'])->find();
-            if (!$exists) {
-                TmpPrice::where('oid', $row['oid'])->delete();
-            }
-        }
+        TmpPrice::whereNotIn('oid', static function ($query): void {
+            $query->name('pay_order')->whereNotNull('order_id')->field('order_id');
+        })->delete();
     }
 
     protected static function currentTimestamp(): int

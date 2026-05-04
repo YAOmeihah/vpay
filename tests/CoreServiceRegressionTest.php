@@ -58,6 +58,13 @@ namespace app\service {
             return \tests\NotifyHttpProbe::gethostbyname($host);
         }
     }
+
+    if (!function_exists(__NAMESPACE__ . '\env')) {
+        function env(?string $name = null, mixed $default = null): mixed
+        {
+            return \tests\NotifyHttpProbe::env($name, $default);
+        }
+    }
 }
 
 namespace app\model {
@@ -421,6 +428,7 @@ namespace tests {
             }
 
             FakeSetting::reset();
+            NotifyHttpProbe::setEnv('APP_DEBUG', false);
         }
 
         protected function tearDown(): void
@@ -434,6 +442,7 @@ namespace tests {
             NotifyServiceAdapterProbe::$config = null;
             OrderCreationKernelProbe::$config = null;
             OrderCreationKernelProbe::$cachedOrders = [];
+            NotifyHttpProbe::setEnv('APP_DEBUG', false);
 
             parent::tearDown();
         }
@@ -740,6 +749,101 @@ namespace tests {
             $result = NotifyServiceAdapterProbe::sendNotifyDetailed([
                 'notify_url' => 'http://[::1]/internal-notify',
                 'pay_id' => 'merchant-local-ipv6-1001',
+                'param' => 'attach',
+                'type' => PayOrder::TYPE_WECHAT,
+                'price' => '12.34',
+                'really_price' => '12.34',
+            ]);
+
+            $this->assertFalse($result['ok']);
+            $this->assertStringContainsString('通知地址指向内网地址', $result['detail']);
+            $this->assertSame([], NotifyHttpProbe::$curlOptions);
+        }
+
+        public function test_notify_service_allows_localhost_notify_target_in_debug_mode(): void
+        {
+            NotifyHttpProbe::setEnv('APP_DEBUG', true);
+            NotifyServiceAdapterProbe::$config = new FakeSystemConfig(notifySslVerifyEnabled: true);
+            NotifyHttpProbe::enable(
+                hostMap: ['localhost' => '127.0.0.1'],
+                result: 'success'
+            );
+
+            $result = NotifyServiceAdapterProbe::sendNotifyDetailed([
+                'notify_url' => 'http://localhost:5174/api/v1/payments/callback',
+                'pay_id' => 'merchant-localhost-debug',
+                'param' => 'attach',
+                'type' => PayOrder::TYPE_ALIPAY,
+                'price' => '0.01',
+                'really_price' => '0.01',
+                'sign_type' => 'HMAC_SHA256',
+            ]);
+
+            $this->assertTrue($result['ok']);
+            $this->assertSame('success', $result['response']);
+            $this->assertStringStartsWith(
+                'http://localhost:5174/api/v1/payments/callback?',
+                (string)(NotifyHttpProbe::$curlOptions[CURLOPT_URL] ?? '')
+            );
+        }
+
+        public function test_notify_service_allows_loopback_ip_literal_in_debug_mode(): void
+        {
+            NotifyHttpProbe::setEnv('APP_DEBUG', true);
+            NotifyServiceAdapterProbe::$config = new FakeSystemConfig(notifySslVerifyEnabled: true);
+            NotifyHttpProbe::enable(result: 'success');
+
+            $result = NotifyServiceAdapterProbe::sendNotifyDetailed([
+                'notify_url' => 'http://127.0.0.1:5174/api/v1/payments/callback',
+                'pay_id' => 'merchant-loopback-debug',
+                'param' => 'attach',
+                'type' => PayOrder::TYPE_ALIPAY,
+                'price' => '0.01',
+                'really_price' => '0.01',
+                'sign_type' => 'HMAC_SHA256',
+            ]);
+
+            $this->assertTrue($result['ok']);
+            $this->assertSame('success', $result['response']);
+            $this->assertStringStartsWith(
+                'http://127.0.0.1:5174/api/v1/payments/callback?',
+                (string)(NotifyHttpProbe::$curlOptions[CURLOPT_URL] ?? '')
+            );
+        }
+
+        public function test_notify_service_allows_ipv6_loopback_literal_in_debug_mode(): void
+        {
+            NotifyHttpProbe::setEnv('APP_DEBUG', true);
+            NotifyServiceAdapterProbe::$config = new FakeSystemConfig(notifySslVerifyEnabled: true);
+            NotifyHttpProbe::enable(result: 'success');
+
+            $result = NotifyServiceAdapterProbe::sendNotifyDetailed([
+                'notify_url' => 'http://[::1]:5174/api/v1/payments/callback',
+                'pay_id' => 'merchant-ipv6-loopback-debug',
+                'param' => 'attach',
+                'type' => PayOrder::TYPE_ALIPAY,
+                'price' => '0.01',
+                'really_price' => '0.01',
+                'sign_type' => 'HMAC_SHA256',
+            ]);
+
+            $this->assertTrue($result['ok']);
+            $this->assertSame('success', $result['response']);
+            $this->assertStringStartsWith(
+                'http://[::1]:5174/api/v1/payments/callback?',
+                (string)(NotifyHttpProbe::$curlOptions[CURLOPT_URL] ?? '')
+            );
+        }
+
+        public function test_notify_service_still_blocks_non_loopback_private_ip_in_debug_mode(): void
+        {
+            NotifyHttpProbe::setEnv('APP_DEBUG', true);
+            NotifyServiceAdapterProbe::$config = new FakeSystemConfig(notifySslVerifyEnabled: true);
+            NotifyHttpProbe::enable();
+
+            $result = NotifyServiceAdapterProbe::sendNotifyDetailed([
+                'notify_url' => 'http://192.168.1.10/internal-notify',
+                'pay_id' => 'merchant-private-debug',
                 'param' => 'attach',
                 'type' => PayOrder::TYPE_WECHAT,
                 'price' => '12.34',
@@ -1149,6 +1253,7 @@ namespace tests {
         public static string|false $result = '';
         public static string $error = '';
         public static int $errno = 52;
+        public static array $env = [];
 
         public static function enable(array $hostMap = [], string|false $result = 'success', string $error = ''): void
         {
@@ -1169,6 +1274,21 @@ namespace tests {
             self::$result = '';
             self::$error = '';
             self::$errno = 52;
+            self::$env = [];
+        }
+
+        public static function setEnv(string $name, mixed $value): void
+        {
+            self::$env[strtoupper(str_replace('.', '_', $name))] = $value;
+        }
+
+        public static function env(?string $name = null, mixed $default = null): mixed
+        {
+            if ($name === null) {
+                return self::$env;
+            }
+
+            return self::$env[strtoupper(str_replace('.', '_', $name))] ?? $default;
         }
 
         public static function curlInit(): mixed

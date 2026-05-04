@@ -128,6 +128,10 @@ class NotifyService
                     continue;
                 }
 
+                if (static::isDebugMode() && static::isLoopbackNotifyTarget($host, $ip)) {
+                    continue;
+                }
+
                 return [
                     'response' => '',
                     'error' => '通知地址指向内网地址，已被安全策略拦截',
@@ -209,6 +213,38 @@ class NotifyService
     private static function isPrivateIp(string $ip): bool
     {
         return filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false;
+    }
+
+    private static function isDebugMode(): bool
+    {
+        return filter_var(env('APP_DEBUG', false), FILTER_VALIDATE_BOOLEAN);
+    }
+
+    private static function isLoopbackNotifyTarget(string $host, string $ip): bool
+    {
+        $normalizedHost = strtolower(trim($host, '[]'));
+
+        if ($normalizedHost === 'localhost') {
+            return static::isLoopbackIp($ip);
+        }
+
+        if (filter_var($normalizedHost, FILTER_VALIDATE_IP)) {
+            return static::isLoopbackIp($normalizedHost) && static::isLoopbackIp($ip);
+        }
+
+        return false;
+    }
+
+    private static function isLoopbackIp(string $ip): bool
+    {
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+            return str_starts_with($ip, '127.');
+        }
+
+        $packed = @inet_pton($ip);
+        $loopback = @inet_pton('::1');
+
+        return $packed !== false && $loopback !== false && $packed === $loopback;
     }
 
     /**

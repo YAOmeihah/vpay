@@ -92,6 +92,108 @@ final class ReleasePackageBuilder
                 throw new RuntimeException('Missing required release artifact: ' . $required);
             }
         }
+
+        $this->assertConsoleBuildIsFresh($root);
+    }
+
+    private function assertConsoleBuildIsFresh(string $root): void
+    {
+        $frontendRoot = $root . DIRECTORY_SEPARATOR . 'frontend' . DIRECTORY_SEPARATOR . 'admin';
+        if (!is_dir($frontendRoot)) {
+            return;
+        }
+
+        $consoleIndex = $root . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'console' . DIRECTORY_SEPARATOR . 'index.html';
+        $consoleBuildTime = filemtime($consoleIndex);
+        if ($consoleBuildTime === false) {
+            return;
+        }
+
+        $latestSource = $this->latestFrontendSource($root);
+        if ($latestSource === null || $latestSource['mtime'] <= $consoleBuildTime) {
+            return;
+        }
+
+        throw new RuntimeException(
+            'Frontend console build is stale. Run `cd frontend/admin && pnpm build` before release packaging. Newer source: '
+            . $latestSource['path']
+        );
+    }
+
+    /**
+     * @return array{path: string, mtime: int}|null
+     */
+    private function latestFrontendSource(string $root): ?array
+    {
+        $candidates = [
+            'frontend/admin/package.json',
+            'frontend/admin/pnpm-lock.yaml',
+            'frontend/admin/index.html',
+            'frontend/admin/vite.config.ts',
+            'frontend/admin/tsconfig.json',
+            'frontend/admin/.env',
+            'frontend/admin/.env.development',
+            'frontend/admin/.env.production',
+            'frontend/admin/.env.staging',
+            'frontend/admin/build',
+            'frontend/admin/public',
+            'frontend/admin/src',
+        ];
+
+        $latest = null;
+        foreach ($candidates as $candidate) {
+            $path = $root . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $candidate);
+            $mtime = $this->latestModifiedTime($path, $root);
+            if ($mtime !== null && ($latest === null || $mtime['mtime'] > $latest['mtime'])) {
+                $latest = $mtime;
+            }
+        }
+
+        return $latest;
+    }
+
+    /**
+     * @return array{path: string, mtime: int}|null
+     */
+    private function latestModifiedTime(string $path, string $root): ?array
+    {
+        if (!file_exists($path)) {
+            return null;
+        }
+
+        if (is_file($path)) {
+            $mtime = filemtime($path);
+            if ($mtime === false) {
+                return null;
+            }
+
+            return [
+                'path' => $this->relativePath($path, $root),
+                'mtime' => $mtime,
+            ];
+        }
+
+        $latest = null;
+        $items = scandir($path) ?: [];
+        foreach ($items as $item) {
+            if ($item === '.' || $item === '..') {
+                continue;
+            }
+
+            $mtime = $this->latestModifiedTime($path . DIRECTORY_SEPARATOR . $item, $root);
+            if ($mtime !== null && ($latest === null || $mtime['mtime'] > $latest['mtime'])) {
+                $latest = $mtime;
+            }
+        }
+
+        return $latest;
+    }
+
+    private function relativePath(string $path, string $root): string
+    {
+        $relative = ltrim(substr($this->normalizePath($path), strlen($this->normalizePath($root))), DIRECTORY_SEPARATOR);
+
+        return str_replace(DIRECTORY_SEPARATOR, '/', $relative);
     }
 
     private function copyDirectory(string $source, string $target, string $relativeRoot): void

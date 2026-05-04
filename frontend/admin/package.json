@@ -18,6 +18,10 @@
     "lint:prettier": "prettier --write  \"src/**/*.{js,ts,json,tsx,css,scss,vue,html,md}\"",
     "lint:stylelint": "stylelint --cache --fix \"**/*.{html,vue,css,scss}\" --cache-location node_modules/.cache/stylelint/",
     "lint": "pnpm lint:eslint && pnpm lint:prettier && pnpm lint:stylelint",
+    "lint:eslint:check": "eslint --max-warnings 0 \"{src,build}/**/*.{vue,js,ts,tsx}\"",
+    "lint:prettier:check": "prettier --check \"src/**/*.{js,ts,json,tsx,css,scss,vue,html,md}\"",
+    "lint:stylelint:check": "stylelint \"**/*.{html,vue,css,scss}\"",
+    "lint:check": "pnpm lint:eslint:check && pnpm lint:prettier:check && pnpm lint:stylelint:check",
     "preinstall": "npx only-allow pnpm"
   },
   "keywords": [
@@ -52,19 +56,19 @@
     "@vueuse/core": "^14.0.0",
     "@vueuse/motion": "^3.0.3",
     "animate.css": "^4.1.1",
-    "axios": "^1.12.2",
+    "axios": "^1.16.0",
     "dayjs": "^1.11.18",
-    "element-plus": "^2.11.5",
+    "element-plus": "^2.13.7",
     "js-cookie": "^3.0.5",
     "mitt": "^3.0.1",
     "nprogress": "^0.2.0",
     "path-browserify": "^1.0.1",
     "pinia": "^3.0.3",
     "pinyin-pro": "^3.27.0",
-    "qs": "^6.14.0",
+    "qs": "^6.15.1",
     "responsive-storage": "^2.2.0",
     "sortablejs": "^1.15.6",
-    "vue": "^3.5.22",
+    "vue": "^3.5.33",
     "vue-router": "^4.6.3",
     "vue-tippy": "^6.7.1",
     "vue-types": "^6.0.0"
@@ -127,6 +131,11 @@
     "pnpm": ">=9"
   },
   "pnpm": {
+    "overrides": {
+      "@vueuse/motion>defu": "6.1.7",
+      "tinyglobby>picomatch": "4.0.4",
+      "unplugin>picomatch": "4.0.4"
+    },
     "allowedDeprecatedVersions": {
       "are-we-there-yet": "*",
       "sourcemap-codec": "*",

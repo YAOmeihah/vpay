@@ -69,7 +69,7 @@ onMounted(loadSettings);
 </script>
 
 <template>
-  <div class="p-4 space-y-4" v-loading="initialLoading">
+  <div v-loading="initialLoading" class="p-4 space-y-4">
     <el-card shadow="never">
       <div class="space-y-1">
         <h2 class="text-lg font-medium">系统设置</h2>
@@ -82,7 +82,7 @@ onMounted(loadSettings);
     <SystemUpdateCard />
 
     <SecurityCard
-      :model="sections.security"
+      v-model:model="sections.security"
       :loading="activeSection === 'security'"
       @save="
         saveSection(
@@ -94,7 +94,7 @@ onMounted(loadSettings);
     />
 
     <PaymentConfigCard
-      :model="sections.payment"
+      v-model:model="sections.payment"
       :loading="activeSection === 'payment'"
       @save="
         saveSection(

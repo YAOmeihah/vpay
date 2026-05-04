@@ -9,7 +9,9 @@ type DashboardStats = {
   countMoney: number | string;
 };
 
-export function mapDashboardStats(payload?: Record<string, any>): DashboardStats {
+export function mapDashboardStats(
+  payload?: Record<string, any>
+): DashboardStats {
   return {
     todayOrder: Number(payload?.todayOrder ?? 0),
     todaySuccessOrder: Number(payload?.todaySuccessOrder ?? 0),
@@ -26,7 +28,8 @@ export function normalizePagedList<T = Record<string, any>>(payload?: {
 }): { items: T[]; total: number } {
   const items = Array.isArray(payload?.data) ? (payload?.data as T[]) : [];
   const rawTotal = Number(payload?.count);
-  const total = Number.isFinite(rawTotal) && rawTotal >= 0 ? rawTotal : items.length;
+  const total =
+    Number.isFinite(rawTotal) && rawTotal >= 0 ? rawTotal : items.length;
 
   return { items, total };
 }

@@ -18,10 +18,13 @@ const submitting = ref(false);
 const fileInputRef = ref<HTMLInputElement | null>(null);
 
 const appendPendingRow = async (file: File) => {
-  const result = await buildPendingQrRow({ raw: file }, {
-    createPreviewUrl: file => URL.createObjectURL(file),
-    decodeQr: decodeQrFromFile
-  });
+  const result = await buildPendingQrRow(
+    { raw: file },
+    {
+      createPreviewUrl: file => URL.createObjectURL(file),
+      decodeQr: decodeQrFromFile
+    }
+  );
 
   if (!result.row) {
     message(result.warning, { type: "error" });
@@ -148,17 +151,16 @@ const submitAll = async () => {
         </el-table-column>
         <el-table-column label="金额" width="140">
           <template #default="{ row }">
-            <el-input
-              v-model="row.price"
-              placeholder="如 0.01"
-              size="small"
-            />
+            <el-input v-model="row.price" placeholder="如 0.01" size="small" />
           </template>
         </el-table-column>
         <el-table-column label="状态" width="100">
           <template #default="{ row }">
             <el-tag v-if="row.status === 'ok'" type="success">成功</el-tag>
-            <el-tooltip v-else-if="row.status === 'error'" :content="row.errMsg">
+            <el-tooltip
+              v-else-if="row.status === 'error'"
+              :content="row.errMsg"
+            >
               <el-tag type="danger">失败</el-tag>
             </el-tooltip>
             <el-tag v-else type="info">待提交</el-tag>
@@ -171,17 +173,16 @@ const submitAll = async () => {
               size="small"
               text
               @click="removeRow($index)"
-            >删除</el-button>
+              >删除</el-button
+            >
           </template>
         </el-table-column>
       </el-table>
 
       <div v-if="rows.length" class="mt-4">
-        <el-button
-          type="primary"
-          :loading="submitting"
-          @click="submitAll"
-        >全部提交</el-button>
+        <el-button type="primary" :loading="submitting" @click="submitAll"
+          >全部提交</el-button
+        >
       </div>
     </el-card>
   </div>

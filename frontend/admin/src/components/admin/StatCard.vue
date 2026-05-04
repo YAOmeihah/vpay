@@ -22,18 +22,21 @@ defineProps<{
 <style scoped>
 .stat-card__body {
   display: flex;
-  align-items: center;
   gap: 1rem;
+  align-items: center;
 }
+
 .stat-card__icon {
   font-size: 2.5rem;
   color: var(--el-color-primary);
 }
+
 .stat-card__value {
   font-size: 1.5rem;
   font-weight: bold;
   color: var(--el-text-color-primary);
 }
+
 .stat-card__title {
   font-size: 0.875rem;
   color: var(--el-text-color-secondary);

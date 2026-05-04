@@ -29,7 +29,8 @@ const emit = defineEmits<{
         <div class="space-y-1">
           <div class="font-medium">{{ props.card.terminalName }}</div>
           <div class="text-xs text-gray-500">
-            {{ props.card.terminalCode || `terminal-${props.card.id}` }} · 分配顺序
+            {{ props.card.terminalCode || `terminal-${props.card.id}` }} ·
+            分配顺序
             {{ props.card.dispatchPriority }}
           </div>
         </div>

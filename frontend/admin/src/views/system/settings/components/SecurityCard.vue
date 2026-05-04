@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import type { FormInstance, FormRules } from "element-plus";
 
 import type { SecuritySection } from "../sectionState";
@@ -10,12 +10,39 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
+  "update:model": [model: SecuritySection];
   save: [];
 }>();
 
 const formRef = ref<FormInstance>();
 
-const validateConfirmPassword = (_rule: unknown, value: string, callback: (error?: Error) => void) => {
+const updateModel = (patch: Partial<SecuritySection>) => {
+  emit("update:model", {
+    ...props.model,
+    ...patch
+  });
+};
+
+const user = computed({
+  get: () => props.model.user,
+  set: value => updateModel({ user: String(value ?? "") })
+});
+
+const newPassword = computed({
+  get: () => props.model.newPassword,
+  set: value => updateModel({ newPassword: String(value ?? "") })
+});
+
+const confirmPassword = computed({
+  get: () => props.model.confirmPassword,
+  set: value => updateModel({ confirmPassword: String(value ?? "") })
+});
+
+const validateConfirmPassword = (
+  _rule: unknown,
+  value: string,
+  callback: (error?: Error) => void
+) => {
   if (props.model.newPassword.trim() === "" && value.trim() === "") {
     callback();
     return;
@@ -34,7 +61,11 @@ const validateConfirmPassword = (_rule: unknown, value: string, callback: (error
   callback();
 };
 
-const validateNewPassword = (_rule: unknown, value: string, callback: (error?: Error) => void) => {
+const validateNewPassword = (
+  _rule: unknown,
+  value: string,
+  callback: (error?: Error) => void
+) => {
   if (value.trim() === "" && props.model.confirmPassword.trim() === "") {
     callback();
     return;
@@ -67,18 +98,25 @@ const handleSave = async () => {
     <template #header>
       <div class="space-y-1">
         <div class="text-base font-medium">管理员安全</div>
-        <div class="text-sm text-gray-500">账号修改与密码更新互不影响其它支付配置。</div>
+        <div class="text-sm text-gray-500">
+          账号修改与密码更新互不影响其它支付配置。
+        </div>
       </div>
     </template>
 
-    <el-form ref="formRef" :model="model" :rules="rules" label-width="120px">
+    <el-form
+      ref="formRef"
+      :model="props.model"
+      :rules="rules"
+      label-width="120px"
+    >
       <el-form-item label="后台账号" prop="user">
-        <el-input v-model="model.user" placeholder="请输入管理员账号" />
+        <el-input v-model="user" placeholder="请输入管理员账号" />
       </el-form-item>
 
       <el-form-item label="新密码" prop="newPassword">
         <el-input
-          v-model="model.newPassword"
+          v-model="newPassword"
           type="password"
           show-password
           placeholder="留空表示不修改密码"
@@ -88,7 +126,7 @@ const handleSave = async () => {
 
       <el-form-item label="确认密码" prop="confirmPassword">
         <el-input
-          v-model="model.confirmPassword"
+          v-model="confirmPassword"
           type="password"
           show-password
           placeholder="再次输入新密码"

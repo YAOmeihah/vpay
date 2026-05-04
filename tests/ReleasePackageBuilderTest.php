@@ -45,6 +45,10 @@ final class ReleasePackageBuilderTest extends TestCase
         $this->writeFixtureFile('frontend/admin/src/main.ts', 'source');
         $this->writeFixtureFile('frontend/admin/node_modules/pkg/index.js', 'dependency');
         $this->writeFixtureFile('.git/config', 'repo');
+
+        $this->touchFixtureFile('frontend/admin/src/main.ts', time() - 10);
+        $this->touchFixtureFile('public/console/index.html', time());
+        $this->touchFixtureFile('public/console/static/js/index.js', time());
     }
 
     protected function tearDown(): void
@@ -123,6 +127,23 @@ final class ReleasePackageBuilderTest extends TestCase
         self::assertSame('9.8.8', $manifest['app_version'] ?? null);
     }
 
+    public function test_stage_rejects_stale_console_build(): void
+    {
+        $builderPath = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'build/release/ReleasePackageBuilder.php';
+        self::assertFileExists($builderPath);
+        require_once $builderPath;
+
+        $this->touchFixtureFile('frontend/admin/src/main.ts', time() + 10);
+        $builder = new \VPay\Build\ReleasePackageBuilder($this->fixtureRoot);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Frontend console build is stale');
+        $this->expectExceptionMessage('pnpm build');
+        $this->expectExceptionMessage('frontend/admin/src/main.ts');
+
+        $builder->stage('v2.1.0', $this->outputRoot);
+    }
+
     private function writeFixtureFile(string $relativePath, string $contents): void
     {
         $path = $this->fixtureRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relativePath);
@@ -132,6 +153,12 @@ final class ReleasePackageBuilderTest extends TestCase
         }
 
         file_put_contents($path, $contents);
+    }
+
+    private function touchFixtureFile(string $relativePath, int $time): void
+    {
+        $path = $this->fixtureRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relativePath);
+        touch($path, $time);
     }
 
     private function removeTree(string $path): void

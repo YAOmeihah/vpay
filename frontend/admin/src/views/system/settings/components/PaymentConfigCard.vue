@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import type { FormInstance, FormRules } from "element-plus";
 
 import type { PaymentSection } from "../sectionState";
@@ -10,12 +10,63 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
+  "update:model": [model: PaymentSection];
   save: [];
 }>();
 
 const formRef = ref<FormInstance>();
 
-const validatePositiveInteger = (_rule: unknown, value: string, callback: (error?: Error) => void) => {
+const updateModel = (patch: Partial<PaymentSection>) => {
+  emit("update:model", {
+    ...props.model,
+    ...patch
+  });
+};
+
+const close = computed({
+  get: () => props.model.close,
+  set: value => updateModel({ close: String(value ?? "") })
+});
+
+const notifyUrl = computed({
+  get: () => props.model.notifyUrl,
+  set: value => updateModel({ notifyUrl: String(value ?? "") })
+});
+
+const returnUrl = computed({
+  get: () => props.model.returnUrl,
+  set: value => updateModel({ returnUrl: String(value ?? "") })
+});
+
+const notifySslVerify = computed({
+  get: () => props.model.notifySslVerify,
+  set: value => updateModel({ notifySslVerify: String(value ?? "") })
+});
+
+const secretKey = computed({
+  get: () => props.model.key,
+  set: value => updateModel({ key: String(value ?? "") })
+});
+
+const payQf = computed({
+  get: () => props.model.payQf,
+  set: value => updateModel({ payQf: String(value ?? "") })
+});
+
+const allocationStrategy = computed({
+  get: () => props.model.allocationStrategy,
+  set: value =>
+    updateModel({
+      allocationStrategy:
+        value === "round_robin" ? "round_robin" : "fixed_priority"
+    })
+});
+
+const validatePositiveInteger = (
+  _rule: unknown,
+  value: string,
+  callback: (error?: Error) => void
+) => {
   if (!/^[1-9]\d*$/.test(String(value ?? "").trim())) {
     callback(new Error("请输入大于 0 的整数分钟数"));
     return;
@@ -28,7 +79,9 @@ const rules: FormRules<PaymentSection> = {
   key: [{ required: true, message: "请输入通讯密钥", trigger: "blur" }],
   close: [{ validator: validatePositiveInteger, trigger: "blur" }],
   payQf: [{ required: true, message: "请选择区分方式", trigger: "change" }],
-  allocationStrategy: [{ required: true, message: "请选择分配策略", trigger: "change" }]
+  allocationStrategy: [
+    { required: true, message: "请选择分配策略", trigger: "change" }
+  ]
 };
 
 const handleSave = async () => {
@@ -44,14 +97,21 @@ const handleSave = async () => {
     <template #header>
       <div class="space-y-1">
         <div class="text-base font-medium">支付基础配置</div>
-        <div class="text-sm text-gray-500">维护订单有效期、默认支付回调地址、通讯密钥和金额区分方式。</div>
+        <div class="text-sm text-gray-500">
+          维护订单有效期、默认支付回调地址、通讯密钥和金额区分方式。
+        </div>
       </div>
     </template>
 
-    <el-form ref="formRef" :model="model" :rules="rules" label-width="120px">
+    <el-form
+      ref="formRef"
+      :model="props.model"
+      :rules="rules"
+      label-width="120px"
+    >
       <el-form-item label="订单有效期" prop="close">
         <el-input
-          v-model="props.model.close"
+          v-model="close"
           type="number"
           placeholder="请输入订单过期分钟数"
         />
@@ -59,18 +119,26 @@ const handleSave = async () => {
 
       <el-form-item label="异步回调" prop="notifyUrl">
         <div class="w-full space-y-2">
-          <el-input v-model="props.model.notifyUrl" placeholder="留空则不设置默认异步回调地址" />
+          <el-input
+            v-model="notifyUrl"
+            placeholder="留空则不设置默认异步回调地址"
+          />
           <div class="text-xs leading-5 text-gray-500">
-            订单未传 notifyUrl 时使用；每笔订单传入 notifyUrl 会优先覆盖此默认值。
+            订单未传 notifyUrl 时使用；每笔订单传入 notifyUrl
+            会优先覆盖此默认值。
           </div>
         </div>
       </el-form-item>
 
       <el-form-item label="同步回调" prop="returnUrl">
         <div class="w-full space-y-2">
-          <el-input v-model="props.model.returnUrl" placeholder="留空则不设置默认支付完成跳转地址" />
+          <el-input
+            v-model="returnUrl"
+            placeholder="留空则不设置默认支付完成跳转地址"
+          />
           <div class="text-xs leading-5 text-gray-500">
-            订单未传 returnUrl 时使用；每笔订单传入 returnUrl 会优先覆盖此默认值。
+            订单未传 returnUrl 时使用；每笔订单传入 returnUrl
+            会优先覆盖此默认值。
           </div>
         </div>
       </el-form-item>
@@ -79,7 +147,7 @@ const handleSave = async () => {
         <div class="w-full space-y-2">
           <div class="flex min-h-8 items-center">
             <el-switch
-              v-model="props.model.notifySslVerify"
+              v-model="notifySslVerify"
               active-value="1"
               inactive-value="0"
               inline-prompt
@@ -94,11 +162,11 @@ const handleSave = async () => {
       </el-form-item>
 
       <el-form-item label="通讯密钥" prop="key">
-        <el-input v-model="props.model.key" placeholder="请输入通讯密钥" />
+        <el-input v-model="secretKey" placeholder="请输入通讯密钥" />
       </el-form-item>
 
       <el-form-item label="区分方式" prop="payQf">
-        <el-select v-model="props.model.payQf" class="w-full">
+        <el-select v-model="payQf" class="w-full">
           <el-option label="金额递增" value="1" />
           <el-option label="金额递减" value="2" />
         </el-select>
@@ -106,7 +174,7 @@ const handleSave = async () => {
 
       <el-form-item label="分配策略" prop="allocationStrategy">
         <div class="w-full space-y-2">
-          <el-select v-model="props.model.allocationStrategy" class="w-full">
+          <el-select v-model="allocationStrategy" class="w-full">
             <el-option label="固定优先级" value="fixed_priority" />
             <el-option label="顺序轮询" value="round_robin" />
           </el-select>

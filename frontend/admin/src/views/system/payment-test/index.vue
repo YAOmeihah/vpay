@@ -32,20 +32,24 @@ const openPaymentLab = () => {
   min-height: calc(100vh - 180px);
   padding: 24px;
   background:
-    radial-gradient(circle at 16% 18%, rgba(34, 197, 94, 0.12), transparent 28%),
-    radial-gradient(circle at 90% 4%, rgba(14, 165, 233, 0.12), transparent 24%),
+    radial-gradient(circle at 16% 18%, rgb(34 197 94 / 12%), transparent 28%),
+    radial-gradient(circle at 90% 4%, rgb(14 165 233 / 12%), transparent 24%),
     #eef2f7;
 }
 
 .launcher-card {
   min-height: 280px;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 28px;
   padding: clamp(28px, 5vw, 56px);
   background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.9)),
-    repeating-linear-gradient(45deg, rgba(15, 23, 42, 0.035) 0 1px, transparent 1px 18px);
-  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.1);
+    linear-gradient(135deg, rgb(255 255 255 / 96%), rgb(248 250 252 / 90%)),
+    repeating-linear-gradient(
+      45deg,
+      rgb(15 23 42 / 3.5%) 0 1px,
+      transparent 1px 18px
+    );
+  border: 1px solid rgb(15 23 42 / 8%);
+  border-radius: 28px;
+  box-shadow: 0 24px 80px rgb(15 23 42 / 10%);
 }
 
 .launcher-copy {
@@ -54,55 +58,58 @@ const openPaymentLab = () => {
 
 .launcher-eyebrow {
   margin: 0 0 10px;
-  color: #047857;
   font-size: 12px;
   font-weight: 800;
-  letter-spacing: 0.28em;
+  color: #047857;
   text-transform: uppercase;
+  letter-spacing: 0.28em;
 }
 
 .launcher-copy h1 {
   margin: 0;
-  color: #020617;
   font-size: clamp(30px, 4vw, 54px);
   font-weight: 900;
   line-height: 1.05;
+  color: #020617;
 }
 
 .launcher-copy p:not(.launcher-eyebrow) {
   max-width: 660px;
   margin: 14px 0 24px;
-  color: #334155;
   font-size: 16px;
   line-height: 1.8;
+  color: #334155;
 }
 
 .launch-button {
   display: inline-flex;
+  gap: 10px;
   align-items: center;
   justify-content: center;
-  gap: 10px;
   min-height: 48px;
-  border: 0;
-  border-radius: 999px;
   padding: 0 24px;
-  color: #04111d;
-  background: #22c55e;
-  box-shadow: 0 14px 30px rgba(34, 197, 94, 0.28);
   font-size: 15px;
   font-weight: 900;
+  color: #04111d;
   cursor: pointer;
-  transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+  background: #22c55e;
+  border: 0;
+  border-radius: 999px;
+  box-shadow: 0 14px 30px rgb(34 197 94 / 28%);
+  transition:
+    background 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
 }
 
 .launch-button:hover {
   background: #16a34a;
-  box-shadow: 0 18px 40px rgba(22, 163, 74, 0.32);
+  box-shadow: 0 18px 40px rgb(22 163 74 / 32%);
   transform: translateY(-1px);
 }
 
 .launch-button:focus-visible {
-  outline: 4px solid rgba(34, 197, 94, 0.28);
+  outline: 4px solid rgb(34 197 94 / 28%);
   outline-offset: 4px;
 }
 
@@ -110,13 +117,13 @@ const openPaymentLab = () => {
   width: 20px;
   height: 20px;
   fill: none;
-  stroke: currentColor;
+  stroke: currentcolor;
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
-@media (max-width: 860px) {
+@media (width <= 860px) {
   .launcher-card {
     min-height: 220px;
   }

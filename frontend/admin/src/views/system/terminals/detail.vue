@@ -79,7 +79,10 @@ const loadList = async () => {
       throw new Error(channelRes.msg || "支付配置加载失败");
     }
 
-    const [card] = buildMonitorOverviewCards([terminalRes.data ?? {}], location.host);
+    const [card] = buildMonitorOverviewCards(
+      [terminalRes.data ?? {}],
+      location.host
+    );
     monitorCard.value = card ?? null;
     list.value = buildPaymentSlots(channelRes.data ?? [], terminalId.value);
   } catch (error: any) {
@@ -170,18 +173,26 @@ onMounted(() => {
       <el-card
         v-for="slot in list"
         :key="slot.type"
-        shadow="hover"
         v-loading="loading"
+        shadow="hover"
       >
         <template #header>
           <div class="flex items-center justify-between gap-3">
             <div>
               <div class="font-medium">{{ slot.slotLabel }}收款配置</div>
               <div class="text-xs text-gray-500">
-                {{ slot.exists ? slot.channelName : `尚未创建${slot.slotLabel}配置` }}
+                {{
+                  slot.exists
+                    ? slot.channelName
+                    : `尚未创建${slot.slotLabel}配置`
+                }}
               </div>
             </div>
-            <el-tag :type="slot.exists && slot.status === 'enabled' ? 'success' : 'info'">
+            <el-tag
+              :type="
+                slot.exists && slot.status === 'enabled' ? 'success' : 'info'
+              "
+            >
               {{
                 slot.exists
                   ? slot.status === "enabled"

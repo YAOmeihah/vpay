@@ -102,22 +102,20 @@ const handleRepair = async (row: any) => {
     return;
   }
 
-  await ElMessageBox.confirm(action.confirmMessage, "提示", { type: "warning" });
+  await ElMessageBox.confirm(action.confirmMessage, "提示", {
+    type: "warning"
+  });
   const res = await repairOrder({ id: row.id });
   if (res.code === 1) {
     message(action.successMessage, { type: "success" });
     loadList();
   } else if (res.code === -2 && res.data) {
     try {
-      await ElMessageBox.confirm(
-        action.notifyErrorMessage,
-        "提示",
-        {
-          confirmButtonText: "查看",
-          cancelButtonText: "取消",
-          type: "warning"
-        }
-      );
+      await ElMessageBox.confirm(action.notifyErrorMessage, "提示", {
+        confirmButtonText: "查看",
+        cancelButtonText: "取消",
+        type: "warning"
+      });
       await ElMessageBox.alert(String(res.data), "通知返回数据", {
         dangerouslyUseHTMLString: false
       });
@@ -128,7 +126,9 @@ const handleRepair = async (row: any) => {
 };
 
 const handleDeleteExpired = async () => {
-  await ElMessageBox.confirm("确认删除所有过期订单？", "提示", { type: "warning" });
+  await ElMessageBox.confirm("确认删除所有过期订单？", "提示", {
+    type: "warning"
+  });
   const res = await deleteExpiredOrders();
   message(res.code === 1 ? "操作成功" : res.msg || "操作失败", {
     type: res.code === 1 ? "success" : "error"
@@ -137,7 +137,9 @@ const handleDeleteExpired = async () => {
 };
 
 const handleDeleteOld = async () => {
-  await ElMessageBox.confirm("确认删除七天前的订单？此操作不可恢复", "提示", { type: "warning" });
+  await ElMessageBox.confirm("确认删除七天前的订单？此操作不可恢复", "提示", {
+    type: "warning"
+  });
   const res = await deleteOldOrders();
   message(res.code === 1 ? "操作成功" : res.msg || "操作失败", {
     type: res.code === 1 ? "success" : "error"
@@ -193,21 +195,38 @@ onMounted(loadList);
       </div>
 
       <!-- 表格 -->
-      <el-table :data="list" v-loading="loading" border empty-text="暂无订单数据">
+      <el-table
+        v-loading="loading"
+        :data="list"
+        border
+        empty-text="暂无订单数据"
+      >
         <el-table-column label="创建时间" width="180">
           <template #default="{ row }">
             {{ formatUnixTimestamp(row.create_date) }}
           </template>
         </el-table-column>
-        <el-table-column label="商户订单号" prop="pay_id" min-width="160" show-overflow-tooltip />
-        <el-table-column label="云端订单号" prop="order_id" min-width="160" show-overflow-tooltip />
+        <el-table-column
+          label="商户订单号"
+          prop="pay_id"
+          min-width="160"
+          show-overflow-tooltip
+        />
+        <el-table-column
+          label="云端订单号"
+          prop="order_id"
+          min-width="160"
+          show-overflow-tooltip
+        />
         <el-table-column label="所属终端" min-width="220" show-overflow-tooltip>
           <template #default="{ row }">
             {{ formatTerminalOwnership(row) }}
           </template>
         </el-table-column>
         <el-table-column label="类型" width="80">
-          <template #default="{ row }">{{ TYPE_MAP[row.type] ?? row.type }}</template>
+          <template #default="{ row }">{{
+            TYPE_MAP[row.type] ?? row.type
+          }}</template>
         </el-table-column>
         <el-table-column label="订单金额" prop="price" width="100" />
         <el-table-column label="实际金额" prop="really_price" width="100" />
@@ -220,7 +239,9 @@ onMounted(loadList);
         </el-table-column>
         <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" text @click="openDetail(row)">详情</el-button>
+            <el-button size="small" text @click="openDetail(row)"
+              >详情</el-button
+            >
             <el-button
               v-if="resolveRepairAction(row.state)"
               size="small"
@@ -230,7 +251,13 @@ onMounted(loadList);
             >
               {{ resolveRepairAction(row.state)?.label }}
             </el-button>
-            <el-button size="small" text type="danger" @click="handleDelete(row)">删除</el-button>
+            <el-button
+              size="small"
+              text
+              type="danger"
+              @click="handleDelete(row)"
+              >删除</el-button
+            >
           </template>
         </el-table-column>
       </el-table>

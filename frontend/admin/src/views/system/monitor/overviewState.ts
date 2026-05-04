@@ -45,12 +45,19 @@ export function buildMonitorOverviewCards(
         return priorityDiff;
       }
 
-      return normalizePositiveInteger(left.id, 0) - normalizePositiveInteger(right.id, 0);
+      return (
+        normalizePositiveInteger(left.id, 0) -
+        normalizePositiveInteger(right.id, 0)
+      );
     })
     .map(item => {
       const terminalStatus = item.status === "enabled" ? "enabled" : "disabled";
       const onlineState = item.online_state === "online" ? "online" : "offline";
-      const configUrl = buildMonitorConfigUrl(host, item.terminal_code, item.monitor_key);
+      const configUrl = buildMonitorConfigUrl(
+        host,
+        item.terminal_code,
+        item.monitor_key
+      );
 
       return {
         id: normalizePositiveInteger(item.id, 0),

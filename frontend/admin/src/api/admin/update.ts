@@ -46,7 +46,12 @@ export const startUpdate = (release: UpdateCheckResponse) =>
   http.request<UpdateApiResponse<Record<string, unknown>>>(
     "post",
     "/admin/index/startUpdate",
-    { data: { tag_name: release.tag_name, release: { tag_name: release.tag_name } } },
+    {
+      data: {
+        tag_name: release.tag_name,
+        release: { tag_name: release.tag_name }
+      }
+    },
     { timeout: 0 }
   );
 

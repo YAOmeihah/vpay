@@ -54,9 +54,13 @@ const releaseNotes = computed(() => {
   if (body.length <= 900) return body;
   return `${body.slice(0, 900)}...`;
 });
-const zipSizeText = computed(() => formatSize(release.value?.assets?.zip?.size));
+const zipSizeText = computed(() =>
+  formatSize(release.value?.assets?.zip?.size)
+);
 const recoveryMessage = computed(() => String(recovery.value?.message ?? ""));
-const runtimeMessage = computed(() => String(runtimeStatus.value?.message ?? ""));
+const runtimeMessage = computed(() =>
+  String(runtimeStatus.value?.message ?? "")
+);
 
 const errorMessage = (error: any, fallback: string) =>
   String(error?.msg ?? error?.message ?? fallback);
@@ -239,7 +243,9 @@ onUnmounted(() => {
 <template>
   <el-card shadow="hover" class="overflow-hidden">
     <template #header>
-      <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div
+        class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"
+      >
         <div class="space-y-1">
           <div class="flex items-center gap-2">
             <div class="text-base font-medium">程序自动更新</div>
@@ -371,12 +377,18 @@ onUnmounted(() => {
 
       <div v-if="releaseNotes" class="rounded-lg border border-slate-100 p-4">
         <div class="mb-2 text-sm font-medium">Release 说明</div>
-        <pre class="max-h-48 overflow-auto whitespace-pre-wrap text-xs leading-5 text-gray-600">{{ releaseNotes }}</pre>
+        <pre
+          class="max-h-48 overflow-auto whitespace-pre-wrap text-xs leading-5 text-gray-600"
+          >{{ releaseNotes }}</pre
+        >
       </div>
 
-      <div class="flex flex-wrap items-center justify-between gap-3 text-xs text-gray-500">
+      <div
+        class="flex flex-wrap items-center justify-between gap-3 text-xs text-gray-500"
+      >
         <span>
-          自动更新会保留 .env、runtime/ 和运行状态目录；数据库更新前仍建议先做一次手动备份。
+          自动更新会保留 .env、runtime/
+          和运行状态目录；数据库更新前仍建议先做一次手动备份。
         </span>
         <div class="flex gap-2">
           <el-button

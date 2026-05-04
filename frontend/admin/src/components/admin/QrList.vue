@@ -53,23 +53,32 @@ onMounted(loadList);
 <template>
   <div class="p-4">
     <el-card shadow="hover">
-      <template #header><span>{{ title }}</span></template>
+      <template #header
+        ><span>{{ title }}</span></template
+      >
 
-      <el-table :data="list" v-loading="loading" border>
+      <el-table v-loading="loading" :data="list" border>
         <el-table-column label="二维码" width="220">
           <template #default="{ row }">
             <el-image
               :src="`/enQrcode?url=${encodeURIComponent(row.pay_url)}`"
               style="width: 180px; height: 180px"
               fit="contain"
-              :preview-src-list="[`/enQrcode?url=${encodeURIComponent(row.pay_url)}`]"
+              :preview-src-list="[
+                `/enQrcode?url=${encodeURIComponent(row.pay_url)}`
+              ]"
             />
           </template>
         </el-table-column>
         <el-table-column label="金额" prop="price" width="100" />
         <el-table-column label="操作" width="100" fixed="right">
           <template #default="{ row }">
-            <el-button type="danger" size="small" text @click="handleDelete(row)">
+            <el-button
+              type="danger"
+              size="small"
+              text
+              @click="handleDelete(row)"
+            >
               删除
             </el-button>
           </template>

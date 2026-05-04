@@ -28,7 +28,9 @@ const signTypes = [
   { label: "HMAC-SHA256", value: "HMAC_SHA256", hint: "推荐新接入" }
 ] as const;
 
-const activeType = computed(() => payTypes.find(item => item.value === form.type) ?? payTypes[0]);
+const activeType = computed(
+  () => payTypes.find(item => item.value === form.type) ?? payTypes[0]
+);
 
 function buildPayId() {
   return `TEST-${Date.now()}`;
@@ -168,19 +170,32 @@ async function submitOrder() {
 
         <ol class="flow-list">
           <li>测试台调用后台安全接口创建订单，不暴露签名密钥。</li>
-          <li>后台返回原支付页地址，当前页面立即跳转到 <code>pay.html</code>。</li>
-          <li>原支付页使用现有 <code>getOrder</code> 与 <code>checkOrder</code> 流程完成展示与轮询。</li>
-          <li>支付成功后按你填写的 <code>returnUrl</code> 或内置回跳地址继续后续流程。</li>
+          <li>
+            后台返回原支付页地址，当前页面立即跳转到 <code>pay.html</code>。
+          </li>
+          <li>
+            原支付页使用现有 <code>getOrder</code> 与
+            <code>checkOrder</code> 流程完成展示与轮询。
+          </li>
+          <li>
+            支付成功后按你填写的
+            <code>returnUrl</code> 或内置回跳地址继续后续流程。
+          </li>
         </ol>
 
         <div class="info-block">
           <strong>适合验证</strong>
-          <p>自定义金额、金额递增、防撞单、终端分配、支付页 UX、同步跳转与异步通知。</p>
+          <p>
+            自定义金额、金额递增、防撞单、终端分配、支付页
+            UX、同步跳转与异步通知。
+          </p>
         </div>
 
         <div class="info-block muted">
           <strong>当前取舍</strong>
-          <p>独立测试台不再维护二维码和状态面板，避免和正式支付页形成两套展示逻辑。</p>
+          <p>
+            独立测试台不再维护二维码和状态面板，避免和正式支付页形成两套展示逻辑。
+          </p>
         </div>
       </section>
     </section>
@@ -193,12 +208,12 @@ async function submitOrder() {
 .payment-lab-shell {
   min-height: 100vh;
   padding: 40px;
+  font-family: "Space Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   color: #f8fafc;
   background:
-    radial-gradient(circle at 20% 10%, rgba(34, 197, 94, 0.2), transparent 30%),
-    radial-gradient(circle at 80% 0%, rgba(56, 189, 248, 0.14), transparent 28%),
+    radial-gradient(circle at 20% 10%, rgb(34 197 94 / 20%), transparent 30%),
+    radial-gradient(circle at 80% 0%, rgb(56 189 248 / 14%), transparent 28%),
     linear-gradient(135deg, #020617 0%, #0f172a 45%, #111827 100%);
-  font-family: "Space Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 .lab-hero {
@@ -212,59 +227,59 @@ async function submitOrder() {
 
 .eyebrow,
 .section-heading span {
-  color: #22c55e;
   font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.24em;
+  color: #22c55e;
   text-transform: uppercase;
+  letter-spacing: 0.24em;
 }
 
 h1 {
   max-width: 980px;
   margin: 10px 0 14px;
-  font-family: "Syncopate", "Space Mono", sans-serif;
+  font-family: Syncopate, "Space Mono", sans-serif;
   font-size: clamp(34px, 5vw, 72px);
   line-height: 0.95;
 }
 
 .hero-copy {
   max-width: 760px;
-  color: #cbd5e1;
   font-size: 16px;
   line-height: 1.8;
+  color: #cbd5e1;
 }
 
 .hero-copy code,
 .flow-list code {
   padding: 2px 8px;
-  border-radius: 999px;
-  background: rgba(15, 23, 42, 0.6);
   color: #d1fae5;
+  background: rgb(15 23 42 / 60%);
+  border-radius: 999px;
 }
 
 .hero-status,
 .lab-card {
-  border: 1px solid rgba(148, 163, 184, 0.22);
-  background: rgba(15, 23, 42, 0.78);
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.3);
+  background: rgb(15 23 42 / 78%);
+  border: 1px solid rgb(148 163 184 / 22%);
+  box-shadow: 0 24px 80px rgb(0 0 0 / 30%);
   backdrop-filter: blur(18px);
 }
 
 .hero-status {
   display: inline-flex;
-  align-items: center;
   gap: 10px;
+  align-items: center;
   padding: 14px 18px;
-  border-radius: 999px;
   color: #d1fae5;
+  border-radius: 999px;
 }
 
 .pulse-dot {
   width: 10px;
   height: 10px;
-  border-radius: 999px;
   background: #22c55e;
-  box-shadow: 0 0 0 8px rgba(34, 197, 94, 0.14);
+  border-radius: 999px;
+  box-shadow: 0 0 0 8px rgb(34 197 94 / 14%);
 }
 
 .lab-grid {
@@ -276,14 +291,14 @@ h1 {
 }
 
 .lab-card {
-  border-radius: 30px;
   padding: 24px;
+  border-radius: 30px;
 }
 
 .section-heading {
   display: flex;
-  align-items: center;
   gap: 12px;
+  align-items: center;
   margin-bottom: 22px;
 }
 
@@ -296,24 +311,26 @@ label {
   display: grid;
   gap: 8px;
   margin-bottom: 16px;
-  color: #dbeafe;
   font-size: 13px;
+  color: #dbeafe;
 }
 
 input {
   width: 100%;
-  border: 1px solid rgba(148, 163, 184, 0.26);
-  border-radius: 16px;
   padding: 13px 14px;
   color: #f8fafc;
-  background: rgba(2, 6, 23, 0.58);
   outline: none;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  background: rgb(2 6 23 / 58%);
+  border: 1px solid rgb(148 163 184 / 26%);
+  border-radius: 16px;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 input:focus {
   border-color: #22c55e;
-  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.16);
+  box-shadow: 0 0 0 4px rgb(34 197 94 / 16%);
 }
 
 .inline-field {
@@ -323,11 +340,11 @@ input:focus {
 }
 
 button {
+  color: #f8fafc;
   cursor: pointer;
+  background: rgb(51 65 85 / 80%);
   border: 0;
   border-radius: 16px;
-  color: #f8fafc;
-  background: rgba(51, 65, 85, 0.8);
   transition:
     background 0.2s ease,
     color 0.2s ease,
@@ -336,13 +353,13 @@ button {
 }
 
 button:hover {
-  background: rgba(34, 197, 94, 0.88);
   color: #04111d;
+  background: rgb(34 197 94 / 88%);
   transform: translateY(-1px);
 }
 
 button:focus-visible {
-  outline: 3px solid rgba(34, 197, 94, 0.45);
+  outline: 3px solid rgb(34 197 94 / 45%);
   outline-offset: 3px;
 }
 
@@ -366,22 +383,22 @@ button:disabled {
 
 .type-button {
   display: flex;
-  align-items: center;
   gap: 10px;
+  align-items: center;
   padding: 14px;
-  border: 1px solid rgba(148, 163, 184, 0.22);
+  border: 1px solid rgb(148 163 184 / 22%);
 }
 
 .type-button.active {
+  background: color-mix(in srgb, var(--accent) 18%, rgb(15 23 42 / 88%));
   border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 18%, rgba(15, 23, 42, 0.88));
 }
 
 .type-mark {
   width: 10px;
   height: 10px;
-  border-radius: 50%;
   background: var(--accent);
+  border-radius: 50%;
 }
 
 .signature-switch {
@@ -396,11 +413,11 @@ button:disabled {
   gap: 4px;
   min-height: 58px;
   padding: 10px 12px;
-  border: 1px solid rgba(148, 163, 184, 0.22);
-  border-radius: 14px;
-  background: rgba(15, 23, 42, 0.58);
   color: #e2e8f0;
   text-align: left;
+  background: rgb(15 23 42 / 58%);
+  border: 1px solid rgb(148 163 184 / 22%);
+  border-radius: 14px;
 }
 
 .signature-button span {
@@ -409,40 +426,40 @@ button:disabled {
 }
 
 .signature-button small {
-  color: #94a3b8;
   font-size: 11px;
+  color: #94a3b8;
 }
 
 .signature-button.active {
-  border-color: rgba(34, 197, 94, 0.7);
-  background: rgba(34, 197, 94, 0.14);
   color: #dcfce7;
+  background: rgb(34 197 94 / 14%);
+  border-color: rgb(34 197 94 / 70%);
 }
 
 .message-line {
   margin: 4px 0 16px;
-  color: #fbbf24;
   line-height: 1.7;
+  color: #fbbf24;
 }
 
 .primary-action {
   display: inline-flex;
+  gap: 10px;
   align-items: center;
   justify-content: center;
-  gap: 10px;
   width: 100%;
-  margin-top: 8px;
   padding: 16px 18px;
+  margin-top: 8px;
+  font-weight: 700;
   color: #04111d;
   background: #22c55e;
-  font-weight: 700;
 }
 
 .primary-action svg {
   width: 22px;
   height: 22px;
   fill: none;
-  stroke: currentColor;
+  stroke: currentcolor;
   stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -451,45 +468,45 @@ button:disabled {
 .flow-list {
   display: grid;
   gap: 14px;
-  margin: 0;
   padding-left: 22px;
-  color: #dbeafe;
+  margin: 0;
   line-height: 1.8;
+  color: #dbeafe;
 }
 
 .info-block {
-  margin-top: 22px;
   padding: 18px 18px 16px;
-  border: 1px solid rgba(34, 197, 94, 0.16);
+  margin-top: 22px;
+  background: rgb(2 6 23 / 44%);
+  border: 1px solid rgb(34 197 94 / 16%);
   border-radius: 22px;
-  background: rgba(2, 6, 23, 0.44);
 }
 
 .info-block strong {
   display: block;
   margin-bottom: 10px;
-  color: #f8fafc;
   font-size: 14px;
+  color: #f8fafc;
 }
 
 .info-block p {
   margin: 0;
-  color: #cbd5e1;
   line-height: 1.8;
+  color: #cbd5e1;
 }
 
 .info-block.muted {
-  border-color: rgba(148, 163, 184, 0.14);
+  border-color: rgb(148 163 184 / 14%);
 }
 
-@media (max-width: 960px) {
+@media (width <= 960px) {
   .lab-grid,
   .lab-hero {
     grid-template-columns: 1fr;
   }
 }
 
-@media (max-width: 780px) {
+@media (width <= 780px) {
   .payment-lab-shell {
     padding: 20px;
   }

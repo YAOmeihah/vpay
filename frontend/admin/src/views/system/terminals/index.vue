@@ -174,10 +174,22 @@ onMounted(loadList);
     </el-card>
 
     <el-card shadow="hover">
-      <el-table :data="list" v-loading="loading" border>
-        <el-table-column label="终端名称" prop="terminal_name" min-width="160" />
-        <el-table-column label="终端编码" prop="terminal_code" min-width="180" />
-        <el-table-column label="分配顺序" prop="dispatch_priority" min-width="110" />
+      <el-table v-loading="loading" :data="list" border>
+        <el-table-column
+          label="终端名称"
+          prop="terminal_name"
+          min-width="160"
+        />
+        <el-table-column
+          label="终端编码"
+          prop="terminal_code"
+          min-width="180"
+        />
+        <el-table-column
+          label="分配顺序"
+          prop="dispatch_priority"
+          min-width="110"
+        />
         <el-table-column label="运行状态" min-width="110">
           <template #default="{ row }">
             <el-tag :type="row.status === 'enabled' ? 'success' : 'info'">
@@ -187,25 +199,47 @@ onMounted(loadList);
         </el-table-column>
         <el-table-column label="在线状态" min-width="110">
           <template #default="{ row }">
-            <el-tag :type="row.online_state === 'online' ? 'success' : 'danger'">
+            <el-tag
+              :type="row.online_state === 'online' ? 'success' : 'danger'"
+            >
               {{ row.online_state === "online" ? "在线" : "离线" }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="监控密钥" prop="monitor_key" min-width="220" show-overflow-tooltip />
+        <el-table-column
+          label="监控密钥"
+          prop="monitor_key"
+          min-width="220"
+          show-overflow-tooltip
+        />
         <el-table-column label="操作" width="330" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" text type="primary" @click="openChannels(row)">
+            <el-button
+              size="small"
+              text
+              type="primary"
+              @click="openChannels(row)"
+            >
               支付配置
             </el-button>
             <el-button size="small" text @click="openEdit(row)">编辑</el-button>
             <el-button size="small" text @click="handleResetKey(row)">
               重置密钥
             </el-button>
-            <el-button size="small" text type="warning" @click="handleToggle(row)">
+            <el-button
+              size="small"
+              text
+              type="warning"
+              @click="handleToggle(row)"
+            >
               {{ row.status === "enabled" ? "停用" : "启用" }}
             </el-button>
-            <el-button size="small" text type="danger" @click="handleDelete(row)">
+            <el-button
+              size="small"
+              text
+              type="danger"
+              @click="handleDelete(row)"
+            >
               删除
             </el-button>
           </template>
@@ -226,13 +260,20 @@ onMounted(loadList);
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="560px">
       <el-form label-width="120px">
         <el-form-item label="终端编码">
-          <el-input v-model="form.terminalCode" placeholder="如 default-terminal / term-a" />
+          <el-input
+            v-model="form.terminalCode"
+            placeholder="如 default-terminal / term-a"
+          />
         </el-form-item>
         <el-form-item label="终端名称">
           <el-input v-model="form.terminalName" placeholder="请输入终端名称" />
         </el-form-item>
         <el-form-item label="分配顺序">
-          <el-input-number v-model="form.dispatchPriority" :min="1" class="w-full" />
+          <el-input-number
+            v-model="form.dispatchPriority"
+            :min="1"
+            class="w-full"
+          />
         </el-form-item>
         <el-form-item label="启用状态">
           <el-select v-model="form.status" class="w-full">
@@ -241,7 +282,10 @@ onMounted(loadList);
           </el-select>
         </el-form-item>
         <el-form-item label="监控密钥">
-          <el-input v-model="form.monitorKey" placeholder="留空则后端自动生成" />
+          <el-input
+            v-model="form.monitorKey"
+            placeholder="留空则后端自动生成"
+          />
         </el-form-item>
       </el-form>
 

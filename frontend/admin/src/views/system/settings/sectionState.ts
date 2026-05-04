@@ -52,14 +52,13 @@ export function hydrateSettingsSections(
   sections.payment.notifySslVerify = String(payload.notify_ssl_verify ?? "1");
   sections.payment.close = String(payload.close ?? "");
   sections.payment.payQf = String(payload.payQf ?? "1");
-  sections.payment.allocationStrategy = (payload.allocationStrategy === "round_robin"
-    ? "round_robin"
-    : "fixed_priority");
+  sections.payment.allocationStrategy =
+    payload.allocationStrategy === "round_robin"
+      ? "round_robin"
+      : "fixed_priority";
 }
 
-export function buildSecurityPayload(
-  section: SecuritySection
-) {
+export function buildSecurityPayload(section: SecuritySection) {
   const payload: Record<string, string> = {
     user: section.user
   };
@@ -71,9 +70,7 @@ export function buildSecurityPayload(
   return payload;
 }
 
-export function buildPaymentPayload(
-  section: PaymentSection
-) {
+export function buildPaymentPayload(section: PaymentSection) {
   return {
     notifyUrl: section.notifyUrl,
     returnUrl: section.returnUrl,

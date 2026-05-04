@@ -1,4 +1,5 @@
 import { adminLogin, getAdminProfile } from "./admin/auth";
+import { setAdminCsrfToken } from "@/utils/csrf";
 
 type LoginProfile = {
   avatar: string;
@@ -6,6 +7,7 @@ type LoginProfile = {
   nickname: string;
   roles: string[];
   permissions: string[];
+  csrfToken?: string;
 };
 
 export type UserResult =
@@ -50,12 +52,14 @@ export const getLogin = (data?: {
     if (loginRes.code !== 1) {
       return { success: false, msg: loginRes.msg, data: null };
     }
+    setAdminCsrfToken(loginRes.data?.csrfToken);
 
     let lastProfileError = "";
     for (let attempt = 0; attempt < 5; attempt++) {
       try {
         const profile = await getAdminProfile();
         if (profile.code === 1) {
+          setAdminCsrfToken(profile.data?.csrfToken);
           return {
             success: true,
             data: profile.data

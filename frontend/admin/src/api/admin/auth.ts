@@ -9,15 +9,29 @@ export type AdminProfile = {
     nickname: string;
     roles: string[];
     permissions: string[];
+    csrfToken?: string;
   };
 };
 
+type AdminLogin = {
+  code: number;
+  msg: string;
+  data: {
+    csrfToken?: string;
+  } | null;
+};
+
 export const adminLogin = (data: { user: string; pass: string }) =>
-  http.request<{ code: number; msg: string; data: null }>("post", "/login", {
-    data
-  }, {
-    skipUnauthorizedLogout: true
-  });
+  http.request<AdminLogin>(
+    "post",
+    "/login",
+    {
+      data
+    },
+    {
+      skipUnauthorizedLogout: true
+    }
+  );
 
 export const getAdminProfile = () =>
   http.request<AdminProfile>(

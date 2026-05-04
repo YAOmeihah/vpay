@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace app\controller\admin;
 
 use app\BaseController;
+use app\middleware\AdminCsrf;
 use app\service\admin\AdminPermissionService;
 use think\facade\Session;
 
@@ -25,6 +26,7 @@ class Profile extends BaseController
             'nickname' => '管理员',
             'roles' => ['admin'],
             'permissions' => $this->adminPermissionService()->all(),
+            'csrfToken' => AdminCsrf::refreshToken(),
         ]);
     }
 

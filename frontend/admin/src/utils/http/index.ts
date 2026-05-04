@@ -12,6 +12,7 @@ import type {
 import { stringify } from "qs";
 import { useUserStoreHook } from "@/store/modules/user";
 import { message } from "@/utils/message";
+import { getAdminCsrfToken } from "@/utils/csrf";
 
 // 相关配置请参考：www.axios-js.com/zh-cn/docs/#axios-request-config-1
 const defaultConfig: AxiosRequestConfig = {
@@ -31,12 +32,14 @@ const defaultConfig: AxiosRequestConfig = {
 
 const installRedirectCodes = new Set([50301, 50302, 50303, 50304]);
 let unauthorizedMessageVisible = false;
+const csrfSafeMethods = new Set(["get", "head", "options"]);
 
 const redirectToInstallIfNeeded = (payload: unknown): boolean => {
   const responseData = payload as Record<string, unknown> | null;
   const code = Number(responseData?.code);
   const data = responseData?.data as Record<string, unknown> | null;
-  const installUrl = typeof data?.installUrl === "string" ? data.installUrl : "";
+  const installUrl =
+    typeof data?.installUrl === "string" ? data.installUrl : "";
 
   if (!installRedirectCodes.has(code) || installUrl.trim() === "") {
     return false;
@@ -93,6 +96,12 @@ class PureHttp {
           PureHttp.initConfig.beforeRequestCallback(config);
           return config;
         }
+        const csrfToken = getAdminCsrfToken();
+        const method = String(config.method ?? "").toLowerCase();
+        if (csrfToken !== "" && !csrfSafeMethods.has(method)) {
+          config.headers = config.headers ?? {};
+          config.headers["X-CSRF-Token"] = csrfToken;
+        }
         return config;
       },
       error => {
@@ -136,9 +145,10 @@ class PureHttp {
         const $error = error;
         $error.isCancelRequest = Axios.isCancel($error);
         const errorConfig = $error.config as PureHttpRequestConfig | undefined;
-        const errorData = ($error.response?.data ?? null) as
-          | Record<string, unknown>
-          | null;
+        const errorData = ($error.response?.data ?? null) as Record<
+          string,
+          unknown
+        > | null;
         const errorMessage = String(
           errorData?.msg ?? errorData?.message ?? ""
         ).trim();

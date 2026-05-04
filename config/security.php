@@ -49,7 +49,7 @@ return [
         'X-XSS-Protection' => '1; mode=block',
         'Referrer-Policy' => 'strict-origin-when-cross-origin',
         'Strict-Transport-Security' => 'max-age=31536000; includeSubDomains',
-        'Content-Security-Policy' => "default-src 'self'; script-src 'self' 'unsafe-inline' cdn.jsdelivr.net lib.baomitu.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:;",
+        'Content-Security-Policy' => "default-src 'self'; script-src 'self' cdn.jsdelivr.net lib.baomitu.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:;",
     ],
 
     // 敏感操作日志

@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace app\controller\admin;
 
 use app\BaseController;
+use app\middleware\AdminCsrf;
 use app\service\admin\AdminSettingsService;
 use app\service\security\LoginAttemptLimiter;
 use think\facade\Session;
@@ -51,7 +52,9 @@ class Auth extends BaseController
         Session::set("admin_user", (string) $_user);
         Session::set("login_time", time());
 
-        return json($this->getReturn(1, "登录成功"));
+        return json($this->getReturn(1, "登录成功", [
+            'csrfToken' => AdminCsrf::refreshToken(),
+        ]));
     }
 
     private function adminSettingsService(): AdminSettingsService

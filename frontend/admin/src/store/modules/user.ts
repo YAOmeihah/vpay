@@ -8,10 +8,11 @@ import {
   routerArrays,
   storageLocal
 } from "../utils";
-import { type UserResult, getLogin } from "@/api/user";
+import { getLogin } from "@/api/user";
 import { adminLogout } from "@/api/admin/auth";
 import { useMultiTagsStoreHook } from "./multiTags";
 import { multipleTabsKey, userKey } from "@/utils/auth";
+import { setAdminCsrfToken } from "@/utils/csrf";
 
 export const useUserStore = defineStore("pure-user", {
   state: (): userType => ({
@@ -86,6 +87,7 @@ export const useUserStore = defineStore("pure-user", {
       this.roles = [];
       this.permissions = [];
       Cookies.remove(multipleTabsKey);
+      setAdminCsrfToken(null);
       storageLocal().removeItem(userKey);
       useMultiTagsStoreHook().handleTags("equal", [...routerArrays]);
       resetRouter();

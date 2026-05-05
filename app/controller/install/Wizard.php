@@ -5,12 +5,10 @@ namespace app\controller\install;
 
 use app\BaseController;
 use app\model\Setting;
+use app\service\install\DatabaseUpgradeService;
 use app\service\install\EnvWriter;
 use app\service\install\InstallStepService;
 use app\service\install\InstallStateService;
-use app\service\install\MigrationLogService;
-use app\service\install\MigrationScanner;
-use app\service\install\MigrationRunner;
 use app\service\security\KeyEncryptionService;
 use think\Response;
 use think\facade\Db;
@@ -194,7 +192,7 @@ class Wizard extends BaseController
                 }
 
                 $this->migrateLegacySignKey((string) ($appKey['values']['APP_KEY'] ?? ''));
-                $this->app->make(MigrationRunner::class)->runPending($currentVersion, $targetVersion);
+                $this->databaseUpgradeService()->run($currentVersion, $targetVersion);
 
                 return [
                     'installed' => true,
@@ -249,16 +247,13 @@ class Wizard extends BaseController
         }
 
         $targetVersion = (string) ($state['target_version'] ?? config('app.ver'));
-        $migrations = array_map(
-            static fn (array $item): array => ['relative_path' => (string) $item['relative_path']],
-            $this->migrationLogService()->pending($this->migrationScanner()->upTo($targetVersion))
-        );
+        $upgrade = $this->databaseUpgradeService()->context($currentVersion, $targetVersion);
 
         return [
-            'current_version' => $currentVersion,
-            'target_version' => $targetVersion,
+            'current_version' => $upgrade['current_version'],
+            'target_version' => $upgrade['target_version'],
             'can_run' => $this->allChecksPassed($checks),
-            'migrations' => $migrations,
+            'migrations' => $upgrade['migrations'],
             'errors' => [],
             'admin_user' => (string) $this->request->post('upgrade_admin_user', ''),
         ];
@@ -292,14 +287,9 @@ class Wizard extends BaseController
         return true;
     }
 
-    protected function migrationScanner(): MigrationScanner
+    protected function databaseUpgradeService(): DatabaseUpgradeService
     {
-        return $this->app->make(MigrationScanner::class);
-    }
-
-    protected function migrationLogService(): MigrationLogService
-    {
-        return $this->app->make(MigrationLogService::class);
+        return $this->app->make(DatabaseUpgradeService::class);
     }
 
     protected function envWriter(): EnvWriter

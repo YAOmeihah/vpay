@@ -113,10 +113,7 @@ class InstallStateService
 
     private function hasPendingMigrations(string $targetVersion): bool
     {
-        $scanner = new MigrationScanner();
-        $logger = new MigrationLogService();
-
-        return $logger->pending($scanner->upTo($targetVersion)) !== [];
+        return app()->make(DatabaseUpgradeService::class)->pendingMigrations($targetVersion) !== [];
     }
 
     private function settingValue(string $key): string

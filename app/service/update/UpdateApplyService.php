@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace app\service\update;
 
 use app\service\CacheService;
-use app\service\install\MigrationRunner;
+use app\service\install\DatabaseUpgradeService;
 use RuntimeException;
 
 final class UpdateApplyService
@@ -22,7 +22,8 @@ final class UpdateApplyService
     public function __construct(
         private readonly ?string $rootPath = null,
         private readonly ?UpdateStateStore $stateStore = null,
-        private readonly mixed $migrationRunner = null
+        private readonly mixed $migrationRunner = null,
+        private readonly ?DatabaseUpgradeService $databaseUpgradeService = null
     ) {
     }
 
@@ -229,7 +230,7 @@ final class UpdateApplyService
             return;
         }
 
-        app()->make(MigrationRunner::class)->runPending($fromVersion, $targetVersion);
+        ($this->databaseUpgradeService ?? app()->make(DatabaseUpgradeService::class))->run($fromVersion, $targetVersion);
     }
 
     private function shouldPreserve(string $relativePath): bool

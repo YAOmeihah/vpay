@@ -10,6 +10,22 @@ class MigrationScanner
      */
     public function between(string $current, string $target): array
     {
+        return $this->scan($current, $target);
+    }
+
+    /**
+     * @return list<array{version: string, path: string, relative_path: string, migration_key: string}>
+     */
+    public function upTo(string $target): array
+    {
+        return $this->scan(null, $target);
+    }
+
+    /**
+     * @return list<array{version: string, path: string, relative_path: string, migration_key: string}>
+     */
+    private function scan(?string $current, string $target): array
+    {
         $root = app()->getRootPath() . 'database/migrations';
         if (!is_dir($root)) {
             return [];
@@ -23,7 +39,10 @@ class MigrationScanner
 
         $files = [];
         foreach ($versions as $version) {
-            if (version_compare($version, $current, '<=') || version_compare($version, $target, '>')) {
+            if (
+                ($current !== null && version_compare($version, $current, '<='))
+                || version_compare($version, $target, '>')
+            ) {
                 continue;
             }
 

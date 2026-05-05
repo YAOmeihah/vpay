@@ -138,6 +138,61 @@ final class InstallStateServiceTest extends TestCase
         self::assertSame('upgrade_required', $service->status()['state']);
     }
 
+    public function test_reports_upgrade_required_when_current_version_has_unfinished_migrations(): void
+    {
+        $migrationPath = app()->getRootPath() . 'database/migrations/2.1.14/999-state-detection-test.sql';
+        file_put_contents($migrationPath, "SELECT 1;\n");
+
+        try {
+            $this->seedSettings([
+                'install_status' => 'installed',
+                'schema_version' => '2.1.14',
+                'app_version' => '2.1.14',
+            ]);
+
+            Db::execute('DROP TABLE IF EXISTS `system_migration_log`');
+            Db::execute((string) file_get_contents(app()->getRootPath() . 'database/migrations/2.1.0/001-create-system-migration-log.sql'));
+
+            $scanner = new \app\service\install\MigrationScanner();
+            foreach ($scanner->upTo('2.1.14') as $migration) {
+                if ($migration['migration_key'] === '2.1.14/999-state-detection-test.sql') {
+                    continue;
+                }
+
+                Db::name('system_migration_log')->insert([
+                    'migration_key' => (string) $migration['migration_key'],
+                    'from_version' => '2.1.14',
+                    'to_version' => (string) $migration['version'],
+                    'status' => 'finished',
+                    'started_at' => time(),
+                    'finished_at' => time(),
+                    'error_message' => '',
+                    'checksum' => sha1((string) file_get_contents((string) $migration['path'])),
+                ]);
+            }
+
+            $service = new class($this->runtimeDir) extends InstallStateService {
+                public function __construct(private readonly string $runtimeDir)
+                {
+                }
+
+                protected function installRuntimePath(): string
+                {
+                    return $this->runtimeDir;
+                }
+            };
+
+            $status = $service->status();
+
+            self::assertSame('upgrade_required', $status['state']);
+            self::assertSame('2.1.14', $status['current_version']);
+            self::assertSame('2.1.14', $status['target_version']);
+        } finally {
+            @unlink($migrationPath);
+            Db::execute('DROP TABLE IF EXISTS `system_migration_log`');
+        }
+    }
+
     public function test_reports_upgrade_required_for_legacy_installed_database_without_lifecycle_keys(): void
     {
         $this->seedSettings([

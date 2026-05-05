@@ -7,6 +7,29 @@ use think\facade\Db;
 
 class MigrationLogService
 {
+    /**
+     * @param list<array{migration_key: string}> $migrations
+     * @return list<array{migration_key: string}>
+     */
+    public function pending(array $migrations): array
+    {
+        if ($migrations === [] || !$this->tableAvailable()) {
+            return $migrations;
+        }
+
+        $finished = Db::name('system_migration_log')
+            ->whereIn('migration_key', array_map(static fn (array $migration): string => (string) $migration['migration_key'], $migrations))
+            ->where('status', 'finished')
+            ->column('migration_key');
+
+        $finished = array_flip(array_map('strval', $finished));
+
+        return array_values(array_filter(
+            $migrations,
+            static fn (array $migration): bool => !isset($finished[(string) $migration['migration_key']])
+        ));
+    }
+
     public function started(array $migration, string $fromVersion): void
     {
         if (!$this->tableAvailable()) {

@@ -8,6 +8,7 @@ use app\model\Setting;
 use app\service\install\EnvWriter;
 use app\service\install\InstallStepService;
 use app\service\install\InstallStateService;
+use app\service\install\MigrationLogService;
 use app\service\install\MigrationScanner;
 use app\service\install\MigrationRunner;
 use app\service\security\KeyEncryptionService;
@@ -250,7 +251,7 @@ class Wizard extends BaseController
         $targetVersion = (string) ($state['target_version'] ?? config('app.ver'));
         $migrations = array_map(
             static fn (array $item): array => ['relative_path' => (string) $item['relative_path']],
-            $this->migrationScanner()->between($currentVersion, $targetVersion)
+            $this->migrationLogService()->pending($this->migrationScanner()->upTo($targetVersion))
         );
 
         return [
@@ -294,6 +295,11 @@ class Wizard extends BaseController
     protected function migrationScanner(): MigrationScanner
     {
         return $this->app->make(MigrationScanner::class);
+    }
+
+    protected function migrationLogService(): MigrationLogService
+    {
+        return $this->app->make(MigrationLogService::class);
     }
 
     protected function envWriter(): EnvWriter

@@ -62,6 +62,15 @@ class InstallStateService
             ];
         }
 
+        if ($appVersion !== '' && $this->hasPendingMigrations($appVersion)) {
+            return [
+                'state' => 'upgrade_required',
+                'message' => '系统待升级',
+                'current_version' => $schemaVersion !== '' ? $schemaVersion : self::LEGACY_BASELINE_VERSION,
+                'target_version' => $appVersion,
+            ];
+        }
+
         return ['state' => 'installed', 'message' => '系统已安装'];
     }
 
@@ -100,6 +109,14 @@ class InstallStateService
         }
 
         return false;
+    }
+
+    private function hasPendingMigrations(string $targetVersion): bool
+    {
+        $scanner = new MigrationScanner();
+        $logger = new MigrationLogService();
+
+        return $logger->pending($scanner->upTo($targetVersion)) !== [];
     }
 
     private function settingValue(string $key): string

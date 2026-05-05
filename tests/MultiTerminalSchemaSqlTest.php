@@ -31,6 +31,9 @@ final class MultiTerminalSchemaSqlTest extends TestCase
         self::assertStringContainsString('CREATE TABLE `terminal_channel`', $bootstrapSql);
         self::assertStringContainsString('CREATE TABLE `payment_event`', $bootstrapSql);
         self::assertStringContainsString('CREATE TABLE `terminal_allocation_cursor`', $bootstrapSql);
+        self::assertStringContainsString('CREATE TABLE `system_migration_log`', $bootstrapSql);
+        self::assertStringContainsString("'2.1.13/001-add-pay-order-sign-type.sql'", $bootstrapSql);
+        self::assertStringContainsString("'2.1.14/001-ensure-system-migration-log.sql'", $bootstrapSql);
         self::assertStringContainsString('ADD PRIMARY KEY (`type`)', $bootstrapSql);
         self::assertStringContainsString('`dispatch_priority` int(11) NOT NULL DEFAULT 100', $bootstrapSql);
         self::assertStringContainsString('`terminal_id` bigint(20) DEFAULT NULL', $bootstrapSql);

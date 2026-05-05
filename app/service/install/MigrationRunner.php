@@ -12,7 +12,7 @@ class MigrationRunner
     {
         $scanner = new MigrationScanner();
         $logger = new MigrationLogService();
-        $migrations = $scanner->between($current, $target);
+        $migrations = $logger->pending($scanner->upTo($target));
 
         if ($migrations === [] && version_compare($current, $target, '<')) {
             Setting::setConfigValue('schema_version', $target);
@@ -44,8 +44,15 @@ class MigrationRunner
             }
 
             $logger->finished($migration, $fromVersion);
-            $current = (string) $migration['version'];
+            if (version_compare((string) $migration['version'], $current, '>')) {
+                $current = (string) $migration['version'];
+            }
             Setting::setConfigValue('schema_version', $current);
+            Setting::setConfigValue('app_version', $target);
+        }
+
+        if (version_compare($current, $target, '<')) {
+            Setting::setConfigValue('schema_version', $target);
             Setting::setConfigValue('app_version', $target);
         }
     }

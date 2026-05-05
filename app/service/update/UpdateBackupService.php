@@ -16,7 +16,7 @@ final class UpdateBackupService
     /**
      * @var list<string>
      */
-    private const MANAGED_FILES = ['.env', 'composer.json', 'composer.lock', 'think', 'vmq.sql', 'release-manifest.json'];
+    private const MANAGED_FILES = ['.env', '.example.env', 'composer.json', 'composer.lock', 'think', 'vmq.sql', 'release-manifest.json'];
 
     public function __construct(private readonly ?string $rootPath = null)
     {

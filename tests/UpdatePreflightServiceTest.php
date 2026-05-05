@@ -58,6 +58,13 @@ final class UpdatePreflightServiceTest extends TestCase
         self::assertContains('程序文件可写', array_column($result['checks'], 'label'));
     }
 
+    public function test_preflight_treats_example_env_as_managed_file(): void
+    {
+        $reflection = new \ReflectionClass(UpdatePreflightService::class);
+
+        self::assertContains('.example.env', $reflection->getConstant('MANAGED_FILES'));
+    }
+
     public function test_preflight_fails_when_nested_program_directory_is_not_writable(): void
     {
         if (DIRECTORY_SEPARATOR === '\\') {

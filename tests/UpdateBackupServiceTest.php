@@ -24,6 +24,7 @@ final class UpdateBackupServiceTest extends TestCase
         $this->writeFile('vendor/autoload.php', '<?php');
         $this->writeFile('view/install/check.php', '<main></main>');
         $this->writeFile('.env', 'APP_DEBUG=false');
+        $this->writeFile('.example.env', 'APP_DEBUG=false');
         $this->writeFile('runtime/cache.tmp', 'cache');
         $this->writeFile('runtime/update/downloads/package.zip', 'package');
         $this->writeFile('public/runtime/cache.tmp', 'public runtime');
@@ -51,6 +52,7 @@ final class UpdateBackupServiceTest extends TestCase
         self::assertContains('vendor/autoload.php', $entries);
         self::assertContains('view/install/check.php', $entries);
         self::assertContains('.env', $entries);
+        self::assertContains('.example.env', $entries);
         self::assertNotContains('runtime/cache.tmp', $entries);
         self::assertNotContains('runtime/update/downloads/package.zip', $entries);
         self::assertNotContains('public/runtime/cache.tmp', $entries);

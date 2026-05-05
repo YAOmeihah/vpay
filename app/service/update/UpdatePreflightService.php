@@ -13,7 +13,7 @@ final class UpdatePreflightService
     /**
      * @var list<string>
      */
-    private const MANAGED_FILES = ['composer.json', 'composer.lock', 'LICENSE.txt', 'README-INSTALL.md', 'think', 'vmq.sql', 'release-manifest.json'];
+    private const MANAGED_FILES = ['.example.env', 'composer.json', 'composer.lock', 'LICENSE.txt', 'README-INSTALL.md', 'think', 'vmq.sql', 'release-manifest.json'];
 
     public function __construct(
         private readonly ?string $rootPath = null,

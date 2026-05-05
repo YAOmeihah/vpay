@@ -130,3 +130,16 @@ test("maintenance card shows cron integration request hints", () => {
   assert.match(source, /X-Maintenance-Token/);
   assert.match(source, /curl/);
 });
+
+test("maintenance integration hints use theme-aware Element Plus components", () => {
+  const source = readFileSync(
+    resolve(
+      testDir,
+      "../src/views/system/settings/components/MaintenanceCard.vue"
+    ),
+    "utf8"
+  );
+
+  assert.match(source, /<el-descriptions/);
+  assert.doesNotMatch(source, /bg-gray-50|border-gray-200/);
+});

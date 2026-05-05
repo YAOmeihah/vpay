@@ -129,21 +129,26 @@ const curlExample = computed(() => {
       </el-form-item>
 
       <el-form-item label="接入提示">
-        <div
-          class="w-full rounded border border-gray-200 bg-gray-50 p-3 text-sm"
-        >
-          <div class="grid gap-2 sm:grid-cols-[96px_1fr]">
-            <span class="text-gray-500">请求地址</span>
-            <code>POST /maintenance/run</code>
-            <span class="text-gray-500">完整地址</span>
-            <code>{{ requestUrl }}</code>
-            <span class="text-gray-500">请求头</span>
-            <code>X-Maintenance-Token: {{ token || "维护密钥" }}</code>
-            <span class="text-gray-500">请求参数</span>
-            <span>无需请求体；调用服务器 IP 需加入允许服务器 IP。</span>
-          </div>
+        <div class="w-full space-y-3">
+          <el-descriptions :column="1" border label-width="96px">
+            <el-descriptions-item label="请求地址">
+              <span class="break-all font-mono text-xs">
+                POST /maintenance/run
+              </span>
+            </el-descriptions-item>
+            <el-descriptions-item label="完整地址">
+              <span class="break-all font-mono text-xs">{{ requestUrl }}</span>
+            </el-descriptions-item>
+            <el-descriptions-item label="请求头">
+              <span class="break-all font-mono text-xs">
+                X-Maintenance-Token: {{ token || "维护密钥" }}
+              </span>
+            </el-descriptions-item>
+            <el-descriptions-item label="请求参数">
+              无需请求体；调用服务器 IP 需加入允许服务器 IP。
+            </el-descriptions-item>
+          </el-descriptions>
           <el-input
-            class="mt-3"
             :model-value="curlExample"
             type="textarea"
             :rows="2"

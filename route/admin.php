@@ -15,6 +15,8 @@ Route::group('admin/index', function () {
     Route::any('getUpdateRecovery', 'admin.Update/recover');
     Route::any('getSettings', 'admin.Settings/getSettings');
     Route::post('saveSetting', 'admin.Settings/saveSetting');
+    Route::post('generateMaintenanceToken', 'admin.Settings/generateMaintenanceToken');
+    Route::post('testMaintenanceNotification', 'admin.Settings/testMaintenanceNotification');
     Route::any('getTerminals', 'admin.Terminal/getTerminals');
     Route::any('getTerminal', 'admin.Terminal/getTerminal');
     Route::post('saveTerminal', 'admin.Terminal/saveTerminal');

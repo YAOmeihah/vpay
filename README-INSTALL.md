@@ -60,6 +60,44 @@
 
 自动更新会保留 `.env`、`runtime/` 和运行状态目录。执行更新前仍建议先备份数据库。
 
+## 维护计划接口
+
+维护计划接口由后台“系统设置”中手动启用，默认关闭。
+
+1. 打开后台系统设置。
+2. 启用维护接口。
+3. 生成维护密钥。
+4. 填写允许访问接口的服务器 IP，多个 IP 使用英文逗号分隔。
+5. 按需启用监控端离线检查、关闭过期未支付订单和 Telegram 通知。“关闭过期未支付订单”会把过期未支付订单标记为过期，并清理对应和孤儿 `tmp_price` 记录，不会删除订单。
+6. 在服务器 crontab 中请求 `POST /maintenance/run`，并设置请求头 `X-Maintenance-Token`。
+
+后台配置示例：
+
+```text
+维护接口：启用
+维护密钥：点击“重新生成”，例如生成 64 位随机密钥
+允许服务器 IP：127.0.0.1,10.0.0.2
+默认任务：启用“监控端检查”、启用“关闭过期未支付订单”
+Telegram：不需要通知时关闭；需要通知时启用
+Bot Token：123456789:AAExampleTelegramBotToken
+Chat ID：123456789
+通知事件：按需启用“离线”“恢复”“过期订单”“异常”
+```
+
+如果 crontab 和网站在同一台服务器，允许服务器 IP 通常填 `127.0.0.1`。如果 crontab 在另一台服务器，填写请求到达 PHP 时看到的来源 IP。
+
+crontab 示例：
+
+```cron
+* * * * * curl -fsS -X POST https://example.com/maintenance/run -H "X-Maintenance-Token: your-generated-token" >/dev/null 2>&1
+```
+
+如果本机通过 HTTP 访问站点，可以用：
+
+```cron
+* * * * * curl -fsS -X POST http://127.0.0.1/maintenance/run -H "X-Maintenance-Token: your-generated-token" >/dev/null 2>&1
+```
+
 ## Apache 伪静态
 
 发布包的 `public/.htaccess` 已内置 Apache 伪静态规则。请确保站点开启 `mod_rewrite`，并允许 `.htaccess` 生效。

@@ -2,12 +2,19 @@
 import { onMounted, reactive, ref } from "vue";
 
 import { message } from "@/utils/message";
-import { getSettings, saveSettings } from "@/api/admin/settings";
+import {
+  generateMaintenanceToken,
+  getSettings,
+  saveSettings,
+  testMaintenanceNotification
+} from "@/api/admin/settings";
 
+import MaintenanceCard from "./components/MaintenanceCard.vue";
 import PaymentConfigCard from "./components/PaymentConfigCard.vue";
 import SecurityCard from "./components/SecurityCard.vue";
 import SystemUpdateCard from "./components/SystemUpdateCard.vue";
 import {
+  buildMaintenancePayload,
   buildPaymentPayload,
   buildSecurityPayload,
   createSettingsSections,
@@ -16,7 +23,13 @@ import {
 
 defineOptions({ name: "SystemSettings" });
 
-type SectionKey = "" | "security" | "payment";
+type SectionKey =
+  | ""
+  | "security"
+  | "payment"
+  | "maintenance"
+  | "maintenance-token"
+  | "maintenance-test";
 
 const initialLoading = ref(false);
 const activeSection = ref<SectionKey>("");
@@ -41,7 +54,7 @@ const loadSettings = async () => {
 };
 
 const saveSection = async (
-  section: Exclude<SectionKey, "">,
+  section: Exclude<SectionKey, "" | "maintenance-token" | "maintenance-test">,
   label: string,
   payload: Record<string, string>
 ) => {
@@ -58,6 +71,48 @@ const saveSection = async (
     message(`${label}已保存`, { type: "success" });
   } catch (error: any) {
     message(error?.msg || error?.message || `${label}保存失败`, {
+      type: "error"
+    });
+  } finally {
+    activeSection.value = "";
+  }
+};
+
+const generateToken = async () => {
+  try {
+    activeSection.value = "maintenance-token";
+    const res = await generateMaintenanceToken();
+
+    if (res.code !== 1) {
+      message(res.msg || "维护密钥生成失败", { type: "error" });
+      return;
+    }
+
+    sections.maintenance.token = res.data?.token || "";
+    await loadSettings();
+    message("维护密钥已生成", { type: "success" });
+  } catch (error: any) {
+    message(error?.msg || error?.message || "维护密钥生成失败", {
+      type: "error"
+    });
+  } finally {
+    activeSection.value = "";
+  }
+};
+
+const testNotification = async () => {
+  try {
+    activeSection.value = "maintenance-test";
+    const res = await testMaintenanceNotification();
+
+    if (res.code !== 1) {
+      message(res.msg || "测试推送失败", { type: "error" });
+      return;
+    }
+
+    message("测试推送已发送", { type: "success" });
+  } catch (error: any) {
+    message(error?.msg || error?.message || "测试推送失败", {
       type: "error"
     });
   } finally {
@@ -103,6 +158,22 @@ onMounted(loadSettings);
           buildPaymentPayload(sections.payment)
         )
       "
+    />
+
+    <MaintenanceCard
+      v-model:model="sections.maintenance"
+      :loading="activeSection === 'maintenance'"
+      :token-loading="activeSection === 'maintenance-token'"
+      :test-loading="activeSection === 'maintenance-test'"
+      @save="
+        saveSection(
+          'maintenance',
+          '维护计划配置',
+          buildMaintenancePayload(sections.maintenance)
+        )
+      "
+      @generate-token="generateToken"
+      @test-notification="testNotification"
     />
   </div>
 </template>

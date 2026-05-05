@@ -14,9 +14,27 @@ export type PaymentSection = {
   allocationStrategy: "fixed_priority" | "round_robin";
 };
 
+export type MaintenanceSection = {
+  enabled: string;
+  token: string;
+  allowedIps: string;
+  terminalOfflineTask: string;
+  expiredOrderCleanupTask: string;
+  lastRunAt: string;
+  lastRunResult: string;
+  telegramEnabled: string;
+  telegramBotToken: string;
+  telegramChatId: string;
+  notifyTerminalOffline: string;
+  notifyTerminalRecovered: string;
+  notifyExpiredOrderCleanup: string;
+  notifyMaintenanceException: string;
+};
+
 export type SettingsSections = {
   security: SecuritySection;
   payment: PaymentSection;
+  maintenance: MaintenanceSection;
 };
 
 export function createSettingsSections(): SettingsSections {
@@ -34,6 +52,22 @@ export function createSettingsSections(): SettingsSections {
       close: "",
       payQf: "1",
       allocationStrategy: "fixed_priority"
+    },
+    maintenance: {
+      enabled: "0",
+      token: "",
+      allowedIps: "",
+      terminalOfflineTask: "1",
+      expiredOrderCleanupTask: "1",
+      lastRunAt: "",
+      lastRunResult: "",
+      telegramEnabled: "0",
+      telegramBotToken: "",
+      telegramChatId: "",
+      notifyTerminalOffline: "1",
+      notifyTerminalRecovered: "1",
+      notifyExpiredOrderCleanup: "1",
+      notifyMaintenanceException: "1"
     }
   };
 }
@@ -56,6 +90,45 @@ export function hydrateSettingsSections(
     payload.allocationStrategy === "round_robin"
       ? "round_robin"
       : "fixed_priority";
+
+  sections.maintenance.enabled = String(payload.maintenance_enabled ?? "0");
+  sections.maintenance.token = String(payload.maintenance_token ?? "");
+  sections.maintenance.allowedIps = String(
+    payload.maintenance_allowed_ips ?? ""
+  );
+  sections.maintenance.terminalOfflineTask = String(
+    payload.maintenance_task_terminal_offline_check ?? "1"
+  );
+  sections.maintenance.expiredOrderCleanupTask = String(
+    payload.maintenance_task_expired_order_cleanup ?? "1"
+  );
+  sections.maintenance.lastRunAt = String(
+    payload.maintenance_last_run_at ?? ""
+  );
+  sections.maintenance.lastRunResult = String(
+    payload.maintenance_last_run_result ?? ""
+  );
+  sections.maintenance.telegramEnabled = String(
+    payload.notify_telegram_enabled ?? "0"
+  );
+  sections.maintenance.telegramBotToken = String(
+    payload.notify_telegram_bot_token ?? ""
+  );
+  sections.maintenance.telegramChatId = String(
+    payload.notify_telegram_chat_id ?? ""
+  );
+  sections.maintenance.notifyTerminalOffline = String(
+    payload.notify_event_terminal_offline ?? "1"
+  );
+  sections.maintenance.notifyTerminalRecovered = String(
+    payload.notify_event_terminal_recovered ?? "1"
+  );
+  sections.maintenance.notifyExpiredOrderCleanup = String(
+    payload.notify_event_expired_order_cleanup ?? "1"
+  );
+  sections.maintenance.notifyMaintenanceException = String(
+    payload.notify_event_maintenance_exception ?? "1"
+  );
 }
 
 export function buildSecurityPayload(section: SecuritySection) {
@@ -79,5 +152,22 @@ export function buildPaymentPayload(section: PaymentSection) {
     close: section.close,
     payQf: section.payQf,
     allocationStrategy: section.allocationStrategy
+  };
+}
+
+export function buildMaintenancePayload(section: MaintenanceSection) {
+  return {
+    maintenance_enabled: section.enabled,
+    maintenance_token: section.token,
+    maintenance_allowed_ips: section.allowedIps,
+    maintenance_task_terminal_offline_check: section.terminalOfflineTask,
+    maintenance_task_expired_order_cleanup: section.expiredOrderCleanupTask,
+    notify_telegram_enabled: section.telegramEnabled,
+    notify_telegram_bot_token: section.telegramBotToken,
+    notify_telegram_chat_id: section.telegramChatId,
+    notify_event_terminal_offline: section.notifyTerminalOffline,
+    notify_event_terminal_recovered: section.notifyTerminalRecovered,
+    notify_event_expired_order_cleanup: section.notifyExpiredOrderCleanup,
+    notify_event_maintenance_exception: section.notifyMaintenanceException
   };
 }

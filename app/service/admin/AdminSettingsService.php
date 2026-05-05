@@ -10,6 +10,17 @@ use app\service\security\KeyEncryptionService;
 class AdminSettingsService
 {
     private const ALLOCATION_STRATEGIES = ['fixed_priority', 'round_robin'];
+    private const BOOLEAN_SETTINGS = [
+        'notify_ssl_verify',
+        'maintenance_enabled',
+        'maintenance_task_terminal_offline_check',
+        'maintenance_task_expired_order_cleanup',
+        'notify_telegram_enabled',
+        'notify_event_terminal_offline',
+        'notify_event_terminal_recovered',
+        'notify_event_expired_order_cleanup',
+        'notify_event_maintenance_exception',
+    ];
 
     /**
      * @return array<string, string>
@@ -26,6 +37,20 @@ class AdminSettingsService
             'close'              => $this->getConfigValue('close'),
             'payQf'              => $this->getConfigValue('payQf'),
             'allocationStrategy' => $this->getConfigValue('allocationStrategy', 'fixed_priority'),
+            'maintenance_enabled' => $this->getConfigValue('maintenance_enabled', '0'),
+            'maintenance_token' => $this->getConfigValue('maintenance_token'),
+            'maintenance_allowed_ips' => $this->getConfigValue('maintenance_allowed_ips'),
+            'maintenance_task_terminal_offline_check' => $this->getConfigValue('maintenance_task_terminal_offline_check', '1'),
+            'maintenance_task_expired_order_cleanup' => $this->getConfigValue('maintenance_task_expired_order_cleanup', '1'),
+            'maintenance_last_run_at' => $this->getConfigValue('maintenance_last_run_at'),
+            'maintenance_last_run_result' => $this->getConfigValue('maintenance_last_run_result'),
+            'notify_telegram_enabled' => $this->getConfigValue('notify_telegram_enabled', '0'),
+            'notify_telegram_bot_token' => $this->getConfigValue('notify_telegram_bot_token'),
+            'notify_telegram_chat_id' => $this->getConfigValue('notify_telegram_chat_id'),
+            'notify_event_terminal_offline' => $this->getConfigValue('notify_event_terminal_offline', '1'),
+            'notify_event_terminal_recovered' => $this->getConfigValue('notify_event_terminal_recovered', '1'),
+            'notify_event_expired_order_cleanup' => $this->getConfigValue('notify_event_expired_order_cleanup', '1'),
+            'notify_event_maintenance_exception' => $this->getConfigValue('notify_event_maintenance_exception', '1'),
         ];
 
         $settings['key'] = $this->ensureGeneratedKey('key', $settings['key']);
@@ -41,6 +66,11 @@ class AdminSettingsService
         $params = [
             'user', 'pass', 'notifyUrl', 'returnUrl', 'key',
             'notify_ssl_verify', 'close', 'payQf', 'allocationStrategy',
+            'maintenance_enabled', 'maintenance_token', 'maintenance_allowed_ips',
+            'maintenance_task_terminal_offline_check', 'maintenance_task_expired_order_cleanup',
+            'notify_telegram_enabled', 'notify_telegram_bot_token', 'notify_telegram_chat_id',
+            'notify_event_terminal_offline', 'notify_event_terminal_recovered',
+            'notify_event_expired_order_cleanup', 'notify_event_maintenance_exception',
         ];
 
         foreach ($params as $param) {
@@ -61,9 +91,14 @@ class AdminSettingsService
 
             $value = (string) $value;
 
-            if (in_array($param, [
+            if (in_array($param, self::BOOLEAN_SETTINGS, true)) {
+                $value = $this->normalizeBoolean($value);
+            } elseif ($param === 'maintenance_allowed_ips') {
+                $value = $this->normalizeIpList($value);
+            } elseif (in_array($param, [
                 'user', 'notifyUrl', 'returnUrl', 'key',
                 'notify_ssl_verify', 'close', 'payQf', 'allocationStrategy',
+                'maintenance_token', 'notify_telegram_bot_token', 'notify_telegram_chat_id',
             ], true)) {
                 $value = trim($value);
             }
@@ -80,6 +115,14 @@ class AdminSettingsService
         }
 
         $this->dashboardStatsService()->clearStats();
+    }
+
+    public function generateMaintenanceToken(): string
+    {
+        $token = bin2hex(random_bytes(32));
+        $this->setConfigValue('maintenance_token', $token);
+
+        return $token;
     }
 
     public function getAdminUsername(): string
@@ -138,6 +181,22 @@ class AdminSettingsService
         } catch (\Throwable $e) {
             throw new \RuntimeException('安全随机数生成失败，无法生成密钥', 0, $e);
         }
+    }
+
+    private function normalizeBoolean(mixed $value): string
+    {
+        return in_array((string) $value, ['1', 'true', 'on'], true) ? '1' : '0';
+    }
+
+    private function normalizeIpList(mixed $value): string
+    {
+        $items = preg_split('/[,\r\n]+/', (string) $value) ?: [];
+        $items = array_values(array_filter(array_map(
+            static fn (string $item): string => trim($item),
+            $items
+        )));
+
+        return implode(',', $items);
     }
 
     private function ensureGeneratedKey(string $settingKey, string $currentValue): string

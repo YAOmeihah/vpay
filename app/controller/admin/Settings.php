@@ -5,6 +5,7 @@ namespace app\controller\admin;
 
 use app\BaseController;
 use app\service\admin\AdminSettingsService;
+use app\service\notification\NotificationService;
 
 class Settings extends BaseController
 {
@@ -24,6 +25,24 @@ class Settings extends BaseController
     public function saveSetting()
     {
         $this->adminSettingsService()->saveSettings($this->request->param());
+
+        return $this->success();
+    }
+
+    public function generateMaintenanceToken()
+    {
+        return $this->success([
+            'token' => $this->adminSettingsService()->generateMaintenanceToken(),
+        ]);
+    }
+
+    public function testMaintenanceNotification()
+    {
+        $ok = $this->app->make(NotificationService::class)->sendTestMessage();
+
+        if (!$ok) {
+            return $this->error('Telegram 测试推送失败，请检查是否启用并配置 Bot Token 与 Chat ID');
+        }
 
         return $this->success();
     }

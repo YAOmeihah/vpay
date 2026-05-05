@@ -2,6 +2,7 @@
 use think\facade\Route;
 
 require __DIR__ . '/install.php';
+require __DIR__ . '/maintenance.php';
 require __DIR__ . '/admin.php';
 require __DIR__ . '/merchant.php';
 require __DIR__ . '/monitor.php';

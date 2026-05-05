@@ -65,4 +65,82 @@ class AdminSettingsServiceTest extends TestCase
             'allocationStrategy' => 'unexpected_strategy',
         ]);
     }
+
+    public function test_get_settings_returns_maintenance_defaults_disabled_by_default(): void
+    {
+        $settings = (new AdminSettingsService())->getSettings();
+
+        self::assertSame('0', $settings['maintenance_enabled']);
+        self::assertSame('', $settings['maintenance_token']);
+        self::assertSame('', $settings['maintenance_allowed_ips']);
+        self::assertSame('1', $settings['maintenance_task_terminal_offline_check']);
+        self::assertSame('1', $settings['maintenance_task_expired_order_cleanup']);
+        self::assertSame('', $settings['maintenance_last_run_at']);
+        self::assertSame('', $settings['maintenance_last_run_result']);
+        self::assertSame('0', $settings['notify_telegram_enabled']);
+        self::assertSame('', $settings['notify_telegram_bot_token']);
+        self::assertSame('', $settings['notify_telegram_chat_id']);
+        self::assertSame('1', $settings['notify_event_terminal_offline']);
+        self::assertSame('1', $settings['notify_event_terminal_recovered']);
+        self::assertSame('1', $settings['notify_event_expired_order_cleanup']);
+        self::assertSame('1', $settings['notify_event_maintenance_exception']);
+    }
+
+    public function test_save_settings_persists_maintenance_fields(): void
+    {
+        $service = new AdminSettingsService();
+
+        $service->saveSettings([
+            'maintenance_enabled' => '1',
+            'maintenance_token' => 'cron-token',
+            'maintenance_allowed_ips' => "127.0.0.1, 10.0.0.2\n",
+            'maintenance_task_terminal_offline_check' => '0',
+            'maintenance_task_expired_order_cleanup' => '1',
+            'notify_telegram_enabled' => '1',
+            'notify_telegram_bot_token' => 'bot-token',
+            'notify_telegram_chat_id' => '123456',
+            'notify_event_terminal_offline' => '1',
+            'notify_event_terminal_recovered' => '0',
+            'notify_event_expired_order_cleanup' => '1',
+            'notify_event_maintenance_exception' => '0',
+        ]);
+
+        self::assertSame('1', Setting::getConfigValue('maintenance_enabled'));
+        self::assertSame('cron-token', Setting::getConfigValue('maintenance_token'));
+        self::assertSame('127.0.0.1,10.0.0.2', Setting::getConfigValue('maintenance_allowed_ips'));
+        self::assertSame('0', Setting::getConfigValue('maintenance_task_terminal_offline_check'));
+        self::assertSame('1', Setting::getConfigValue('maintenance_task_expired_order_cleanup'));
+        self::assertSame('1', Setting::getConfigValue('notify_telegram_enabled'));
+        self::assertSame('bot-token', Setting::getConfigValue('notify_telegram_bot_token'));
+        self::assertSame('123456', Setting::getConfigValue('notify_telegram_chat_id'));
+        self::assertSame('0', Setting::getConfigValue('notify_event_terminal_recovered'));
+        self::assertSame('0', Setting::getConfigValue('notify_event_maintenance_exception'));
+    }
+
+    public function test_generate_maintenance_token_persists_random_hex_token(): void
+    {
+        $service = new AdminSettingsService();
+
+        $token = $service->generateMaintenanceToken();
+
+        self::assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $token);
+        self::assertSame($token, Setting::getConfigValue('maintenance_token'));
+    }
+
+    public function test_admin_routes_include_maintenance_actions(): void
+    {
+        $routes = (string) file_get_contents(dirname(__DIR__) . '/route/admin.php');
+        $controller = (string) file_get_contents(dirname(__DIR__) . '/app/controller/admin/Settings.php');
+
+        self::assertStringContainsString(
+            "Route::post('generateMaintenanceToken', 'admin.Settings/generateMaintenanceToken')",
+            $routes
+        );
+        self::assertStringContainsString(
+            "Route::post('testMaintenanceNotification', 'admin.Settings/testMaintenanceNotification')",
+            $routes
+        );
+        self::assertStringContainsString('function generateMaintenanceToken()', $controller);
+        self::assertStringContainsString('function testMaintenanceNotification()', $controller);
+    }
 }

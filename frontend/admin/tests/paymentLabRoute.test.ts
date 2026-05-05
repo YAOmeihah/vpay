@@ -57,6 +57,20 @@ test("payment lab launcher uses scoped visual styles for a readable launch butto
   assert.doesNotMatch(source, />READY</);
 });
 
+test("payment lab launcher includes dark mode overrides", () => {
+  const source = readFileSync(
+    resolve("frontend/admin/src/views/system/payment-test/index.vue"),
+    "utf8"
+  );
+
+  assert.match(source, /--payment-lab-launcher-bg/);
+  assert.match(source, /--payment-lab-card-bg/);
+  assert.match(source, /--payment-lab-title-color/);
+  assert.match(source, /--payment-lab-copy-color/);
+  assert.match(source, /:global\(:root\)/);
+  assert.match(source, /:global\(html\.dark\)/);
+});
+
 test("payment lab api types include selected sign type", () => {
   const source = readFileSync(
     resolve("frontend/admin/src/api/admin/paymentLab.ts"),

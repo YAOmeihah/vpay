@@ -20,6 +20,20 @@ class SettingConfigRepository
         'payQf',
         'allocationStrategy',
         'notify_ssl_verify',
+        'maintenance_enabled',
+        'maintenance_token',
+        'maintenance_allowed_ips',
+        'maintenance_task_terminal_offline_check',
+        'maintenance_task_expired_order_cleanup',
+        'maintenance_last_run_at',
+        'maintenance_last_run_result',
+        'notify_telegram_enabled',
+        'notify_telegram_bot_token',
+        'notify_telegram_chat_id',
+        'notify_event_terminal_offline',
+        'notify_event_terminal_recovered',
+        'notify_event_expired_order_cleanup',
+        'notify_event_maintenance_exception',
     ];
 
     public function get(string $key, string $default = ''): string

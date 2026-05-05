@@ -28,28 +28,38 @@ const openPaymentLab = () => {
 </template>
 
 <style scoped>
-.payment-lab-launcher {
-  min-height: calc(100vh - 180px);
-  padding: 24px;
-  background:
+:global(:root) {
+  --payment-lab-launcher-bg:
     radial-gradient(circle at 16% 18%, rgb(34 197 94 / 12%), transparent 28%),
     radial-gradient(circle at 90% 4%, rgb(14 165 233 / 12%), transparent 24%),
     #eef2f7;
-}
-
-.launcher-card {
-  min-height: 280px;
-  padding: clamp(28px, 5vw, 56px);
-  background:
+  --payment-lab-card-bg:
     linear-gradient(135deg, rgb(255 255 255 / 96%), rgb(248 250 252 / 90%)),
     repeating-linear-gradient(
       45deg,
       rgb(15 23 42 / 3.5%) 0 1px,
       transparent 1px 18px
     );
-  border: 1px solid rgb(15 23 42 / 8%);
+  --payment-lab-card-border: rgb(15 23 42 / 8%);
+  --payment-lab-card-shadow: 0 24px 80px rgb(15 23 42 / 10%);
+  --payment-lab-eyebrow-color: #047857;
+  --payment-lab-title-color: #020617;
+  --payment-lab-copy-color: #334155;
+}
+
+.payment-lab-launcher {
+  min-height: calc(100vh - 180px);
+  padding: 24px;
+  background: var(--payment-lab-launcher-bg);
+}
+
+.launcher-card {
+  min-height: 280px;
+  padding: clamp(28px, 5vw, 56px);
+  background: var(--payment-lab-card-bg);
+  border: 1px solid var(--payment-lab-card-border);
   border-radius: 28px;
-  box-shadow: 0 24px 80px rgb(15 23 42 / 10%);
+  box-shadow: var(--payment-lab-card-shadow);
 }
 
 .launcher-copy {
@@ -60,7 +70,7 @@ const openPaymentLab = () => {
   margin: 0 0 10px;
   font-size: 12px;
   font-weight: 800;
-  color: #047857;
+  color: var(--payment-lab-eyebrow-color);
   text-transform: uppercase;
   letter-spacing: 0.28em;
 }
@@ -70,7 +80,7 @@ const openPaymentLab = () => {
   font-size: clamp(30px, 4vw, 54px);
   font-weight: 900;
   line-height: 1.05;
-  color: #020617;
+  color: var(--payment-lab-title-color);
 }
 
 .launcher-copy p:not(.launcher-eyebrow) {
@@ -78,7 +88,7 @@ const openPaymentLab = () => {
   margin: 14px 0 24px;
   font-size: 16px;
   line-height: 1.8;
-  color: #334155;
+  color: var(--payment-lab-copy-color);
 }
 
 .launch-button {
@@ -121,6 +131,25 @@ const openPaymentLab = () => {
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+:global(html.dark) {
+  --payment-lab-launcher-bg:
+    radial-gradient(circle at 16% 18%, rgb(34 197 94 / 16%), transparent 28%),
+    radial-gradient(circle at 90% 4%, rgb(14 165 233 / 12%), transparent 24%),
+    #020617;
+  --payment-lab-card-bg:
+    linear-gradient(135deg, rgb(15 23 42 / 94%), rgb(2 6 23 / 90%)),
+    repeating-linear-gradient(
+      45deg,
+      rgb(148 163 184 / 5%) 0 1px,
+      transparent 1px 18px
+    );
+  --payment-lab-card-border: rgb(148 163 184 / 18%);
+  --payment-lab-card-shadow: 0 24px 80px rgb(0 0 0 / 38%);
+  --payment-lab-eyebrow-color: #34d399;
+  --payment-lab-title-color: #f8fafc;
+  --payment-lab-copy-color: #cbd5e1;
 }
 
 @media (width <= 860px) {

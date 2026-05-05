@@ -404,6 +404,7 @@ namespace app\model {
 namespace tests {
 
     use app\model\PayOrder;
+    use app\model\MonitorTerminal;
     use app\service\OrderCreationKernel;
     use app\service\OrderService;
     use app\service\MonitorService;
@@ -1106,6 +1107,11 @@ namespace tests {
                 'online_state' => 'online',
                 'updated_at' => $timestamp,
             ];
+        }
+
+        protected static function findTerminal(int $terminalId): ?MonitorTerminal
+        {
+            return null;
         }
     }
 

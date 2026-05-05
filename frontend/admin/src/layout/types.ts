@@ -5,8 +5,8 @@ export const routerArrays: Array<RouteConfigs> =
   VITE_HIDE_HOME === "false"
     ? [
         {
-          path: "/welcome",
-          name: "Welcome",
+          path: "/dashboard",
+          name: "DashboardHome",
           meta: {
             title: "首页",
             icon: "ep/home-filled"

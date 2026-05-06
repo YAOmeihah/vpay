@@ -76,7 +76,21 @@ export default ({ mode }: ConfigEnv): UserConfigExport => {
         output: {
           chunkFileNames: "static/js/[name]-[hash].js",
           entryFileNames: "static/js/[name]-[hash].js",
-          assetFileNames: "static/[ext]/[name]-[hash].[ext]"
+          assetFileNames: "static/[ext]/[name]-[hash].[ext]",
+          manualChunks(id: string) {
+            const normalizedId = id.replace(/\\/g, "/");
+            if (!normalizedId.includes("node_modules")) return;
+            if (/node_modules\/(@vue\/|vue\/|vue-router\/|pinia\/)/.test(normalizedId)) {
+              return "vue-vendor";
+            }
+            if (normalizedId.includes("node_modules/element-plus")) {
+              return "element-plus";
+            }
+            if (normalizedId.includes("node_modules/@pureadmin")) {
+              return "pureadmin-vendor";
+            }
+            return "vendor";
+          }
         }
       }
     },

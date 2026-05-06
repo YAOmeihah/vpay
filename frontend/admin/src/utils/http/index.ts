@@ -11,8 +11,12 @@ import type {
 } from "./types.d";
 import { stringify } from "qs";
 import { useUserStoreHook } from "@/store/modules/user";
-import { message } from "@/utils/message";
 import { getAdminCsrfToken } from "@/utils/csrf";
+import {
+  hasStoredAdminUser,
+  isAdminUnauthorized,
+  notifyAdminSessionExpired
+} from "@/utils/adminUnauthorized";
 
 // 相关配置请参考：www.axios-js.com/zh-cn/docs/#axios-request-config-1
 const defaultConfig: AxiosRequestConfig = {
@@ -31,7 +35,6 @@ const defaultConfig: AxiosRequestConfig = {
 };
 
 const installRedirectCodes = new Set([50301, 50302, 50303, 50304]);
-let unauthorizedMessageVisible = false;
 const csrfSafeMethods = new Set(["get", "head", "options"]);
 
 const redirectToInstallIfNeeded = (payload: unknown): boolean => {
@@ -53,22 +56,6 @@ const redirectToInstallIfNeeded = (payload: unknown): boolean => {
   }
 
   return true;
-};
-
-const notifyUnauthorized = (detail = ""): void => {
-  if (unauthorizedMessageVisible) {
-    return;
-  }
-
-  const suffix = detail.trim() ? `：${detail.trim()}` : "";
-  unauthorizedMessageVisible = true;
-  message(`登录已失效，请重新登录${suffix}`, {
-    type: "error",
-    grouping: true,
-    onClose: () => {
-      unauthorizedMessageVisible = false;
-    }
-  });
 };
 
 class PureHttp {
@@ -131,12 +118,15 @@ class PureHttp {
         }
 
         const isUnauthorized =
-          (response.status === 401 || responseCode === 40101) &&
+          isAdminUnauthorized(response.status, responseCode) &&
           !response.config.skipUnauthorizedLogout;
 
         if (isUnauthorized) {
-          notifyUnauthorized(String((response.data as any)?.msg ?? ""));
-          useUserStoreHook().logOut();
+          const hadStoredAdminUser = hasStoredAdminUser();
+          if (hadStoredAdminUser) {
+            notifyAdminSessionExpired();
+          }
+          useUserStoreHook().logOut({ remote: false });
           return Promise.reject(response.data);
         }
         return response.data;
@@ -162,12 +152,15 @@ class PureHttp {
 
         const unauthorizedCode = Number(($error.response?.data as any)?.code);
         const isUnauthorized =
-          ($error.response?.status === 401 || unauthorizedCode === 40101) &&
+          isAdminUnauthorized($error.response?.status, unauthorizedCode) &&
           !errorConfig?.skipUnauthorizedLogout;
 
         if (isUnauthorized) {
-          notifyUnauthorized(errorMessage);
-          useUserStoreHook().logOut();
+          const hadStoredAdminUser = hasStoredAdminUser();
+          if (hadStoredAdminUser) {
+            notifyAdminSessionExpired();
+          }
+          useUserStoreHook().logOut({ remote: false });
         }
 
         // 所有的响应异常 区分来源为取消请求/非取消请求

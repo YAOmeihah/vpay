@@ -12,6 +12,10 @@ import {
   type TerminalPayload
 } from "@/api/admin/terminal";
 import { message } from "@/utils/message";
+import {
+  buildDeleteTerminalConfirmMessage,
+  buildResetTerminalKeyConfirmMessage
+} from "./terminalActions";
 
 defineOptions({ name: "TerminalManagement" });
 
@@ -24,6 +28,20 @@ const page = ref(1);
 const limit = 10;
 
 const dialogVisible = ref(false);
+const rowActionLoading = reactive<Record<string, boolean>>({});
+
+const rowActionKey = (action: string, row: any) => {
+  return `${action}:${String(row.id ?? "")}`;
+};
+
+const isRowActionLoading = (action: string, row: any) => {
+  return Boolean(rowActionLoading[rowActionKey(action, row)]);
+};
+
+const setRowActionLoading = (action: string, row: any, value: boolean) => {
+  rowActionLoading[rowActionKey(action, row)] = value;
+};
+
 const form = reactive<TerminalPayload>({
   terminalCode: "",
   terminalName: "",
@@ -112,17 +130,17 @@ const handleToggle = async (row: any) => {
 };
 
 const handleDelete = async (row: any) => {
-  await ElMessageBox.confirm(
-    "确认删除该终端？删除后会同时清理终端下的支付通道；若存在未支付订单则会被阻止。",
-    "提示",
-    {
+  if (isRowActionLoading("delete", row)) {
+    return;
+  }
+
+  try {
+    await ElMessageBox.confirm(buildDeleteTerminalConfirmMessage(row), "提示", {
       type: "warning",
       confirmButtonText: "删除",
       confirmButtonClass: "el-button--danger"
-    }
-  );
-
-  try {
+    });
+    setRowActionLoading("delete", row, true);
     const res = await deleteTerminal({ id: Number(row.id) });
     if (res.code === 1) {
       message("终端已删除", { type: "success" });
@@ -131,20 +149,45 @@ const handleDelete = async (row: any) => {
       message(res.msg || "终端删除失败", { type: "error" });
     }
   } catch (error: any) {
-    message(error?.msg || error?.message || "终端删除失败", { type: "error" });
+    if (error !== "cancel" && error !== "close") {
+      message(error?.msg || error?.message || "终端删除失败", {
+        type: "error"
+      });
+    }
+  } finally {
+    setRowActionLoading("delete", row, false);
   }
 };
 
 const handleResetKey = async (row: any) => {
-  await ElMessageBox.confirm("确认重置该终端的监控密钥？", "提示", {
-    type: "warning"
-  });
-  const res = await resetTerminalKey({ id: Number(row.id) });
-  if (res.code === 1) {
-    message("监控密钥已重置", { type: "success" });
-    loadList();
-  } else {
-    message(res.msg || "监控密钥重置失败", { type: "error" });
+  if (isRowActionLoading("resetKey", row)) {
+    return;
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      buildResetTerminalKeyConfirmMessage(row),
+      "提示",
+      {
+        type: "warning"
+      }
+    );
+    setRowActionLoading("resetKey", row, true);
+    const res = await resetTerminalKey({ id: Number(row.id) });
+    if (res.code === 1) {
+      message("监控密钥已重置", { type: "success" });
+      await loadList();
+    } else {
+      message(res.msg || "监控密钥重置失败", { type: "error" });
+    }
+  } catch (error: any) {
+    if (error !== "cancel" && error !== "close") {
+      message(error?.msg || error?.message || "监控密钥重置失败", {
+        type: "error"
+      });
+    }
+  } finally {
+    setRowActionLoading("resetKey", row, false);
   }
 };
 
@@ -223,7 +266,16 @@ onMounted(loadList);
               支付配置
             </el-button>
             <el-button size="small" text @click="openEdit(row)">编辑</el-button>
-            <el-button size="small" text @click="handleResetKey(row)">
+            <el-button
+              size="small"
+              text
+              :loading="isRowActionLoading('resetKey', row)"
+              :disabled="
+                isRowActionLoading('resetKey', row) ||
+                isRowActionLoading('delete', row)
+              "
+              @click="handleResetKey(row)"
+            >
               重置密钥
             </el-button>
             <el-button
@@ -238,6 +290,11 @@ onMounted(loadList);
               size="small"
               text
               type="danger"
+              :loading="isRowActionLoading('delete', row)"
+              :disabled="
+                isRowActionLoading('resetKey', row) ||
+                isRowActionLoading('delete', row)
+              "
               @click="handleDelete(row)"
             >
               删除

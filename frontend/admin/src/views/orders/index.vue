@@ -11,7 +11,13 @@ import {
 } from "@/api/admin/orders";
 import OrderDetailDialog from "@/components/admin/OrderDetailDialog.vue";
 import { formatUnixTimestamp, normalizePagedList } from "@/utils/adminLegacy";
-import { resolveRepairAction } from "./orderActions";
+import {
+  buildDeleteExpiredOrdersConfirmMessage,
+  buildDeleteOldOrdersConfirmMessage,
+  buildDeleteOrderConfirmMessage,
+  buildRepairConfirmMessage,
+  resolveRepairAction
+} from "./orderActions";
 
 defineOptions({ name: "OrderList" });
 
@@ -45,6 +51,20 @@ const limit = 15;
 
 const detailVisible = ref(false);
 const selectedOrder = ref<any>(null);
+const rowActionLoading = reactive<Record<string, boolean>>({});
+const bulkActionLoading = reactive({ expired: false, old: false });
+
+const rowActionKey = (action: string, row: any) => {
+  return `${action}:${String(row.id ?? "")}`;
+};
+
+const isRowActionLoading = (action: string, row: any) => {
+  return Boolean(rowActionLoading[rowActionKey(action, row)]);
+};
+
+const setRowActionLoading = (action: string, row: any, value: boolean) => {
+  rowActionLoading[rowActionKey(action, row)] = value;
+};
 
 const loadList = async () => {
   try {
@@ -86,65 +106,131 @@ const openDetail = (row: any) => {
 };
 
 const handleDelete = async (row: any) => {
-  await ElMessageBox.confirm("确认删除该订单？", "提示", { type: "warning" });
-  const res = await deleteOrder({ id: row.id });
-  if (res.code === 1) {
-    message("删除成功", { type: "success" });
-    loadList();
-  } else {
-    message(res.msg || "删除失败", { type: "error" });
+  if (isRowActionLoading("delete", row)) {
+    return;
+  }
+
+  try {
+    await ElMessageBox.confirm(buildDeleteOrderConfirmMessage(row), "提示", {
+      type: "warning",
+      confirmButtonText: "删除",
+      confirmButtonClass: "el-button--danger"
+    });
+    setRowActionLoading("delete", row, true);
+    const res = await deleteOrder({ id: row.id });
+    if (res.code === 1) {
+      message("删除成功", { type: "success" });
+      await loadList();
+    } else {
+      message(res.msg || "删除失败", { type: "error" });
+    }
+  } catch (error: any) {
+    if (error !== "cancel" && error !== "close") {
+      message(error?.msg || error?.message || "删除失败", { type: "error" });
+    }
+  } finally {
+    setRowActionLoading("delete", row, false);
   }
 };
 
 const handleRepair = async (row: any) => {
+  if (isRowActionLoading("repair", row)) {
+    return;
+  }
+
   const action = resolveRepairAction(Number(row.state));
   if (!action) {
     return;
   }
 
-  await ElMessageBox.confirm(action.confirmMessage, "提示", {
-    type: "warning"
-  });
-  const res = await repairOrder({ id: row.id });
-  if (res.code === 1) {
-    message(action.successMessage, { type: "success" });
-    loadList();
-  } else if (res.code === -2 && res.data) {
-    try {
-      await ElMessageBox.confirm(action.notifyErrorMessage, "提示", {
-        confirmButtonText: "查看",
-        cancelButtonText: "取消",
-        type: "warning"
+  try {
+    await ElMessageBox.confirm(buildRepairConfirmMessage(action, row), "提示", {
+      type: "warning"
+    });
+    setRowActionLoading("repair", row, true);
+    const res = await repairOrder({ id: row.id });
+    if (res.code === 1) {
+      message(action.successMessage, { type: "success" });
+      await loadList();
+    } else if (res.code === -2 && res.data) {
+      try {
+        await ElMessageBox.confirm(action.notifyErrorMessage, "提示", {
+          confirmButtonText: "查看",
+          cancelButtonText: "取消",
+          type: "warning"
+        });
+        await ElMessageBox.alert(String(res.data), "通知返回数据", {
+          dangerouslyUseHTMLString: false
+        });
+      } catch {}
+    } else {
+      message(res.msg || action.failureMessage, { type: "error" });
+    }
+  } catch (error: any) {
+    if (error !== "cancel" && error !== "close") {
+      message(error?.msg || error?.message || action.failureMessage, {
+        type: "error"
       });
-      await ElMessageBox.alert(String(res.data), "通知返回数据", {
-        dangerouslyUseHTMLString: false
-      });
-    } catch {}
-  } else {
-    message(res.msg || action.failureMessage, { type: "error" });
+    }
+  } finally {
+    setRowActionLoading("repair", row, false);
   }
 };
 
 const handleDeleteExpired = async () => {
-  await ElMessageBox.confirm("确认删除所有过期订单？", "提示", {
-    type: "warning"
-  });
-  const res = await deleteExpiredOrders();
-  message(res.code === 1 ? "操作成功" : res.msg || "操作失败", {
-    type: res.code === 1 ? "success" : "error"
-  });
-  if (res.code === 1) loadList();
+  if (bulkActionLoading.expired) {
+    return;
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      buildDeleteExpiredOrdersConfirmMessage(),
+      "提示",
+      {
+        type: "warning",
+        confirmButtonText: "删除",
+        confirmButtonClass: "el-button--danger"
+      }
+    );
+    bulkActionLoading.expired = true;
+    const res = await deleteExpiredOrders();
+    message(res.code === 1 ? "操作成功" : res.msg || "操作失败", {
+      type: res.code === 1 ? "success" : "error"
+    });
+    if (res.code === 1) await loadList();
+  } catch (error: any) {
+    if (error !== "cancel" && error !== "close") {
+      message(error?.msg || error?.message || "操作失败", { type: "error" });
+    }
+  } finally {
+    bulkActionLoading.expired = false;
+  }
 };
 
 const handleDeleteOld = async () => {
-  await ElMessageBox.confirm("确认删除七天前的订单？此操作不可恢复", "提示", {
-    type: "warning"
-  });
-  const res = await deleteOldOrders();
-  message(res.code === 1 ? "操作成功" : res.msg || "操作失败", {
-    type: res.code === 1 ? "success" : "error"
-  });
-  if (res.code === 1) loadList();
+  if (bulkActionLoading.old) {
+    return;
+  }
+
+  try {
+    await ElMessageBox.confirm(buildDeleteOldOrdersConfirmMessage(), "提示", {
+      type: "warning",
+      confirmButtonText: "删除",
+      confirmButtonClass: "el-button--danger"
+    });
+    bulkActionLoading.old = true;
+    const res = await deleteOldOrders();
+    message(res.code === 1 ? "操作成功" : res.msg || "操作失败", {
+      type: res.code === 1 ? "success" : "error"
+    });
+    if (res.code === 1) await loadList();
+  } catch (error: any) {
+    if (error !== "cancel" && error !== "close") {
+      message(error?.msg || error?.message || "操作失败", { type: "error" });
+    }
+  } finally {
+    bulkActionLoading.old = false;
+  }
 };
 
 onMounted(loadList);
@@ -157,10 +243,22 @@ onMounted(loadList);
         <div class="flex items-center justify-between">
           <span>订单列表</span>
           <div class="flex gap-2">
-            <el-button type="warning" size="small" @click="handleDeleteExpired">
+            <el-button
+              type="warning"
+              size="small"
+              :loading="bulkActionLoading.expired"
+              :disabled="bulkActionLoading.expired || bulkActionLoading.old"
+              @click="handleDeleteExpired"
+            >
               删除所有过期订单
             </el-button>
-            <el-button type="danger" size="small" @click="handleDeleteOld">
+            <el-button
+              type="danger"
+              size="small"
+              :loading="bulkActionLoading.old"
+              :disabled="bulkActionLoading.expired || bulkActionLoading.old"
+              @click="handleDeleteOld"
+            >
               删除七天前订单
             </el-button>
           </div>
@@ -247,6 +345,11 @@ onMounted(loadList);
               size="small"
               text
               :type="row.state === 0 ? 'warning' : 'primary'"
+              :loading="isRowActionLoading('repair', row)"
+              :disabled="
+                isRowActionLoading('repair', row) ||
+                isRowActionLoading('delete', row)
+              "
               @click="handleRepair(row)"
             >
               {{ resolveRepairAction(row.state)?.label }}
@@ -255,6 +358,11 @@ onMounted(loadList);
               size="small"
               text
               type="danger"
+              :loading="isRowActionLoading('delete', row)"
+              :disabled="
+                isRowActionLoading('repair', row) ||
+                isRowActionLoading('delete', row)
+              "
               @click="handleDelete(row)"
               >删除</el-button
             >

@@ -80,9 +80,8 @@ export const useUserStore = defineStore("pure-user", {
 
       return result;
     },
-    /** 登出 */
-    async logOut() {
-      await adminLogout().catch(() => undefined);
+    /** 清理本地管理员会话 */
+    clearAdminSession() {
       this.username = "";
       this.roles = [];
       this.permissions = [];
@@ -91,6 +90,13 @@ export const useUserStore = defineStore("pure-user", {
       storageLocal().removeItem(userKey);
       useMultiTagsStoreHook().handleTags("equal", [...routerArrays]);
       resetRouter();
+    },
+    /** 登出 */
+    async logOut(options: { remote?: boolean } = {}) {
+      if (options.remote !== false) {
+        await adminLogout().catch(() => undefined);
+      }
+      this.clearAdminSession();
       router.push("/login");
     }
   }

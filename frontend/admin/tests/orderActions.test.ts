@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { resolveRepairAction } from "../src/views/orders/orderActions.ts";
+import {
+  buildDeleteExpiredOrdersConfirmMessage,
+  buildDeleteOldOrdersConfirmMessage,
+  buildDeleteOrderConfirmMessage,
+  buildRepairConfirmMessage,
+  resolveRepairAction
+} from "../src/views/orders/orderActions.ts";
 
 test("resolveRepairAction returns repair copy for unpaid orders", () => {
   assert.deepEqual(resolveRepairAction(0), {
@@ -28,4 +34,40 @@ test("resolveRepairAction returns renotify copy for paid and notify-failed order
 
 test("resolveRepairAction hides the action for expired orders", () => {
   assert.equal(resolveRepairAction(-1), null);
+});
+
+test("order destructive copy identifies concrete order targets", () => {
+  assert.equal(
+    buildDeleteOrderConfirmMessage({
+      id: 8,
+      pay_id: "merchant-1001",
+      order_id: "cloud-2001"
+    }),
+    "确认删除订单（商户订单号 merchant-1001）？删除后不可恢复。"
+  );
+
+  assert.equal(
+    buildDeleteOrderConfirmMessage({ id: 9, order_id: "cloud-2002" }),
+    "确认删除订单（云端订单号 cloud-2002）？删除后不可恢复。"
+  );
+});
+
+test("order bulk destructive copy states irreversible scope", () => {
+  assert.equal(
+    buildDeleteExpiredOrdersConfirmMessage(),
+    "确认删除所有过期订单？删除后不可恢复。"
+  );
+  assert.equal(
+    buildDeleteOldOrdersConfirmMessage(),
+    "确认删除七天前的订单？删除后不可恢复。"
+  );
+});
+
+test("order repair copy identifies external notification impact", () => {
+  const action = resolveRepairAction(2);
+
+  assert.equal(
+    buildRepairConfirmMessage(action, { pay_id: "merchant-1001" }),
+    "确认对订单（商户订单号 merchant-1001）执行重新通知？该操作会重新触发异步通知。"
+  );
 });

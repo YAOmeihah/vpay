@@ -33,3 +33,53 @@ export function resolveRepairAction(state: number): RepairAction | null {
       return null;
   }
 }
+
+type OrderLike = {
+  id?: string | number;
+  pay_id?: string | number;
+  order_id?: string | number;
+};
+
+function formatOrderIdentity(row: OrderLike): string {
+  const payId = String(row.pay_id ?? "").trim();
+  const orderId = String(row.order_id ?? "").trim();
+  const id = String(row.id ?? "").trim();
+
+  if (payId !== "") {
+    return `商户订单号 ${payId}`;
+  }
+
+  if (orderId !== "") {
+    return `云端订单号 ${orderId}`;
+  }
+
+  return id !== "" ? `ID ${id}` : "当前订单";
+}
+
+export function buildDeleteOrderConfirmMessage(row: OrderLike): string {
+  return `确认删除订单（${formatOrderIdentity(row)}）？删除后不可恢复。`;
+}
+
+export function buildDeleteExpiredOrdersConfirmMessage(): string {
+  return "确认删除所有过期订单？删除后不可恢复。";
+}
+
+export function buildDeleteOldOrdersConfirmMessage(): string {
+  return "确认删除七天前的订单？删除后不可恢复。";
+}
+
+export function buildRepairConfirmMessage(
+  action: RepairAction | null,
+  row: OrderLike
+): string {
+  if (!action) {
+    return "";
+  }
+
+  const impact =
+    action.label === "重新通知"
+      ? "该操作会重新触发异步通知。"
+      : "该操作会尝试修复订单支付状态。";
+
+  return `确认对订单（${formatOrderIdentity(row)}）执行${action.label}？${impact}`;
+}

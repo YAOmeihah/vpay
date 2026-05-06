@@ -25,12 +25,18 @@ import {
 } from "./utils";
 import {
   type Router,
+  type NavigationGuardNext,
   type RouteRecordRaw,
   type RouteComponent,
   createRouter
 } from "vue-router";
 import { type DataInfo, userKey, multipleTabsKey } from "@/utils/auth";
 import { getAdminProfile } from "@/api/admin/auth";
+import { useUserStoreHook } from "@/store/modules/user";
+import {
+  isAdminUnauthorized,
+  notifyAdminSessionExpired
+} from "@/utils/adminUnauthorized";
 
 /** 自动导入全部静态路由，无需再手动引入！匹配 src/router/modules 目录（任何嵌套级别）中具有 .ts 扩展名的所有文件，除了 remaining.ts 文件
  * 如何匹配所有文件请看：https://github.com/mrmlnc/fast-glob#basic-syntax
@@ -113,6 +119,20 @@ export function resetRouter() {
 const whiteList = ["/login"];
 
 const { VITE_HIDE_HOME } = import.meta.env;
+
+const redirectToLoginAfterProfileFailure = (
+  next: NavigationGuardNext,
+  hadStoredAdminUser: boolean,
+  status?: number,
+  code?: unknown
+) => {
+  if (hadStoredAdminUser && isAdminUnauthorized(status, code)) {
+    notifyAdminSessionExpired();
+    useUserStoreHook().clearAdminSession();
+  }
+
+  next({ path: "/login" });
+};
 
 router.beforeEach((to: ToRouteType, _from, next) => {
   to.meta.loaded = loadedPaths.has(to.path);
@@ -205,6 +225,7 @@ router.beforeEach((to: ToRouteType, _from, next) => {
         next();
       } else {
         // 尝试从服务器加载 profile
+        const hadStoredAdminUser = Boolean(userInfo);
         getAdminProfile()
           .then(profile => {
             if (profile.code === 1) {
@@ -218,11 +239,21 @@ router.beforeEach((to: ToRouteType, _from, next) => {
                 next();
               }
             } else {
-              next({ path: "/login" });
+              redirectToLoginAfterProfileFailure(
+                next,
+                hadStoredAdminUser,
+                undefined,
+                profile.code
+              );
             }
           })
-          .catch(() => {
-            next({ path: "/login" });
+          .catch(error => {
+            redirectToLoginAfterProfileFailure(
+              next,
+              hadStoredAdminUser,
+              error?.response?.status,
+              error?.response?.data?.code
+            );
           });
       }
     } else {

@@ -4,6 +4,14 @@ import { copyTextToClipboard } from "@pureadmin/utils";
 import { message } from "@/utils/message";
 import { ElMessageBox } from "element-plus";
 import {
+  AdminFilterDrawer,
+  AdminMobileActions,
+  AdminMobileField,
+  AdminMobileList,
+  AdminMobileRecordCard,
+  type AdminMobileMoreAction
+} from "@/components/admin/mobile";
+import {
   getOrders,
   deleteOrder,
   repairOrder,
@@ -60,6 +68,7 @@ const orderStatePresets = ORDER_STATE_PRESETS;
 
 const detailVisible = ref(false);
 const selectedOrder = ref<any>(null);
+const mobileFilterVisible = ref(false);
 const rowActionLoading = reactive<Record<string, boolean>>({});
 const bulkActionLoading = reactive({ expired: false, old: false });
 
@@ -260,6 +269,61 @@ const handleDeleteOld = async () => {
   }
 };
 
+const getOrderTitle = (row: any) =>
+  String(row.pay_id || row.order_id || "未知订单");
+
+const getOrderSubtitle = (row: any) =>
+  row.order_id ? `云端订单号：${row.order_id}` : "暂无云端订单号";
+
+const getMobileOrderActions = (row: any): AdminMobileMoreAction[] => {
+  const actions: AdminMobileMoreAction[] = [];
+
+  if (row.pay_id)
+    actions.push({ label: "复制商户订单号", command: "copyPayId" });
+  if (row.order_id) {
+    actions.push({ label: "复制云端订单号", command: "copyOrderId" });
+  }
+  if (row.price || row.really_price) {
+    actions.push({ label: "复制金额", command: "copyAmount" });
+  }
+
+  const repairAction = resolveRepairAction(row.state);
+  if (repairAction) {
+    actions.push({
+      label: repairAction.label,
+      command: "repair",
+      type: row.state === 0 ? "warning" : "primary",
+      disabled:
+        isRowActionLoading("repair", row) || isRowActionLoading("delete", row),
+      loading: isRowActionLoading("repair", row)
+    });
+  }
+
+  actions.push({
+    label: "删除",
+    command: "delete",
+    type: "danger",
+    disabled:
+      isRowActionLoading("repair", row) || isRowActionLoading("delete", row),
+    loading: isRowActionLoading("delete", row)
+  });
+
+  return actions;
+};
+
+const handleMobileOrderMore = (row: any, command: string) => {
+  if (command === "copyPayId") return copyOrderField(row, "payId");
+  if (command === "copyOrderId") return copyOrderField(row, "orderId");
+  if (command === "copyAmount") return copyOrderField(row, "amount");
+  if (command === "repair") return handleRepair(row);
+  if (command === "delete") return handleDelete(row);
+};
+
+const applyMobileFilters = () => {
+  mobileFilterVisible.value = false;
+  onSearch();
+};
+
 onMounted(loadList);
 </script>
 
@@ -306,8 +370,21 @@ onMounted(loadList);
         </el-button>
       </div>
 
+      <div class="orders-mobile-filter admin-mobile-only">
+        <el-input
+          v-model="filters.keyword"
+          clearable
+          placeholder="订单号 / 金额 / 终端"
+          @keyup.enter="onSearch"
+          @clear="onSearch"
+        />
+        <el-button type="primary" @click="mobileFilterVisible = true">
+          筛选
+        </el-button>
+      </div>
+
       <!-- 过滤栏 -->
-      <div class="mb-4 flex flex-wrap items-center gap-3">
+      <div class="admin-desktop-only mb-4 flex flex-wrap items-center gap-3">
         <el-input
           v-model="filters.keyword"
           clearable
@@ -377,7 +454,7 @@ onMounted(loadList);
       </div>
 
       <!-- 表格 -->
-      <div class="orders-table-wrap">
+      <div class="orders-table-wrap orders-desktop-table admin-desktop-only">
         <el-table
           v-loading="loading"
           :data="list"
@@ -389,7 +466,11 @@ onMounted(loadList);
               {{ formatUnixTimestamp(row.create_date) }}
             </template>
           </el-table-column>
-          <el-table-column label="商户订单号" min-width="190" show-overflow-tooltip>
+          <el-table-column
+            label="商户订单号"
+            min-width="190"
+            show-overflow-tooltip
+          >
             <template #default="{ row }">
               <span>{{ row.pay_id }}</span>
               <el-button
@@ -403,7 +484,11 @@ onMounted(loadList);
               </el-button>
             </template>
           </el-table-column>
-          <el-table-column label="云端订单号" min-width="190" show-overflow-tooltip>
+          <el-table-column
+            label="云端订单号"
+            min-width="190"
+            show-overflow-tooltip
+          >
             <template #default="{ row }">
               <span>{{ row.order_id }}</span>
               <el-button
@@ -417,7 +502,11 @@ onMounted(loadList);
               </el-button>
             </template>
           </el-table-column>
-          <el-table-column label="所属终端" min-width="220" show-overflow-tooltip>
+          <el-table-column
+            label="所属终端"
+            min-width="220"
+            show-overflow-tooltip
+          >
             <template #default="{ row }">
               {{ formatTerminalOwnership(row) }}
             </template>
@@ -485,6 +574,48 @@ onMounted(loadList);
         </el-table>
       </div>
 
+      <AdminMobileList
+        class="orders-mobile-list admin-mobile-only"
+        :loading="loading"
+        :empty="list.length === 0"
+        empty-text="暂无订单数据"
+      >
+        <AdminMobileRecordCard
+          v-for="row in list"
+          :key="row.id || row.order_id || row.pay_id"
+          :title="getOrderTitle(row)"
+          :subtitle="getOrderSubtitle(row)"
+        >
+          <template #status>
+            <el-tag :type="STATE_MAP[row.state]?.type ?? 'info'">
+              {{ STATE_MAP[row.state]?.label ?? row.state }}
+            </el-tag>
+          </template>
+          <AdminMobileField label="创建时间">
+            {{ formatUnixTimestamp(row.create_date) }}
+          </AdminMobileField>
+          <AdminMobileField label="类型">
+            {{ TYPE_MAP[row.type] ?? row.type }}
+          </AdminMobileField>
+          <AdminMobileField label="订单金额" :value="row.price" />
+          <AdminMobileField label="实际金额" :value="row.really_price" />
+          <AdminMobileField label="所属终端" truncate>
+            {{ formatTerminalOwnership(row) }}
+          </AdminMobileField>
+          <AdminMobileField label="状态">
+            {{ STATE_MAP[row.state]?.label ?? row.state }}
+          </AdminMobileField>
+          <template #actions>
+            <AdminMobileActions
+              primary-text="详情"
+              :more-actions="getMobileOrderActions(row)"
+              @primary="openDetail(row)"
+              @more="command => handleMobileOrderMore(row, command)"
+            />
+          </template>
+        </AdminMobileRecordCard>
+      </AdminMobileList>
+
       <el-pagination
         v-if="total > limit"
         v-model:current-page="filters.page"
@@ -501,6 +632,51 @@ onMounted(loadList);
       :order="selectedOrder"
       @copy="copyOrderField"
     />
+
+    <AdminFilterDrawer
+      v-model="mobileFilterVisible"
+      title="订单筛选"
+      @apply="applyMobileFilters"
+      @reset="onResetFilters"
+    >
+      <el-form label-position="top">
+        <el-form-item label="订单类型">
+          <el-select v-model="filters.type" clearable placeholder="全部类型">
+            <el-option label="微信" value="1" />
+            <el-option label="支付宝" value="2" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="订单状态">
+          <el-select v-model="filters.state" clearable placeholder="全部状态">
+            <el-option
+              v-for="preset in orderStatePresets.filter(
+                item => item.value !== ''
+              )"
+              :key="preset.value"
+              :label="preset.label"
+              :value="preset.value"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="订单金额">
+          <el-input v-model="filters.amount" clearable placeholder="输入金额" />
+        </el-form-item>
+        <el-form-item label="终端ID">
+          <el-input
+            v-model="filters.terminalId"
+            clearable
+            placeholder="输入终端ID"
+          />
+        </el-form-item>
+        <el-form-item label="通道ID">
+          <el-input
+            v-model="filters.channelId"
+            clearable
+            placeholder="输入通道ID"
+          />
+        </el-form-item>
+      </el-form>
+    </AdminFilterDrawer>
   </div>
 </template>
 
@@ -537,13 +713,30 @@ onMounted(loadList);
   min-width: 1180px;
 }
 
+.orders-mobile-filter {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 76px;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.orders-mobile-filter .el-button {
+  min-height: 40px;
+}
+
 @media (max-width: 768px) {
   .orders-card-header {
+    flex-direction: column;
     align-items: flex-start;
   }
 
+  .orders-card-title {
+    width: 100%;
+  }
+
   .orders-bulk-actions {
-    flex: 1 1 180px;
+    width: 100%;
+    justify-content: flex-start;
   }
 
   .orders-table-wrap {

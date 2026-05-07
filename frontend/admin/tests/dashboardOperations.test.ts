@@ -13,4 +13,8 @@ test("dashboard exposes operational summary and retryable error feedback", () =>
   assert.match(source, /今日运营摘要/);
   assert.match(source, /loadError/);
   assert.match(source, /重新加载/);
+  assert.match(source, /dashboard-page/);
+  assert.match(source, /dashboard-stat-grid/);
+  assert.match(source, /dashboard-mobile-system/);
+  assert.match(source, /dashboard-desktop-system/);
 });

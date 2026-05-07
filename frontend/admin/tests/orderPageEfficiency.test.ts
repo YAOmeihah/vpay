@@ -23,6 +23,13 @@ test("orders list exposes advanced filters and copy actions", () => {
   assert.match(source, /orders-card-header/);
   assert.match(source, /orders-bulk-actions/);
   assert.match(source, /orders-table-wrap/);
+  assert.match(source, /AdminFilterDrawer/);
+  assert.match(source, /AdminMobileList/);
+  assert.match(source, /AdminMobileRecordCard/);
+  assert.match(source, /AdminMobileActions/);
+  assert.match(source, /orders-mobile-list/);
+  assert.match(source, /orders-desktop-table/);
+  assert.match(source, /handleMobileOrderMore/);
 });
 
 test("order detail dialog exposes copyable notify url and amount", () => {

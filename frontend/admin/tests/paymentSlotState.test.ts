@@ -91,4 +91,10 @@ test("terminal management view exposes guarded terminal deletion", () => {
   assert.match(actionSource, /确认删除终端/);
   assert.match(actionSource, /未支付订单，后端会阻止删除/);
   assert.match(viewSource, /type="danger"/);
+  assert.match(viewSource, /AdminMobileList/);
+  assert.match(viewSource, /AdminMobileRecordCard/);
+  assert.match(viewSource, /AdminMobileActions/);
+  assert.match(viewSource, /terminal-mobile-list/);
+  assert.match(viewSource, /terminal-desktop-table/);
+  assert.match(viewSource, /handleMobileTerminalMore/);
 });

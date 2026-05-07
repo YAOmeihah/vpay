@@ -5,6 +5,13 @@ import { addPayQrcode } from "@/api/admin/qrcode";
 import { decodeQrFromFile } from "@/utils/qrcode";
 import { isValidMoneyInput } from "@/utils/adminLegacy";
 import { buildPendingQrRow, type QrRow } from "./qrBatchUploaderState";
+import {
+  AdminMobileActions,
+  AdminMobileField,
+  AdminMobileList,
+  AdminMobileRecordCard,
+  type AdminMobileMoreAction
+} from "@/components/admin/mobile";
 
 const props = defineProps<{
   type: 1 | 2;
@@ -62,6 +69,26 @@ const handleNativeFileChange = async (event: Event) => {
 const removeRow = (index: number) => {
   URL.revokeObjectURL(rows.value[index].previewUrl);
   rows.value.splice(index, 1);
+};
+
+const getUploadRowTitle = (_row: QrRow, index: number) => `二维码 ${index + 1}`;
+
+const getUploadRowStatusText = (row: QrRow) => {
+  if (row.status === "ok") return "成功";
+  if (row.status === "error") return "失败";
+  return "待提交";
+};
+
+const getUploadRowStatusType = (row: QrRow) => {
+  if (row.status === "ok") return "success";
+  if (row.status === "error") return "danger";
+  return "info";
+};
+
+const getUploadRowActions = (): AdminMobileMoreAction[] => [];
+
+const handleUploadRowMore = (index: number, command: string) => {
+  if (command === "remove") return removeRow(index);
 };
 
 const submitAll = async () => {
@@ -130,7 +157,12 @@ const submitAll = async () => {
       />
       <el-button type="primary" @click="triggerFileDialog">选择图片</el-button>
 
-      <el-table v-if="rows.length" :data="rows" class="mt-4" border>
+      <el-table
+        v-if="rows.length"
+        :data="rows"
+        class="qr-upload-desktop-table admin-desktop-only mt-4"
+        border
+      >
         <el-table-column label="预览" width="100">
           <template #default="{ row }">
             <el-image
@@ -179,6 +211,50 @@ const submitAll = async () => {
         </el-table-column>
       </el-table>
 
+      <AdminMobileList
+        v-if="rows.length"
+        class="qr-upload-mobile-list admin-mobile-only mt-4"
+        :empty="false"
+      >
+        <AdminMobileRecordCard
+          v-for="(row, index) in rows"
+          :key="row.previewUrl"
+          :title="getUploadRowTitle(row, index)"
+          :subtitle="row.file.name"
+        >
+          <template #status>
+            <el-tag :type="getUploadRowStatusType(row)">
+              {{ getUploadRowStatusText(row) }}
+            </el-tag>
+          </template>
+          <div class="qr-upload-mobile-preview">
+            <el-image :src="row.previewUrl" fit="contain" />
+          </div>
+          <AdminMobileField label="二维码地址">
+            <el-input
+              v-model="row.decodedUrl"
+              placeholder="未识别，请手动填写"
+              size="small"
+            />
+          </AdminMobileField>
+          <AdminMobileField label="金额">
+            <el-input v-model="row.price" placeholder="如 0.01" size="small" />
+          </AdminMobileField>
+          <AdminMobileField label="状态">
+            {{ row.errMsg || getUploadRowStatusText(row) }}
+          </AdminMobileField>
+          <template #actions>
+            <AdminMobileActions
+              primary-text="移除"
+              primary-type="danger"
+              :more-actions="getUploadRowActions()"
+              @primary="removeRow(index)"
+              @more="command => handleUploadRowMore(index, command)"
+            />
+          </template>
+        </AdminMobileRecordCard>
+      </AdminMobileList>
+
       <div v-if="rows.length" class="mt-4">
         <el-button type="primary" :loading="submitting" @click="submitAll"
           >全部提交</el-button
@@ -187,3 +263,19 @@ const submitAll = async () => {
     </el-card>
   </div>
 </template>
+
+<style scoped>
+.qr-upload-mobile-preview {
+  display: flex;
+  justify-content: center;
+  padding: 8px 0 4px;
+}
+
+.qr-upload-mobile-preview :deep(.el-image) {
+  width: 96px;
+  aspect-ratio: 1 / 1;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  background: var(--el-fill-color-lighter);
+}
+</style>

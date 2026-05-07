@@ -13,6 +13,13 @@ import {
 } from "@/api/admin/terminal";
 import { message } from "@/utils/message";
 import {
+  AdminMobileActions,
+  AdminMobileField,
+  AdminMobileList,
+  AdminMobileRecordCard,
+  type AdminMobileMoreAction
+} from "@/components/admin/mobile";
+import {
   buildDeleteTerminalConfirmMessage,
   buildResetTerminalKeyConfirmMessage
 } from "./terminalActions";
@@ -199,6 +206,53 @@ const openChannels = (row: any) => {
   });
 };
 
+const getTerminalTitle = (row: any) =>
+  String(row.terminal_name || row.terminal_code || "未命名终端");
+
+const getTerminalStatusText = (row: any) =>
+  row.status === "enabled" ? "启用" : "停用";
+
+const getTerminalOnlineText = (row: any) =>
+  row.online_state === "online" ? "在线" : "离线";
+
+const maskMonitorKey = (value?: string | null) => {
+  const key = String(value || "");
+  if (!key) return "无";
+  if (key.length <= 10) return key;
+  return `${key.slice(0, 6)}...${key.slice(-4)}`;
+};
+
+const getMobileTerminalActions = (row: any): AdminMobileMoreAction[] => [
+  { label: "编辑", command: "edit" },
+  {
+    label: "重置密钥",
+    command: "resetKey",
+    disabled:
+      isRowActionLoading("resetKey", row) || isRowActionLoading("delete", row),
+    loading: isRowActionLoading("resetKey", row)
+  },
+  {
+    label: row.status === "enabled" ? "停用" : "启用",
+    command: "toggle",
+    type: row.status === "enabled" ? "warning" : "success"
+  },
+  {
+    label: "删除",
+    command: "delete",
+    type: "danger",
+    disabled:
+      isRowActionLoading("resetKey", row) || isRowActionLoading("delete", row),
+    loading: isRowActionLoading("delete", row)
+  }
+];
+
+const handleMobileTerminalMore = (row: any, command: string) => {
+  if (command === "edit") return openEdit(row);
+  if (command === "resetKey") return handleResetKey(row);
+  if (command === "toggle") return handleToggle(row);
+  if (command === "delete") return handleDelete(row);
+};
+
 onMounted(loadList);
 </script>
 
@@ -217,7 +271,12 @@ onMounted(loadList);
     </el-card>
 
     <el-card shadow="hover">
-      <el-table v-loading="loading" :data="list" border>
+      <el-table
+        v-loading="loading"
+        :data="list"
+        border
+        class="terminal-desktop-table admin-desktop-only"
+      >
         <el-table-column
           label="终端名称"
           prop="terminal_name"
@@ -303,6 +362,51 @@ onMounted(loadList);
         </el-table-column>
       </el-table>
 
+      <AdminMobileList
+        class="terminal-mobile-list admin-mobile-only"
+        :loading="loading"
+        :empty="list.length === 0"
+        empty-text="暂无终端数据"
+      >
+        <AdminMobileRecordCard
+          v-for="row in list"
+          :key="row.id || row.terminal_code"
+          :title="getTerminalTitle(row)"
+          :subtitle="row.terminal_code"
+        >
+          <template #status>
+            <div class="terminal-mobile-status">
+              <el-tag :type="row.status === 'enabled' ? 'success' : 'info'">
+                {{ getTerminalStatusText(row) }}
+              </el-tag>
+              <el-tag
+                :type="row.online_state === 'online' ? 'success' : 'danger'"
+              >
+                {{ getTerminalOnlineText(row) }}
+              </el-tag>
+            </div>
+          </template>
+          <AdminMobileField label="终端编码" truncate>
+            {{ row.terminal_code }}
+          </AdminMobileField>
+          <AdminMobileField label="分配顺序" :value="row.dispatch_priority" />
+          <AdminMobileField label="监控密钥" truncate>
+            {{ maskMonitorKey(row.monitor_key) }}
+          </AdminMobileField>
+          <AdminMobileField label="在线状态">
+            {{ getTerminalOnlineText(row) }}
+          </AdminMobileField>
+          <template #actions>
+            <AdminMobileActions
+              primary-text="支付配置"
+              :more-actions="getMobileTerminalActions(row)"
+              @primary="openChannels(row)"
+              @more="command => handleMobileTerminalMore(row, command)"
+            />
+          </template>
+        </AdminMobileRecordCard>
+      </AdminMobileList>
+
       <el-pagination
         v-if="total > limit"
         v-model:current-page="page"
@@ -355,3 +459,22 @@ onMounted(loadList);
     </el-dialog>
   </div>
 </template>
+
+<style scoped>
+.terminal-mobile-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+@media (max-width: 768px) {
+  .terminal-mobile-status {
+    max-width: 92px;
+  }
+
+  :deep(.el-dialog) {
+    width: 92vw !important;
+  }
+}
+</style>

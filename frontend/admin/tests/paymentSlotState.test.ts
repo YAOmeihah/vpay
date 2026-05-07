@@ -74,6 +74,10 @@ test("terminal management view exposes guarded terminal deletion", () => {
     resolve(testDir, "../src/views/system/terminals/index.vue"),
     "utf8"
   );
+  const actionSource = readFileSync(
+    resolve(testDir, "../src/views/system/terminals/terminalActions.ts"),
+    "utf8"
+  );
   const apiSource = readFileSync(
     resolve(testDir, "../src/api/admin/terminal.ts"),
     "utf8"
@@ -83,6 +87,8 @@ test("terminal management view exposes guarded terminal deletion", () => {
   assert.match(apiSource, /\/admin\/index\/deleteTerminal/);
   assert.match(viewSource, /deleteTerminal/);
   assert.match(viewSource, /handleDelete/);
-  assert.match(viewSource, /确认删除该终端/);
+  assert.match(viewSource, /buildDeleteTerminalConfirmMessage/);
+  assert.match(actionSource, /确认删除终端/);
+  assert.match(actionSource, /未支付订单，后端会阻止删除/);
   assert.match(viewSource, /type="danger"/);
 });

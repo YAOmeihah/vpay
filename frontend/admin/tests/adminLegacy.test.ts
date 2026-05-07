@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  buildDashboardOperationSummary,
   buildMonitorConfigUrl,
   formatUnixTimestamp,
   getMonitorStatus,
@@ -27,6 +28,41 @@ test("mapDashboardStats preserves legacy backend field names", () => {
     countOrder: 99,
     countMoney: 188.8
   });
+});
+
+test("buildDashboardOperationSummary highlights today's order health", () => {
+  assert.deepEqual(
+    buildDashboardOperationSummary({
+      todayOrder: 12,
+      todaySuccessOrder: 8,
+      todayCloseOrder: 3,
+      todayMoney: 66.5,
+      countOrder: 99,
+      countMoney: 188.8
+    }),
+    {
+      successRate: "66.7%",
+      successPercentage: 66.7,
+      unfinishedOrderCount: 4,
+      statusText: "需关注",
+      statusType: "danger",
+      progressStatus: "exception",
+      actionText: "今日有 4 笔订单未成功，请优先排查。"
+    }
+  );
+
+  assert.deepEqual(
+    buildDashboardOperationSummary(mapDashboardStats()),
+    {
+      successRate: "0%",
+      successPercentage: 0,
+      unfinishedOrderCount: 0,
+      statusText: "等待订单",
+      statusType: "info",
+      progressStatus: undefined,
+      actionText: "今日暂无订单，关注终端在线状态即可。"
+    }
+  );
 });
 
 test("formatUnixTimestamp renders legacy-style timestamps and zero as 无", () => {

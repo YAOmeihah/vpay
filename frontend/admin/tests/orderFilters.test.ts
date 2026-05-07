@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  applyOrderStatePreset,
   buildOrderQueryParams,
   createDefaultOrderFilters
 } from "../src/views/orders/orderFilters.ts";
@@ -46,5 +47,24 @@ test("buildOrderQueryParams omits empty or invalid optional filters", () => {
     page: 1,
     limit: 15
   });
+});
+
+test("applyOrderStatePreset resets pagination without clearing other filters", () => {
+  const filters = createDefaultOrderFilters();
+  filters.page = 4;
+  filters.keyword = "merchant-1001";
+  filters.amount = "10.01";
+
+  applyOrderStatePreset(filters, "2");
+
+  assert.equal(filters.page, 1);
+  assert.equal(filters.state, "2");
+  assert.equal(filters.keyword, "merchant-1001");
+  assert.equal(filters.amount, "10.01");
+
+  applyOrderStatePreset(filters, "");
+
+  assert.equal(filters.page, 1);
+  assert.equal(filters.state, "");
 });
 

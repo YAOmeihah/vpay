@@ -2,19 +2,33 @@
 import { computed, ref, onMounted } from "vue";
 import { getDashboardStats } from "@/api/admin/dashboard";
 import StatCard from "@/components/admin/StatCard.vue";
-import { mapDashboardStats } from "@/utils/adminLegacy";
+import {
+  buildDashboardOperationSummary,
+  mapDashboardStats
+} from "@/utils/adminLegacy";
 
 defineOptions({ name: "Dashboard" });
 
 const loading = ref(true);
 const stats = ref<any>({});
+const loadError = ref("");
 const viewStats = computed(() => mapDashboardStats(stats.value));
+const operationSummary = computed(() =>
+  buildDashboardOperationSummary(viewStats.value)
+);
 
 const loadStats = async () => {
   try {
     loading.value = true;
+    loadError.value = "";
     const res = await getDashboardStats();
-    if (res.code === 1) stats.value = res.data;
+    if (res.code === 1) {
+      stats.value = res.data;
+    } else {
+      loadError.value = res.msg || "控制台数据加载失败";
+    }
+  } catch (error: any) {
+    loadError.value = error?.msg || error?.message || "控制台数据加载失败";
   } finally {
     loading.value = false;
   }
@@ -25,6 +39,17 @@ onMounted(loadStats);
 
 <template>
   <div class="p-4">
+    <div v-if="loadError" class="mb-4 flex flex-wrap items-center gap-2">
+      <el-alert
+        :title="loadError"
+        type="error"
+        show-icon
+        :closable="false"
+        class="dashboard-error"
+      />
+      <el-button type="danger" text @click="loadStats">重新加载</el-button>
+    </div>
+
     <el-row v-loading="loading" :gutter="16">
       <el-col :xs="24" :sm="12" :md="6">
         <StatCard
@@ -76,6 +101,42 @@ onMounted(loadStats);
       </el-col>
     </el-row>
 
+    <el-card class="mt-4" shadow="never">
+      <template #header>
+        <div class="flex items-center justify-between">
+          <span>今日运营摘要</span>
+          <el-tag :type="operationSummary.statusType">
+            {{ operationSummary.statusText }}
+          </el-tag>
+        </div>
+      </template>
+      <el-row :gutter="16">
+        <el-col :xs="24" :md="8">
+          <div class="dashboard-summary-item">
+            <span>成功率</span>
+            <strong>{{ operationSummary.successRate }}</strong>
+            <el-progress
+              :percentage="operationSummary.successPercentage"
+              :status="operationSummary.progressStatus"
+            />
+          </div>
+        </el-col>
+        <el-col :xs="24" :md="8">
+          <div class="dashboard-summary-item">
+            <span>未成功订单</span>
+            <strong>{{ operationSummary.unfinishedOrderCount }}</strong>
+            <small>今日总订单 - 今日成功订单</small>
+          </div>
+        </el-col>
+        <el-col :xs="24" :md="8">
+          <div class="dashboard-summary-item">
+            <span>处理建议</span>
+            <p>{{ operationSummary.actionText }}</p>
+          </div>
+        </el-col>
+      </el-row>
+    </el-card>
+
     <el-card class="mt-4" shadow="hover">
       <template #header><span>系统信息</span></template>
       <el-descriptions :column="2" border>
@@ -107,3 +168,40 @@ onMounted(loadStats);
     </el-card>
   </div>
 </template>
+
+<style scoped>
+.dashboard-error {
+  flex: 1 1 280px;
+}
+
+.dashboard-summary-item {
+  min-height: 112px;
+  padding: 14px 16px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 6px;
+  background: var(--el-bg-color-page);
+}
+
+.dashboard-summary-item span {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+}
+
+.dashboard-summary-item strong {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 26px;
+  line-height: 1.1;
+  color: var(--el-text-color-primary);
+}
+
+.dashboard-summary-item small,
+.dashboard-summary-item p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--el-text-color-secondary);
+}
+</style>

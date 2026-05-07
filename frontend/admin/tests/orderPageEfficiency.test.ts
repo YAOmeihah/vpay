@@ -18,6 +18,11 @@ test("orders list exposes advanced filters and copy actions", () => {
   assert.match(source, /copyOrderField\(row, ['"]payId['"]/);
   assert.match(source, /copyOrderField\(row, ['"]orderId['"]/);
   assert.match(source, /copyOrderField\(row, ['"]amount['"]/);
+  assert.match(source, /ORDER_STATE_PRESETS/);
+  assert.match(source, /applyStatePreset\(preset\.value\)/);
+  assert.match(source, /orders-card-header/);
+  assert.match(source, /orders-bulk-actions/);
+  assert.match(source, /orders-table-wrap/);
 });
 
 test("order detail dialog exposes copyable notify url and amount", () => {

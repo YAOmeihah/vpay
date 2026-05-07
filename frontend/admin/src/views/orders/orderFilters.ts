@@ -24,6 +24,14 @@ export type OrderQueryParams = {
   channelId?: number;
 };
 
+export const ORDER_STATE_PRESETS = [
+  { label: "全部", value: "" },
+  { label: "待支付", value: "0" },
+  { label: "完成", value: "1" },
+  { label: "通知失败", value: "2" },
+  { label: "过期", value: "-1" }
+] as const;
+
 export function createDefaultOrderFilters(): OrderFilters {
   return {
     type: "",
@@ -35,6 +43,14 @@ export function createDefaultOrderFilters(): OrderFilters {
     channelId: "",
     page: 1
   };
+}
+
+export function applyOrderStatePreset(
+  filters: OrderFilters,
+  state: string
+): void {
+  filters.state = state;
+  filters.page = 1;
 }
 
 function trimValue(value: unknown): string {

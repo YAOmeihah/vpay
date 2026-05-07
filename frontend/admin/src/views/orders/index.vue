@@ -21,8 +21,10 @@ import {
 } from "./orderActions";
 import { resolveOrderCopyText, type OrderCopyField } from "./orderCopy";
 import {
+  applyOrderStatePreset,
   buildOrderQueryParams,
-  createDefaultOrderFilters
+  createDefaultOrderFilters,
+  ORDER_STATE_PRESETS
 } from "./orderFilters";
 
 defineOptions({ name: "OrderList" });
@@ -54,6 +56,7 @@ const total = ref(0);
 
 const filters = reactive(createDefaultOrderFilters());
 const limit = 15;
+const orderStatePresets = ORDER_STATE_PRESETS;
 
 const detailVisible = ref(false);
 const selectedOrder = ref<any>(null);
@@ -103,6 +106,11 @@ const onSearch = () => {
 
 const onResetFilters = () => {
   Object.assign(filters, createDefaultOrderFilters());
+  loadList();
+};
+
+const applyStatePreset = (state: string) => {
+  applyOrderStatePreset(filters, state);
   loadList();
 };
 
@@ -259,9 +267,9 @@ onMounted(loadList);
   <div class="p-4">
     <el-card shadow="hover">
       <template #header>
-        <div class="flex items-center justify-between">
-          <span>订单列表</span>
-          <div class="flex gap-2">
+        <div class="orders-card-header">
+          <span class="orders-card-title">订单列表</span>
+          <div class="orders-bulk-actions">
             <el-button
               type="warning"
               size="small"
@@ -283,6 +291,20 @@ onMounted(loadList);
           </div>
         </div>
       </template>
+
+      <div class="mb-3 flex flex-wrap items-center gap-2">
+        <span class="orders-filter-label">状态快捷筛选</span>
+        <el-button
+          v-for="preset in orderStatePresets"
+          :key="preset.value || 'all'"
+          size="small"
+          :type="filters.state === preset.value ? 'primary' : ''"
+          :plain="filters.state !== preset.value"
+          @click="applyStatePreset(preset.value)"
+        >
+          {{ preset.label }}
+        </el-button>
+      </div>
 
       <!-- 过滤栏 -->
       <div class="mb-4 flex flex-wrap items-center gap-3">
@@ -355,111 +377,113 @@ onMounted(loadList);
       </div>
 
       <!-- 表格 -->
-      <el-table
-        v-loading="loading"
-        :data="list"
-        border
-        empty-text="暂无订单数据"
-      >
-        <el-table-column label="创建时间" width="180">
-          <template #default="{ row }">
-            {{ formatUnixTimestamp(row.create_date) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="商户订单号" min-width="190" show-overflow-tooltip>
-          <template #default="{ row }">
-            <span>{{ row.pay_id }}</span>
-            <el-button
-              v-if="row.pay_id"
-              class="ml-1"
-              size="small"
-              text
-              @click="copyOrderField(row, 'payId')"
-            >
-              复制
-            </el-button>
-          </template>
-        </el-table-column>
-        <el-table-column label="云端订单号" min-width="190" show-overflow-tooltip>
-          <template #default="{ row }">
-            <span>{{ row.order_id }}</span>
-            <el-button
-              v-if="row.order_id"
-              class="ml-1"
-              size="small"
-              text
-              @click="copyOrderField(row, 'orderId')"
-            >
-              复制
-            </el-button>
-          </template>
-        </el-table-column>
-        <el-table-column label="所属终端" min-width="220" show-overflow-tooltip>
-          <template #default="{ row }">
-            {{ formatTerminalOwnership(row) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="类型" width="80">
-          <template #default="{ row }">{{
-            TYPE_MAP[row.type] ?? row.type
-          }}</template>
-        </el-table-column>
-        <el-table-column label="订单金额" prop="price" width="100" />
-        <el-table-column label="实际金额" width="130">
-          <template #default="{ row }">
-            <span>{{ row.really_price }}</span>
-            <el-button
-              v-if="row.price || row.really_price"
-              class="ml-1"
-              size="small"
-              text
-              @click="copyOrderField(row, 'amount')"
-            >
-              复制
-            </el-button>
-          </template>
-        </el-table-column>
-        <el-table-column label="状态" width="100">
-          <template #default="{ row }">
-            <el-tag :type="STATE_MAP[row.state]?.type ?? 'info'">
-              {{ STATE_MAP[row.state]?.label ?? row.state }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="180" fixed="right">
-          <template #default="{ row }">
-            <el-button size="small" text @click="openDetail(row)"
-              >详情</el-button
-            >
-            <el-button
-              v-if="resolveRepairAction(row.state)"
-              size="small"
-              text
-              :type="row.state === 0 ? 'warning' : 'primary'"
-              :loading="isRowActionLoading('repair', row)"
-              :disabled="
-                isRowActionLoading('repair', row) ||
-                isRowActionLoading('delete', row)
-              "
-              @click="handleRepair(row)"
-            >
-              {{ resolveRepairAction(row.state)?.label }}
-            </el-button>
-            <el-button
-              size="small"
-              text
-              type="danger"
-              :loading="isRowActionLoading('delete', row)"
-              :disabled="
-                isRowActionLoading('repair', row) ||
-                isRowActionLoading('delete', row)
-              "
-              @click="handleDelete(row)"
-              >删除</el-button
-            >
-          </template>
-        </el-table-column>
-      </el-table>
+      <div class="orders-table-wrap">
+        <el-table
+          v-loading="loading"
+          :data="list"
+          border
+          empty-text="暂无订单数据"
+        >
+          <el-table-column label="创建时间" width="180">
+            <template #default="{ row }">
+              {{ formatUnixTimestamp(row.create_date) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="商户订单号" min-width="190" show-overflow-tooltip>
+            <template #default="{ row }">
+              <span>{{ row.pay_id }}</span>
+              <el-button
+                v-if="row.pay_id"
+                class="ml-1"
+                size="small"
+                text
+                @click="copyOrderField(row, 'payId')"
+              >
+                复制
+              </el-button>
+            </template>
+          </el-table-column>
+          <el-table-column label="云端订单号" min-width="190" show-overflow-tooltip>
+            <template #default="{ row }">
+              <span>{{ row.order_id }}</span>
+              <el-button
+                v-if="row.order_id"
+                class="ml-1"
+                size="small"
+                text
+                @click="copyOrderField(row, 'orderId')"
+              >
+                复制
+              </el-button>
+            </template>
+          </el-table-column>
+          <el-table-column label="所属终端" min-width="220" show-overflow-tooltip>
+            <template #default="{ row }">
+              {{ formatTerminalOwnership(row) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="类型" width="80">
+            <template #default="{ row }">{{
+              TYPE_MAP[row.type] ?? row.type
+            }}</template>
+          </el-table-column>
+          <el-table-column label="订单金额" prop="price" width="100" />
+          <el-table-column label="实际金额" width="130">
+            <template #default="{ row }">
+              <span>{{ row.really_price }}</span>
+              <el-button
+                v-if="row.price || row.really_price"
+                class="ml-1"
+                size="small"
+                text
+                @click="copyOrderField(row, 'amount')"
+              >
+                复制
+              </el-button>
+            </template>
+          </el-table-column>
+          <el-table-column label="状态" width="100">
+            <template #default="{ row }">
+              <el-tag :type="STATE_MAP[row.state]?.type ?? 'info'">
+                {{ STATE_MAP[row.state]?.label ?? row.state }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="180" fixed="right">
+            <template #default="{ row }">
+              <el-button size="small" text @click="openDetail(row)"
+                >详情</el-button
+              >
+              <el-button
+                v-if="resolveRepairAction(row.state)"
+                size="small"
+                text
+                :type="row.state === 0 ? 'warning' : 'primary'"
+                :loading="isRowActionLoading('repair', row)"
+                :disabled="
+                  isRowActionLoading('repair', row) ||
+                  isRowActionLoading('delete', row)
+                "
+                @click="handleRepair(row)"
+              >
+                {{ resolveRepairAction(row.state)?.label }}
+              </el-button>
+              <el-button
+                size="small"
+                text
+                type="danger"
+                :loading="isRowActionLoading('delete', row)"
+                :disabled="
+                  isRowActionLoading('repair', row) ||
+                  isRowActionLoading('delete', row)
+                "
+                @click="handleDelete(row)"
+                >删除</el-button
+              >
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
 
       <el-pagination
         v-if="total > limit"
@@ -479,3 +503,54 @@ onMounted(loadList);
     />
   </div>
 </template>
+
+<style scoped>
+.orders-filter-label {
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+}
+
+.orders-card-header {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.orders-card-title {
+  flex: 0 0 auto;
+}
+
+.orders-bulk-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.orders-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.orders-table-wrap :deep(.el-table) {
+  min-width: 1180px;
+}
+
+@media (max-width: 768px) {
+  .orders-card-header {
+    align-items: flex-start;
+  }
+
+  .orders-bulk-actions {
+    flex: 1 1 180px;
+  }
+
+  .orders-table-wrap {
+    margin-right: -12px;
+    margin-left: -12px;
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+}
+</style>

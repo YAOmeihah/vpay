@@ -17,7 +17,10 @@ test("monitor overview state helper exists for multi-terminal monitor cards", ()
 
   assert.match(source, /buildMonitorOverviewCards/);
   assert.match(source, /buildMonitorConfigUrl/);
-  assert.match(source, /buildMonitorConfigUrl\(host,\s*item\.terminal_code,\s*item\.monitor_key\)/);
+  assert.match(
+    source,
+    /buildMonitorConfigUrl\(\s*host,\s*item\.terminal_code,\s*item\.monitor_key\s*\)/
+  );
   assert.match(source, /buildQrcodePreviewUrl/);
   assert.match(source, /formatUnixTimestamp/);
 });

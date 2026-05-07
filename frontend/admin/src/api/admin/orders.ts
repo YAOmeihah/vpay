@@ -5,6 +5,12 @@ export const getOrders = (params: {
   limit: number;
   type?: string;
   state?: string;
+  keyword?: string;
+  amount?: string;
+  createStart?: number;
+  createEnd?: number;
+  terminalId?: number;
+  channelId?: number;
 }) =>
   http.request<{ code: number; msg: string; data: any[]; count: number }>(
     "get",

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from "vue";
+import { copyTextToClipboard } from "@pureadmin/utils";
 import { message } from "@/utils/message";
 import { ElMessageBox } from "element-plus";
 import {
@@ -18,6 +19,11 @@ import {
   buildRepairConfirmMessage,
   resolveRepairAction
 } from "./orderActions";
+import { resolveOrderCopyText, type OrderCopyField } from "./orderCopy";
+import {
+  buildOrderQueryParams,
+  createDefaultOrderFilters
+} from "./orderFilters";
 
 defineOptions({ name: "OrderList" });
 
@@ -46,7 +52,7 @@ const loading = ref(false);
 const list = ref<any[]>([]);
 const total = ref(0);
 
-const filters = reactive({ type: "", state: "", page: 1 });
+const filters = reactive(createDefaultOrderFilters());
 const limit = 15;
 
 const detailVisible = ref(false);
@@ -69,12 +75,7 @@ const setRowActionLoading = (action: string, row: any, value: boolean) => {
 const loadList = async () => {
   try {
     loading.value = true;
-    const res = await getOrders({
-      page: filters.page,
-      limit,
-      type: filters.type || undefined,
-      state: filters.state || undefined
-    });
+    const res = await getOrders(buildOrderQueryParams(filters, limit));
     if (res.code === 1) {
       const { items, total: count } = normalizePagedList(res);
       list.value = items;
@@ -98,6 +99,24 @@ const loadList = async () => {
 const onSearch = () => {
   filters.page = 1;
   loadList();
+};
+
+const onResetFilters = () => {
+  Object.assign(filters, createDefaultOrderFilters());
+  loadList();
+};
+
+const copyOrderField = (row: any, field: OrderCopyField) => {
+  const text = resolveOrderCopyText(row, field);
+  if (!text) {
+    message("暂无可复制内容", { type: "warning" });
+    return;
+  }
+
+  const success = copyTextToClipboard(text);
+  message(success ? "已复制" : "复制失败", {
+    type: success ? "success" : "error"
+  });
 };
 
 const openDetail = (row: any) => {
@@ -266,7 +285,33 @@ onMounted(loadList);
       </template>
 
       <!-- 过滤栏 -->
-      <div class="flex gap-3 mb-4">
+      <div class="mb-4 flex flex-wrap items-center gap-3">
+        <el-input
+          v-model="filters.keyword"
+          clearable
+          placeholder="订单号 / 支付 ID"
+          style="width: 220px"
+          @keyup.enter="onSearch"
+          @clear="onSearch"
+        />
+        <el-input
+          v-model="filters.amount"
+          clearable
+          placeholder="订单金额"
+          style="width: 140px"
+          @keyup.enter="onSearch"
+          @clear="onSearch"
+        />
+        <el-date-picker
+          v-model="filters.dateRange"
+          type="datetimerange"
+          start-placeholder="开始时间"
+          end-placeholder="结束时间"
+          range-separator="至"
+          clearable
+          style="width: 360px"
+          @change="onSearch"
+        />
         <el-select
           v-model="filters.type"
           placeholder="支付类型"
@@ -289,7 +334,24 @@ onMounted(loadList);
           <el-option label="完成" value="1" />
           <el-option label="通知失败" value="2" />
         </el-select>
+        <el-input
+          v-model="filters.terminalId"
+          clearable
+          placeholder="终端 ID"
+          style="width: 120px"
+          @keyup.enter="onSearch"
+          @clear="onSearch"
+        />
+        <el-input
+          v-model="filters.channelId"
+          clearable
+          placeholder="通道 ID"
+          style="width: 120px"
+          @keyup.enter="onSearch"
+          @clear="onSearch"
+        />
         <el-button type="primary" @click="onSearch">搜索</el-button>
+        <el-button @click="onResetFilters">重置</el-button>
       </div>
 
       <!-- 表格 -->
@@ -304,18 +366,34 @@ onMounted(loadList);
             {{ formatUnixTimestamp(row.create_date) }}
           </template>
         </el-table-column>
-        <el-table-column
-          label="商户订单号"
-          prop="pay_id"
-          min-width="160"
-          show-overflow-tooltip
-        />
-        <el-table-column
-          label="云端订单号"
-          prop="order_id"
-          min-width="160"
-          show-overflow-tooltip
-        />
+        <el-table-column label="商户订单号" min-width="190" show-overflow-tooltip>
+          <template #default="{ row }">
+            <span>{{ row.pay_id }}</span>
+            <el-button
+              v-if="row.pay_id"
+              class="ml-1"
+              size="small"
+              text
+              @click="copyOrderField(row, 'payId')"
+            >
+              复制
+            </el-button>
+          </template>
+        </el-table-column>
+        <el-table-column label="云端订单号" min-width="190" show-overflow-tooltip>
+          <template #default="{ row }">
+            <span>{{ row.order_id }}</span>
+            <el-button
+              v-if="row.order_id"
+              class="ml-1"
+              size="small"
+              text
+              @click="copyOrderField(row, 'orderId')"
+            >
+              复制
+            </el-button>
+          </template>
+        </el-table-column>
         <el-table-column label="所属终端" min-width="220" show-overflow-tooltip>
           <template #default="{ row }">
             {{ formatTerminalOwnership(row) }}
@@ -327,7 +405,20 @@ onMounted(loadList);
           }}</template>
         </el-table-column>
         <el-table-column label="订单金额" prop="price" width="100" />
-        <el-table-column label="实际金额" prop="really_price" width="100" />
+        <el-table-column label="实际金额" width="130">
+          <template #default="{ row }">
+            <span>{{ row.really_price }}</span>
+            <el-button
+              v-if="row.price || row.really_price"
+              class="ml-1"
+              size="small"
+              text
+              @click="copyOrderField(row, 'amount')"
+            >
+              复制
+            </el-button>
+          </template>
+        </el-table-column>
         <el-table-column label="状态" width="100">
           <template #default="{ row }">
             <el-tag :type="STATE_MAP[row.state]?.type ?? 'info'">
@@ -381,6 +472,10 @@ onMounted(loadList);
       />
     </el-card>
 
-    <OrderDetailDialog v-model="detailVisible" :order="selectedOrder" />
+    <OrderDetailDialog
+      v-model="detailVisible"
+      :order="selectedOrder"
+      @copy="copyOrderField"
+    />
   </div>
 </template>

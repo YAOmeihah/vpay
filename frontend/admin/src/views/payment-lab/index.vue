@@ -1,7 +1,18 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from "vue";
+import { computed, onMounted, reactive, ref } from "vue";
+import { copyTextToClipboard } from "@pureadmin/utils";
 
 import { createPaymentTestOrder } from "@/api/admin/paymentLab";
+import type { PaymentLabResult } from "@/api/admin/paymentLab";
+import {
+  addPaymentLabHistoryEntry,
+  buildPaymentLabCurl,
+  buildPaymentLabHistoryEntry,
+  buildPaymentLabRequestPayload,
+  validatePaymentLabForm,
+  type PaymentLabFieldErrors,
+  type PaymentLabHistoryEntry
+} from "./paymentLabState";
 
 defineOptions({ name: "PaymentLab" });
 
@@ -17,6 +28,12 @@ const form = reactive({
 
 const loading = ref(false);
 const message = ref("");
+const fieldErrors = reactive<PaymentLabFieldErrors>({});
+const lastResult = ref<PaymentLabResult | null>(null);
+const lastRequestJson = ref("");
+const lastCurl = ref("");
+const history = ref<PaymentLabHistoryEntry[]>([]);
+const historyStorageKey = "vpay-payment-lab-history";
 
 const payTypes = [
   { label: "微信支付", value: 1, accent: "#22c55e" },
@@ -44,12 +61,63 @@ function setMessage(text: string) {
   message.value = text;
 }
 
+function setFieldErrors(errors: PaymentLabFieldErrors) {
+  Object.keys(fieldErrors).forEach(key => {
+    delete fieldErrors[key as keyof PaymentLabFieldErrors];
+  });
+  Object.assign(fieldErrors, errors);
+}
+
+function copyText(text: string, successText = "已复制") {
+  const success = copyTextToClipboard(text);
+  setMessage(success ? successText : "复制失败");
+}
+
+function openPayPage(url?: string) {
+  const payPageUrl = String(url ?? lastResult.value?.payPageUrl ?? "").trim();
+  if (!payPageUrl) {
+    setMessage("未生成原支付页地址，请检查后台返回");
+    return;
+  }
+  window.location.href = payPageUrl;
+}
+
+function loadHistory() {
+  try {
+    const raw = window.localStorage.getItem(historyStorageKey);
+    const parsed = raw ? JSON.parse(raw) : [];
+    history.value = Array.isArray(parsed) ? parsed.slice(0, 5) : [];
+  } catch {
+    history.value = [];
+  }
+}
+
+function saveHistory(entries: PaymentLabHistoryEntry[]) {
+  history.value = entries;
+  window.localStorage.setItem(historyStorageKey, JSON.stringify(entries));
+}
+
 async function submitOrder() {
   setMessage("");
+  setFieldErrors({});
+  lastResult.value = null;
+  lastRequestJson.value = "";
+  lastCurl.value = "";
+
+  const errors = validatePaymentLabForm(form);
+  if (Object.keys(errors).length > 0) {
+    setFieldErrors(errors);
+    setMessage("请先修正表单错误");
+    return;
+  }
+
+  const payload = buildPaymentLabRequestPayload(form);
+  lastRequestJson.value = JSON.stringify(payload, null, 2);
+  lastCurl.value = buildPaymentLabCurl(payload, window.location.origin);
   loading.value = true;
 
   try {
-    const response = await createPaymentTestOrder({ ...form });
+    const response = await createPaymentTestOrder(payload);
     if (response.code !== 1) {
       setMessage(response.msg || "测试订单创建失败");
       return;
@@ -61,13 +129,20 @@ async function submitOrder() {
       return;
     }
 
-    window.location.href = payPageUrl;
+    lastResult.value = response.data;
+    const entry = buildPaymentLabHistoryEntry(response.data);
+    if (entry) {
+      saveHistory(addPaymentLabHistoryEntry(history.value, entry));
+    }
+    setMessage("测试订单已创建，可复制调试信息或进入原支付页");
   } catch (error) {
     setMessage(error instanceof Error ? error.message : "网络请求失败");
   } finally {
     loading.value = false;
   }
 }
+
+onMounted(loadHistory);
 </script>
 
 <template>
@@ -124,17 +199,23 @@ async function submitOrder() {
           </button>
         </div>
 
-        <label>
+        <label :class="{ invalid: fieldErrors.price }">
           <span>测试金额</span>
           <input v-model="form.price" inputmode="decimal" placeholder="0.10" />
+          <small v-if="fieldErrors.price" class="field-error">{{
+            fieldErrors.price
+          }}</small>
         </label>
 
-        <label>
+        <label :class="{ invalid: fieldErrors.payId }">
           <span>商户订单号</span>
           <div class="inline-field">
             <input v-model="form.payId" placeholder="TEST-..." />
             <button type="button" @click="resetPayId">重置</button>
           </div>
+          <small v-if="fieldErrors.payId" class="field-error">{{
+            fieldErrors.payId
+          }}</small>
         </label>
 
         <label>
@@ -142,14 +223,20 @@ async function submitOrder() {
           <input v-model="form.param" placeholder="VPay Payment Lab" />
         </label>
 
-        <label>
+        <label :class="{ invalid: fieldErrors.notifyUrl }">
           <span>异步回调地址</span>
           <input v-model="form.notifyUrl" placeholder="留空使用内置测试回调" />
+          <small v-if="fieldErrors.notifyUrl" class="field-error">{{
+            fieldErrors.notifyUrl
+          }}</small>
         </label>
 
-        <label>
+        <label :class="{ invalid: fieldErrors.returnUrl }">
           <span>同步跳转地址</span>
           <input v-model="form.returnUrl" placeholder="留空使用内置同步回跳" />
+          <small v-if="fieldErrors.returnUrl" class="field-error">{{
+            fieldErrors.returnUrl
+          }}</small>
         </label>
 
         <p v-if="message" class="message-line">{{ message }}</p>
@@ -158,7 +245,7 @@ async function submitOrder() {
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M5 12h12m0 0-5-5m5 5-5 5" />
           </svg>
-          {{ loading ? "创建中..." : `发起并进入${activeType.label}页` }}
+          {{ loading ? "创建中..." : `创建${activeType.label}测试订单` }}
         </button>
       </form>
 
@@ -192,11 +279,72 @@ async function submitOrder() {
         </div>
 
         <div class="info-block muted">
-          <strong>当前取舍</strong>
-          <p>
-            独立测试台不再维护二维码和状态面板，避免和正式支付页形成两套展示逻辑。
-          </p>
+          <strong>最近测试记录</strong>
+          <div v-if="history.length === 0" class="history-empty">
+            本机暂无测试记录
+          </div>
+          <div v-else class="history-list">
+            <button
+              v-for="item in history"
+              :key="`${item.payId}-${item.createdAt}`"
+              type="button"
+              class="history-item"
+              @click="openPayPage(item.payPageUrl)"
+            >
+              <span>{{ item.payId }}</span>
+              <small>{{ item.price }} / {{ item.orderId }}</small>
+            </button>
+          </div>
         </div>
+      </section>
+
+      <section v-if="lastResult" class="lab-card debug-panel">
+        <div class="section-heading">
+          <span>03</span>
+          <h2>创建结果</h2>
+        </div>
+
+        <div class="result-grid">
+          <div>
+            <span>商户订单号</span>
+            <strong>{{ lastResult.order.payId }}</strong>
+          </div>
+          <div>
+            <span>云端订单号</span>
+            <strong>{{ lastResult.order.orderId }}</strong>
+          </div>
+          <div>
+            <span>实际金额</span>
+            <strong>{{ lastResult.order.reallyPrice }}</strong>
+          </div>
+          <div>
+            <span>分配终端</span>
+            <strong>{{ lastResult.assignment.terminalName }}</strong>
+          </div>
+        </div>
+
+        <div class="action-row">
+          <button type="button" class="primary-action compact" @click="openPayPage()">
+            进入原支付页
+          </button>
+          <button
+            type="button"
+            @click="copyText(lastRequestJson, '已复制请求参数')"
+          >
+            复制请求参数
+          </button>
+          <button type="button" @click="copyText(lastCurl, '已复制 curl')">
+            复制 curl
+          </button>
+          <button
+            type="button"
+            @click="copyText(lastResult.order.orderId, '已复制云端订单号')"
+          >
+            复制云端订单号
+          </button>
+        </div>
+
+        <pre class="debug-code">{{ lastRequestJson }}</pre>
       </section>
     </section>
   </main>
@@ -333,6 +481,14 @@ input:focus {
   box-shadow: 0 0 0 4px rgb(34 197 94 / 16%);
 }
 
+label.invalid input {
+  border-color: #f87171;
+}
+
+.field-error {
+  color: #fecaca;
+}
+
 .inline-field {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -455,6 +611,11 @@ button:disabled {
   background: #22c55e;
 }
 
+.primary-action.compact {
+  width: auto;
+  padding: 12px 14px;
+}
+
 .primary-action svg {
   width: 22px;
   height: 22px;
@@ -499,6 +660,84 @@ button:disabled {
   border-color: rgb(148 163 184 / 14%);
 }
 
+.debug-panel {
+  grid-column: 1 / -1;
+}
+
+.result-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.result-grid div,
+.debug-code,
+.history-item {
+  background: rgb(2 6 23 / 44%);
+  border: 1px solid rgb(148 163 184 / 16%);
+  border-radius: 16px;
+}
+
+.result-grid div {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 14px;
+}
+
+.result-grid span,
+.history-empty {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.result-grid strong {
+  overflow: hidden;
+  color: #f8fafc;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.action-row button {
+  padding: 12px 14px;
+}
+
+.debug-code {
+  max-height: 220px;
+  padding: 14px;
+  margin: 16px 0 0;
+  overflow: auto;
+  font-size: 12px;
+  line-height: 1.7;
+  color: #cbd5e1;
+  white-space: pre-wrap;
+}
+
+.history-list {
+  display: grid;
+  gap: 8px;
+}
+
+.history-item {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 12px;
+  color: #e2e8f0;
+  text-align: left;
+}
+
+.history-item small {
+  color: #94a3b8;
+}
+
 @media (width <= 960px) {
   .lab-grid,
   .lab-hero {
@@ -516,6 +755,10 @@ button:disabled {
   }
 
   .signature-switch {
+    grid-template-columns: 1fr;
+  }
+
+  .result-grid {
     grid-template-columns: 1fr;
   }
 }

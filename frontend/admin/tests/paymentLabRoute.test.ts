@@ -20,7 +20,7 @@ test("payment lab has a backend launcher and a standalone full-screen route", ()
   assert.match(remainingRoutes, /showLink:\s*false/);
 });
 
-test("payment lab page submits through admin api and redirects into the original pay page flow", () => {
+test("payment lab page submits through admin api and keeps debug actions before opening pay page", () => {
   const source = readFileSync(
     resolve("frontend/admin/src/views/payment-lab/index.vue"),
     "utf8"
@@ -29,10 +29,18 @@ test("payment lab page submits through admin api and redirects into the original
   assert.match(source, /VPay Payment Lab/);
   assert.match(source, /createPaymentTestOrder/);
   assert.match(source, /payPageUrl/);
-  assert.match(source, /window\.location\.href/);
+  assert.match(source, /openPayPage/);
+  assert.match(source, /复制请求参数/);
+  assert.match(source, /复制 curl/);
+  assert.match(source, /最近测试记录/);
+  assert.match(source, /field-error/);
   assert.match(source, /signType:\s*"MD5"/);
   assert.match(source, /HMAC_SHA256/);
   assert.match(source, /signature-switch/);
+  assert.doesNotMatch(
+    source,
+    /async function submitOrder\(\)[\s\S]*window\.location\.href\s*=\s*payPageUrl/
+  );
   assert.doesNotMatch(source, /getPaymentTestOrder/);
   assert.doesNotMatch(source, /getPaymentTestCallback/);
   assert.doesNotMatch(source, /\/enQrcode\?url=/);

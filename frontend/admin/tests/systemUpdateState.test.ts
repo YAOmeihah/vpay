@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import {
   canStartUpdate,
   clearedPreflightState,
+  shouldShowRefreshAdminButton,
   normalizePreflightChecks,
   updateBadgeType
 } from "../src/views/system/settings/updateState.ts";
@@ -42,5 +43,11 @@ describe("system update state", () => {
       checks: [],
       ok: false
     });
+  });
+
+  it("shows refresh action only after update completion", () => {
+    assert.equal(shouldShowRefreshAdminButton("complete"), true);
+    assert.equal(shouldShowRefreshAdminButton("download"), false);
+    assert.equal(shouldShowRefreshAdminButton(undefined), false);
   });
 });

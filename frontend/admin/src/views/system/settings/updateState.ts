@@ -53,3 +53,7 @@ export function clearedPreflightState(): PreflightState {
     ok: false
   };
 }
+
+export function shouldShowRefreshAdminButton(stage: unknown): boolean {
+  return String(stage ?? "") === "complete";
+}

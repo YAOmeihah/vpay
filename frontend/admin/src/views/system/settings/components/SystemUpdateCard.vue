@@ -16,6 +16,7 @@ import {
   canStartUpdate,
   clearedPreflightState,
   normalizePreflightChecks,
+  shouldShowRefreshAdminButton,
   updateBadgeType,
   type PreflightCheck
 } from "../updateState";
@@ -61,9 +62,16 @@ const recoveryMessage = computed(() => String(recovery.value?.message ?? ""));
 const runtimeMessage = computed(() =>
   String(runtimeStatus.value?.message ?? "")
 );
+const showRefreshAdmin = computed(() =>
+  shouldShowRefreshAdminButton(runtimeStatus.value?.stage)
+);
 
 const errorMessage = (error: any, fallback: string) =>
   String(error?.msg ?? error?.message ?? fallback);
+
+const refreshAdmin = () => {
+  window.location.reload();
+};
 
 const resetPreflight = () => {
   const state = clearedPreflightState();
@@ -161,7 +169,7 @@ const handleStart = async () => {
       return;
     }
 
-    message("更新完成，建议刷新后台页面加载新版本资源", { type: "success" });
+    message("更新完成，请刷新后台页面加载新版本资源", { type: "success" });
     runtimeStatus.value = {
       stage: "complete",
       message: "更新完成，建议刷新页面"
@@ -356,7 +364,15 @@ onUnmounted(() => {
         :closable="false"
         show-icon
         :title="runtimeMessage"
-      />
+      >
+        <template #default>
+          <div v-if="showRefreshAdmin" class="mt-2">
+            <el-button type="primary" size="small" @click="refreshAdmin">
+              刷新后台
+            </el-button>
+          </div>
+        </template>
+      </el-alert>
 
       <el-alert
         v-if="recoveryMessage"

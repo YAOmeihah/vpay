@@ -25,6 +25,12 @@ class Order extends BaseController
         $size = (int)$this->request->param("limit", 10);
         $type = $this->request->param("type");
         $state = $this->request->param("state");
+        $keyword = trim((string)$this->request->param("keyword", ""));
+        $amount = trim((string)$this->request->param("amount", ""));
+        $createStart = $this->request->param("createStart");
+        $createEnd = $this->request->param("createEnd");
+        $terminalId = (int)$this->request->param("terminalId", 0);
+        $channelId = (int)$this->request->param("channelId", 0);
 
         $query = Db::name('pay_order')->order("id", "desc");
 
@@ -33,6 +39,24 @@ class Order extends BaseController
         }
         if ($state !== null && $state !== '') {
             $query = $query->where("state", (int)$state);
+        }
+        if ($keyword !== '') {
+            $query = $query->whereRaw('(pay_id LIKE ? OR order_id LIKE ?)', ['%' . $keyword . '%', '%' . $keyword . '%']);
+        }
+        if ($amount !== '' && is_numeric($amount)) {
+            $query = $query->whereRaw('(price = ? OR really_price = ?)', [(float)$amount, (float)$amount]);
+        }
+        if (is_numeric($createStart)) {
+            $query = $query->where('create_date', '>=', (int)$createStart);
+        }
+        if (is_numeric($createEnd)) {
+            $query = $query->where('create_date', '<=', (int)$createEnd);
+        }
+        if ($terminalId > 0) {
+            $query = $query->where('terminal_id', $terminalId);
+        }
+        if ($channelId > 0) {
+            $query = $query->where('channel_id', $channelId);
         }
 
         $count = $query->count();
@@ -147,3 +171,4 @@ class Order extends BaseController
         return $this->app->make(DashboardStatsService::class);
     }
 }
+

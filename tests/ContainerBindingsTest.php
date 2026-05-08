@@ -17,6 +17,9 @@ use app\service\order\OrderPayloadFactory;
 use app\service\payment\PaymentTestLabService;
 use app\service\security\KeyEncryptionService;
 use app\service\security\LoginAttemptLimiter;
+use app\service\security\RateLimitKeyResolver;
+use app\service\security\RateLimitPolicyResolver;
+use app\service\security\RequestRateLimiter;
 use PHPUnit\Framework\TestCase;
 use think\App;
 
@@ -51,6 +54,9 @@ class ContainerBindingsTest extends TestCase
         $this->assertInstanceOf(TerminalAdminService::class, $this->app->make(TerminalAdminService::class));
         $this->assertInstanceOf(ChannelAdminService::class, $this->app->make(ChannelAdminService::class));
         $this->assertInstanceOf(LoginAttemptLimiter::class, $this->app->make(LoginAttemptLimiter::class));
+        $this->assertInstanceOf(RequestRateLimiter::class, $this->app->make(RequestRateLimiter::class));
+        $this->assertInstanceOf(RateLimitPolicyResolver::class, $this->app->make(RateLimitPolicyResolver::class));
+        $this->assertInstanceOf(RateLimitKeyResolver::class, $this->app->make(RateLimitKeyResolver::class));
         $this->assertInstanceOf(KeyEncryptionService::class, $this->app->make(KeyEncryptionService::class));
         $this->assertInstanceOf(InstallStateService::class, $this->app->make(InstallStateService::class));
         $this->assertInstanceOf(InstallGuardService::class, $this->app->make(InstallGuardService::class));

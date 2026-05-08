@@ -14,10 +14,36 @@ return [
         'session_timeout' => 28800, // 8小时
     ],
 
-    // 通用请求频率限制
-    'rate_limit' => [
-        'max_requests' => (int) env('SECURITY_RATE_LIMIT_MAX_REQUESTS', 120),
-        'window_seconds' => (int) env('SECURITY_RATE_LIMIT_WINDOW_SECONDS', 60),
+    // 分层请求频率限制
+    'rate_limits' => [
+        'default' => [
+            'max_requests' => (int) env('SECURITY_RATE_LIMIT_DEFAULT_MAX_REQUESTS', 120),
+            'window_seconds' => (int) env('SECURITY_RATE_LIMIT_DEFAULT_WINDOW_SECONDS', 60),
+        ],
+        'admin_login' => [
+            'max_requests' => (int) env('SECURITY_RATE_LIMIT_ADMIN_LOGIN_MAX_REQUESTS', 5),
+            'window_seconds' => (int) env('SECURITY_RATE_LIMIT_ADMIN_LOGIN_WINDOW_SECONDS', 1800),
+        ],
+        'admin_api' => [
+            'max_requests' => (int) env('SECURITY_RATE_LIMIT_ADMIN_API_MAX_REQUESTS', 300),
+            'window_seconds' => (int) env('SECURITY_RATE_LIMIT_ADMIN_API_WINDOW_SECONDS', 60),
+        ],
+        'merchant_api' => [
+            'max_requests' => (int) env('SECURITY_RATE_LIMIT_MERCHANT_API_MAX_REQUESTS', 120),
+            'window_seconds' => (int) env('SECURITY_RATE_LIMIT_MERCHANT_API_WINDOW_SECONDS', 60),
+        ],
+        'monitor_heartbeat' => [
+            'max_requests' => (int) env('SECURITY_RATE_LIMIT_MONITOR_HEARTBEAT_MAX_REQUESTS', 30),
+            'window_seconds' => (int) env('SECURITY_RATE_LIMIT_MONITOR_HEARTBEAT_WINDOW_SECONDS', 60),
+        ],
+        'monitor_push' => [
+            'max_requests' => (int) env('SECURITY_RATE_LIMIT_MONITOR_PUSH_MAX_REQUESTS', 120),
+            'window_seconds' => (int) env('SECURITY_RATE_LIMIT_MONITOR_PUSH_WINDOW_SECONDS', 60),
+        ],
+        'monitor_query' => [
+            'max_requests' => (int) env('SECURITY_RATE_LIMIT_MONITOR_QUERY_MAX_REQUESTS', 60),
+            'window_seconds' => (int) env('SECURITY_RATE_LIMIT_MONITOR_QUERY_WINDOW_SECONDS', 60),
+        ],
     ],
 
     // 输入验证

@@ -697,6 +697,12 @@ class ControllerEdgeServiceRegressionTest extends TestCase
         $this->assertTrue($limiter->tooManyLoginAttempts($clientIp));
     }
 
+    public function test_login_attempt_limiter_no_longer_exposes_general_request_limiter_methods(): void
+    {
+        $this->assertFalse(method_exists(LoginAttemptLimiter::class, 'tooManyRequests'));
+        $this->assertFalse(method_exists(LoginAttemptLimiter::class, 'recordRequest'));
+    }
+
     public function test_login_attempt_limiter_uses_configured_lockout_time(): void
     {
         $originalSecurity = self::$app->config->get('security');
@@ -729,46 +735,25 @@ class ControllerEdgeServiceRegressionTest extends TestCase
         }
     }
 
-    public function test_login_attempt_limiter_uses_configured_general_rate_limit(): void
+    public function test_security_config_defines_layered_rate_limit_policies(): void
     {
-        $originalSecurity = self::$app->config->get('security');
-        $security = is_array($originalSecurity) ? $originalSecurity : [];
-        $security['rate_limit'] = [
-            'max_requests' => 3,
-            'window_seconds' => 7,
-        ];
-        self::$app->config->set($security, 'security');
+        $security = self::$app->config->get('security');
 
-        try {
-            $limiter = new class extends LoginAttemptLimiter {
-                public ?int $lastTtl = null;
-                /** @var array<string, int> */
-                public array $store = [];
-
-                protected function get(string $key): mixed
-                {
-                    return $this->store[$key] ?? 0;
-                }
-
-                protected function put(string $key, int $value, int $ttl): void
-                {
-                    $this->store[$key] = $value;
-                    $this->lastTtl = $ttl;
-                }
-            };
-
-            $clientIp = '127.0.0.1-rate-limit';
-            $this->assertFalse($limiter->tooManyRequests($clientIp));
-            $limiter->recordRequest($clientIp);
-            $limiter->recordRequest($clientIp);
-            $this->assertFalse($limiter->tooManyRequests($clientIp));
-            $limiter->recordRequest($clientIp);
-
-            $this->assertTrue($limiter->tooManyRequests($clientIp));
-            $this->assertSame(7, $limiter->lastTtl);
-        } finally {
-            self::$app->config->set($originalSecurity, 'security');
+        foreach ([
+            'default',
+            'admin_login',
+            'admin_api',
+            'merchant_api',
+            'monitor_heartbeat',
+            'monitor_push',
+            'monitor_query',
+        ] as $policyName) {
+            $this->assertIsArray($security['rate_limits'][$policyName] ?? null, $policyName . ' policy is missing.');
+            $this->assertGreaterThan(0, (int) $security['rate_limits'][$policyName]['max_requests']);
+            $this->assertGreaterThan(0, (int) $security['rate_limits'][$policyName]['window_seconds']);
         }
+
+        $this->assertArrayNotHasKey('rate_limit', $security);
     }
 
     public function test_admin_login_lockout_message_tracks_configured_lockout_duration(): void

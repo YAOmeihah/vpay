@@ -65,6 +65,34 @@ test("payment lab launcher uses scoped visual styles for a readable launch butto
   assert.doesNotMatch(source, />READY</);
 });
 
+test("payment lab launcher card has no shadow and tighter mobile gutters", () => {
+  const source = readFileSync(
+    resolve("frontend/admin/src/views/system/payment-test/index.vue"),
+    "utf8"
+  );
+
+  assert.match(
+    source,
+    /:global\(:root\)[\s\S]*--payment-lab-card-shadow:\s*none;/
+  );
+  assert.match(
+    source,
+    /:global\(html\.dark\)[\s\S]*--payment-lab-card-shadow:\s*none;/
+  );
+  assert.match(
+    source,
+    /:global\(:root\)[\s\S]*--payment-lab-launcher-bg:\s*#eef2f7;/
+  );
+  assert.match(
+    source,
+    /:global\(html\.dark\)[\s\S]*--payment-lab-launcher-bg:\s*#020617;/
+  );
+  assert.match(
+    source,
+    /@media \(width <= 860px\)[\s\S]*\.payment-lab-launcher\s*{[\s\S]*margin-inline:\s*-12px;[\s\S]*padding:\s*16px 24px;/
+  );
+});
+
 test("payment lab launcher includes dark mode overrides", () => {
   const source = readFileSync(
     resolve("frontend/admin/src/views/system/payment-test/index.vue"),

@@ -14,7 +14,7 @@ import {
   __APP_INFO__
 } from "./build/utils";
 
-const proxyPaths = ["/login", "/admin", "/enQrcode", "/qr-code"];
+const proxyPaths = ["/login", "/install", "/admin", "/enQrcode", "/qr-code"];
 
 export default ({ mode }: ConfigEnv): UserConfigExport => {
   const {

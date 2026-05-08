@@ -6,11 +6,8 @@ namespace app\service\security;
 class LoginAttemptLimiter
 {
     private const LOGIN_PREFIX = 'login_attempts_';
-    private const RATE_LIMIT_PREFIX = 'rate_limit_';
     private const LOGIN_TTL = 300;
-    private const RATE_LIMIT_TTL = 60;
     private const LOGIN_THRESHOLD = 5;
-    private const RATE_LIMIT_THRESHOLD = 120;
 
     public function tooManyLoginAttempts(string $clientIp): bool
     {
@@ -25,16 +22,6 @@ class LoginAttemptLimiter
     public function clearLoginAttempts(string $clientIp): void
     {
         $this->forget($this->cacheKey(self::LOGIN_PREFIX, $clientIp));
-    }
-
-    public function tooManyRequests(string $clientIp): bool
-    {
-        return $this->attemptsFor(self::RATE_LIMIT_PREFIX, $clientIp) >= $this->rateLimitThreshold();
-    }
-
-    public function recordRequest(string $clientIp): int
-    {
-        return $this->increment(self::RATE_LIMIT_PREFIX, $clientIp, $this->rateLimitWindow());
     }
 
     protected function get(string $key): mixed
@@ -60,16 +47,6 @@ class LoginAttemptLimiter
     protected function loginLockoutTtl(): int
     {
         return (int) config('security.login.lockout_time', self::LOGIN_TTL);
-    }
-
-    protected function rateLimitThreshold(): int
-    {
-        return max(1, (int) config('security.rate_limit.max_requests', self::RATE_LIMIT_THRESHOLD));
-    }
-
-    protected function rateLimitWindow(): int
-    {
-        return max(1, (int) config('security.rate_limit.window_seconds', self::RATE_LIMIT_TTL));
     }
 
     private function attemptsFor(string $prefix, string $clientIp): int

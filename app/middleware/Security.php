@@ -3,7 +3,10 @@ declare(strict_types=1);
 
 namespace app\middleware;
 
-use app\service\security\LoginAttemptLimiter;
+use app\service\security\RateLimitExceededException;
+use app\service\security\RateLimitKeyResolver;
+use app\service\security\RateLimitPolicyResolver;
+use app\service\security\RequestRateLimiter;
 use Closure;
 use think\Request;
 use think\Response;
@@ -22,13 +25,17 @@ class Security
      */
     public function handle(Request $request, Closure $next): Response
     {
-        // 检查请求频率限制
-        $this->checkRateLimit($request);
+        try {
+            $this->checkRateLimit($request);
+        } catch (RateLimitExceededException $exception) {
+            $response = $this->rateLimitResponse($exception);
+            $this->addSecurityHeaders($response);
 
-        // 处理请求
+            return $response;
+        }
+
         $response = $next($request);
 
-        // 添加安全头
         $this->addSecurityHeaders($response);
 
         return $response;
@@ -39,14 +46,23 @@ class Security
      */
     private function checkRateLimit(Request $request): void
     {
-        $clientIp = $request->ip();
-        $limiter = $this->loginAttemptLimiter();
+        $policy = $this->rateLimitPolicyResolver()->resolve($request);
+        $key = $this->rateLimitKeyResolver()->resolve($policy, $request);
 
-        if ($limiter->tooManyRequests($clientIp)) {
-            abort(429, '请求过于频繁，请稍后重试');
-        }
+        $this->requestRateLimiter()->assertAllowed($policy, $key);
+    }
 
-        $limiter->recordRequest($clientIp);
+    private function rateLimitResponse(RateLimitExceededException $exception): Response
+    {
+        return json([
+            'code' => -1,
+            'msg' => $exception->getMessage(),
+            'data' => [
+                'retryAfter' => $exception->retryAfter(),
+            ],
+        ], 429, [
+            'Retry-After' => (string) $exception->retryAfter(),
+        ]);
     }
 
     /**
@@ -68,8 +84,18 @@ class Security
         ]);
     }
 
-    private function loginAttemptLimiter(): LoginAttemptLimiter
+    protected function rateLimitPolicyResolver(): RateLimitPolicyResolver
     {
-        return app()->make(LoginAttemptLimiter::class);
+        return app()->make(RateLimitPolicyResolver::class);
+    }
+
+    protected function rateLimitKeyResolver(): RateLimitKeyResolver
+    {
+        return app()->make(RateLimitKeyResolver::class);
+    }
+
+    protected function requestRateLimiter(): RequestRateLimiter
+    {
+        return app()->make(RequestRateLimiter::class);
     }
 }

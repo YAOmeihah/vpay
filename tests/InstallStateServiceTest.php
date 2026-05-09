@@ -186,7 +186,7 @@ final class InstallStateServiceTest extends TestCase
 
             self::assertSame('upgrade_required', $status['state']);
             self::assertSame('2.1.14', $status['current_version']);
-            self::assertSame('2.1.15', $status['target_version']);
+            self::assertSame('2.1.16', $status['target_version']);
         } finally {
             @unlink($migrationPath);
             Db::execute('DROP TABLE IF EXISTS `system_migration_log`');

@@ -39,7 +39,9 @@ test("settings sections hydrate backend payload and emit independent save payloa
     notify_event_terminal_offline: "1",
     notify_event_terminal_recovered: "0",
     notify_event_expired_order_cleanup: "1",
-    notify_event_maintenance_exception: "0"
+    notify_event_maintenance_exception: "0",
+    notify_event_payment_success: "1",
+    notify_payment_success_callback_status: "0"
   });
 
   assert.equal(sections.security.user, "admin");
@@ -53,6 +55,8 @@ test("settings sections hydrate backend payload and emit independent save payloa
   assert.equal(sections.maintenance.expiredOrderCleanupTask, "0");
   assert.equal(sections.maintenance.telegramEnabled, "1");
   assert.equal(sections.maintenance.notifyTerminalRecovered, "0");
+  assert.equal(sections.maintenance.notifyPaymentSuccess, "1");
+  assert.equal(sections.maintenance.notifyPaymentCallbackStatus, "0");
   assert.equal("monitorKey" in sections.payment, false);
   assert.equal("qrcode" in sections, false);
 
@@ -84,7 +88,9 @@ test("settings sections hydrate backend payload and emit independent save payloa
     notify_event_terminal_offline: "1",
     notify_event_terminal_recovered: "0",
     notify_event_expired_order_cleanup: "1",
-    notify_event_maintenance_exception: "0"
+    notify_event_maintenance_exception: "0",
+    notify_event_payment_success: "1",
+    notify_payment_success_callback_status: "0"
   });
 });
 
@@ -129,6 +135,21 @@ test("maintenance card shows cron integration request hints", () => {
   assert.match(source, /POST \/maintenance\/run/);
   assert.match(source, /X-Maintenance-Token/);
   assert.match(source, /curl/);
+});
+
+test("maintenance card exposes payment success notification switches", () => {
+  const source = readFileSync(
+    resolve(
+      testDir,
+      "../src/views/system/settings/components/MaintenanceCard.vue"
+    ),
+    "utf8"
+  );
+
+  assert.match(source, /notifyPaymentSuccess/);
+  assert.match(source, /notifyPaymentCallbackStatus/);
+  assert.match(source, /active-text="支付成功"/);
+  assert.match(source, /active-text="回调状态"/);
 });
 
 test("maintenance integration hints use theme-aware Element Plus components", () => {

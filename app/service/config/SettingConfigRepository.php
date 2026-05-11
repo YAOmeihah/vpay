@@ -34,6 +34,8 @@ class SettingConfigRepository
         'notify_event_terminal_recovered',
         'notify_event_expired_order_cleanup',
         'notify_event_maintenance_exception',
+        'notify_event_payment_success',
+        'notify_payment_success_callback_status',
     ];
 
     public function get(string $key, string $default = ''): string

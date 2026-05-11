@@ -12,6 +12,7 @@ class MigrationRunner
     {
         $scanner = new MigrationScanner();
         $logger = new MigrationLogService();
+        $logger->ensureTable();
         $migrations = $logger->pending($scanner->upTo($target));
 
         if ($migrations === [] && version_compare($current, $target, '<')) {
@@ -135,7 +136,7 @@ class MigrationRunner
         }
 
         $relativePath = substr($normalizedPath, strlen($normalizedRoot));
-        if (!preg_match('/^\d+\.\d+\.\d+\/\d{3}-[a-z0-9][a-z0-9-]*\.sql$/i', $relativePath)) {
+        if (!preg_match('/^\d{4}_\d{2}_\d{2}_\d{6}_[a-z0-9_]+\.sql$/i', $relativePath)) {
             throw new \RuntimeException('Untrusted migration path: ' . $path);
         }
 

@@ -5,12 +5,14 @@ namespace app\service\install;
 
 class MigrationScanner
 {
+    private const MIGRATION_FILE_PATTERN = '/^\d{4}_\d{2}_\d{2}_\d{6}_[a-z0-9_]+\.sql$/i';
+
     /**
      * @return list<array{version: string, path: string, relative_path: string, migration_key: string}>
      */
     public function between(string $current, string $target): array
     {
-        return $this->scan($current, $target);
+        return $this->scan($target);
     }
 
     /**
@@ -18,49 +20,36 @@ class MigrationScanner
      */
     public function upTo(string $target): array
     {
-        return $this->scan(null, $target);
+        return $this->scan($target);
     }
 
     /**
      * @return list<array{version: string, path: string, relative_path: string, migration_key: string}>
      */
-    private function scan(?string $current, string $target): array
+    private function scan(string $target): array
     {
         $root = app()->getRootPath() . 'database/migrations';
         if (!is_dir($root)) {
             return [];
         }
 
-        $versions = array_values(array_filter(
-            scandir($root) ?: [],
-            static fn (string $entry): bool => $entry !== '.' && $entry !== '..' && is_dir($root . DIRECTORY_SEPARATOR . $entry)
-        ));
-        sort($versions, SORT_NATURAL);
+        $paths = glob($root . DIRECTORY_SEPARATOR . '*.sql') ?: [];
+        sort($paths, SORT_STRING);
 
         $files = [];
-        foreach ($versions as $version) {
-            if (
-                ($current !== null && version_compare($version, $current, '<='))
-                || version_compare($version, $target, '>')
-            ) {
+        foreach ($paths as $path) {
+            $fileName = basename($path);
+            if (!preg_match(self::MIGRATION_FILE_PATTERN, $fileName)) {
                 continue;
             }
 
-            foreach (glob($root . DIRECTORY_SEPARATOR . $version . DIRECTORY_SEPARATOR . '*.sql') ?: [] as $path) {
-                $fileName = basename($path);
-                $files[] = [
-                    'version' => $version,
-                    'path' => $path,
-                    'relative_path' => 'database/migrations/' . $version . '/' . $fileName,
-                    'migration_key' => $version . '/' . $fileName,
-                ];
-            }
+            $files[] = [
+                'version' => $target,
+                'path' => $path,
+                'relative_path' => 'database/migrations/' . $fileName,
+                'migration_key' => pathinfo($fileName, PATHINFO_FILENAME),
+            ];
         }
-
-        usort(
-            $files,
-            static fn (array $left, array $right): int => [$left['version'], $left['path']] <=> [$right['version'], $right['path']]
-        );
 
         return $files;
     }

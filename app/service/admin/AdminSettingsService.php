@@ -20,6 +20,8 @@ class AdminSettingsService
         'notify_event_terminal_recovered',
         'notify_event_expired_order_cleanup',
         'notify_event_maintenance_exception',
+        'notify_event_payment_success',
+        'notify_payment_success_callback_status',
     ];
 
     /**
@@ -51,6 +53,8 @@ class AdminSettingsService
             'notify_event_terminal_recovered' => $this->getConfigValue('notify_event_terminal_recovered', '1'),
             'notify_event_expired_order_cleanup' => $this->getConfigValue('notify_event_expired_order_cleanup', '1'),
             'notify_event_maintenance_exception' => $this->getConfigValue('notify_event_maintenance_exception', '1'),
+            'notify_event_payment_success' => $this->getConfigValue('notify_event_payment_success', '1'),
+            'notify_payment_success_callback_status' => $this->getConfigValue('notify_payment_success_callback_status', '1'),
         ];
 
         $settings['key'] = $this->ensureGeneratedKey('key', $settings['key']);
@@ -71,6 +75,7 @@ class AdminSettingsService
             'notify_telegram_enabled', 'notify_telegram_bot_token', 'notify_telegram_chat_id',
             'notify_event_terminal_offline', 'notify_event_terminal_recovered',
             'notify_event_expired_order_cleanup', 'notify_event_maintenance_exception',
+            'notify_event_payment_success', 'notify_payment_success_callback_status',
         ];
 
         foreach ($params as $param) {

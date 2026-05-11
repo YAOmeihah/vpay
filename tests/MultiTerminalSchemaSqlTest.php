@@ -32,8 +32,8 @@ final class MultiTerminalSchemaSqlTest extends TestCase
         self::assertStringContainsString('CREATE TABLE `payment_event`', $bootstrapSql);
         self::assertStringContainsString('CREATE TABLE `terminal_allocation_cursor`', $bootstrapSql);
         self::assertStringContainsString('CREATE TABLE `system_migration_log`', $bootstrapSql);
-        self::assertStringContainsString("'2.1.13/001-add-pay-order-sign-type.sql'", $bootstrapSql);
-        self::assertStringContainsString("'2.1.14/001-ensure-system-migration-log.sql'", $bootstrapSql);
+        self::assertStringNotContainsString("'2.1.13/001-add-pay-order-sign-type.sql'", $bootstrapSql);
+        self::assertStringNotContainsString("'2.1.14/001-ensure-system-migration-log.sql'", $bootstrapSql);
         self::assertStringContainsString('ADD PRIMARY KEY (`type`)', $bootstrapSql);
         self::assertStringContainsString('`dispatch_priority` int(11) NOT NULL DEFAULT 100', $bootstrapSql);
         self::assertStringContainsString('`terminal_id` bigint(20) DEFAULT NULL', $bootstrapSql);
@@ -42,8 +42,12 @@ final class MultiTerminalSchemaSqlTest extends TestCase
         self::assertStringContainsString('ADD INDEX `idx_type_status_terminal` (`type`,`status`,`terminal_id`)', $bootstrapSql);
         self::assertStringContainsString("('notify_ssl_verify', '1')", $bootstrapSql);
         self::assertStringContainsString("('install_status', 'pending')", $bootstrapSql);
-        self::assertStringContainsString("('schema_version', '2.1.0')", $bootstrapSql);
-        self::assertStringContainsString("('app_version', '2.1.0')", $bootstrapSql);
+        self::assertStringContainsString("('schema_version', '2.1.16')", $bootstrapSql);
+        self::assertStringContainsString("('app_version', '2.1.16')", $bootstrapSql);
+        self::assertStringContainsString(
+            "'2026_05_11_090000_ensure_payment_success_notification_settings'",
+            $bootstrapSql
+        );
         self::assertStringNotContainsString("('user', 'admin')", $bootstrapSql);
         self::assertStringNotContainsString('`priority` int(11) NOT NULL DEFAULT 100', $bootstrapSql);
         self::assertStringNotContainsString('idx_type_status_priority', $bootstrapSql);

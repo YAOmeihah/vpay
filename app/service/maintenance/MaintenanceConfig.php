@@ -56,8 +56,14 @@ class MaintenanceConfig
             'terminal_recovered' => $this->setting('notify_event_terminal_recovered', '1') === '1',
             'expired_order_cleanup' => $this->setting('notify_event_expired_order_cleanup', '1') === '1',
             'maintenance_exception' => $this->setting('notify_event_maintenance_exception', '1') === '1',
+            'payment_success' => $this->setting('notify_event_payment_success', '1') === '1',
             default => false,
         };
+    }
+
+    public function paymentSuccessCallbackStatusEnabled(): bool
+    {
+        return $this->setting('notify_payment_success_callback_status', '1') === '1';
     }
 
     private function setting(string $key, string $default = ''): string

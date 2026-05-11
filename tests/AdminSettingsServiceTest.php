@@ -84,6 +84,8 @@ class AdminSettingsServiceTest extends TestCase
         self::assertSame('1', $settings['notify_event_terminal_recovered']);
         self::assertSame('1', $settings['notify_event_expired_order_cleanup']);
         self::assertSame('1', $settings['notify_event_maintenance_exception']);
+        self::assertSame('1', $settings['notify_event_payment_success']);
+        self::assertSame('1', $settings['notify_payment_success_callback_status']);
     }
 
     public function test_save_settings_persists_maintenance_fields(): void
@@ -103,6 +105,8 @@ class AdminSettingsServiceTest extends TestCase
             'notify_event_terminal_recovered' => '0',
             'notify_event_expired_order_cleanup' => '1',
             'notify_event_maintenance_exception' => '0',
+            'notify_event_payment_success' => '1',
+            'notify_payment_success_callback_status' => '0',
         ]);
 
         self::assertSame('1', Setting::getConfigValue('maintenance_enabled'));
@@ -115,6 +119,8 @@ class AdminSettingsServiceTest extends TestCase
         self::assertSame('123456', Setting::getConfigValue('notify_telegram_chat_id'));
         self::assertSame('0', Setting::getConfigValue('notify_event_terminal_recovered'));
         self::assertSame('0', Setting::getConfigValue('notify_event_maintenance_exception'));
+        self::assertSame('1', Setting::getConfigValue('notify_event_payment_success'));
+        self::assertSame('0', Setting::getConfigValue('notify_payment_success_callback_status'));
     }
 
     public function test_generate_maintenance_token_persists_random_hex_token(): void

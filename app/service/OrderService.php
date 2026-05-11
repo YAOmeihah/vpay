@@ -11,6 +11,7 @@ use app\model\TerminalChannel;
 use app\model\TmpPrice;
 use app\service\config\SettingSystemConfig;
 use app\service\config\SystemConfig;
+use app\service\notification\NotificationService;
 use app\service\order\OrderPayloadFactory;
 use app\service\order\OrderStateManager;
 use app\service\payment\PaymentEventService;
@@ -272,6 +273,11 @@ class OrderService
     protected static function paymentEventService(): PaymentEventService
     {
         return app()->make(PaymentEventService::class);
+    }
+
+    protected static function notificationService(): NotificationService
+    {
+        return app()->make(NotificationService::class);
     }
 
     protected static function allocator(): TerminalAllocatorService
@@ -748,7 +754,8 @@ class OrderService
 
         static::orderStateManager()->invalidateOrderView((string) $matchedOrder['order_id']);
 
-        $notifyResult = NotifyService::sendNotifyDetailed($matchedOrder->toArray());
+        $orderData = $matchedOrder->toArray();
+        $notifyResult = NotifyService::sendNotifyDetailed($orderData);
         $notifyOk = $notifyResult['ok'];
         $notifyDetail = $notifyResult['detail'];
 
@@ -756,6 +763,8 @@ class OrderService
             PayOrder::where('id', $matchedOrder['id'])->update(['state' => PayOrder::STATE_NOTIFY_FAILED]);
             static::orderStateManager()->invalidateOrderView((string) $matchedOrder['order_id']);
         }
+
+        static::notificationService()->paymentSuccess($orderData, $notifyOk, $notifyDetail);
 
         return [
             'matched' => true,

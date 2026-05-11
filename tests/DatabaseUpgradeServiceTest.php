@@ -12,14 +12,12 @@ final class DatabaseUpgradeServiceTest extends TestCase
     {
         $service = new DatabaseUpgradeService();
 
-        $context = $service->context('', '2.1.0');
+        $context = $service->context('', '2.1.16');
 
         self::assertSame('2.0.0', $context['current_version']);
-        self::assertSame('2.1.0', $context['target_version']);
+        self::assertSame('2.1.16', $context['target_version']);
         self::assertSame([
-            ['relative_path' => 'database/migrations/2.1.0/001-create-system-migration-log.sql'],
-            ['relative_path' => 'database/migrations/2.1.0/002-backfill-install-state.sql'],
-            ['relative_path' => 'database/migrations/2.1.0/003-ensure-notify-ssl-verify.sql'],
+            ['relative_path' => 'database/migrations/2026_05_11_090000_ensure_payment_success_notification_settings.sql'],
         ], $context['migrations']);
     }
 
@@ -44,4 +42,3 @@ final class DatabaseUpgradeServiceTest extends TestCase
         self::assertSame('2.1.14', $runner->targetVersion);
     }
 }
-

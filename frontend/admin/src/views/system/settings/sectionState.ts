@@ -29,6 +29,8 @@ export type MaintenanceSection = {
   notifyTerminalRecovered: string;
   notifyExpiredOrderCleanup: string;
   notifyMaintenanceException: string;
+  notifyPaymentSuccess: string;
+  notifyPaymentCallbackStatus: string;
 };
 
 export type SettingsSections = {
@@ -67,7 +69,9 @@ export function createSettingsSections(): SettingsSections {
       notifyTerminalOffline: "1",
       notifyTerminalRecovered: "1",
       notifyExpiredOrderCleanup: "1",
-      notifyMaintenanceException: "1"
+      notifyMaintenanceException: "1",
+      notifyPaymentSuccess: "1",
+      notifyPaymentCallbackStatus: "1"
     }
   };
 }
@@ -129,6 +133,12 @@ export function hydrateSettingsSections(
   sections.maintenance.notifyMaintenanceException = String(
     payload.notify_event_maintenance_exception ?? "1"
   );
+  sections.maintenance.notifyPaymentSuccess = String(
+    payload.notify_event_payment_success ?? "1"
+  );
+  sections.maintenance.notifyPaymentCallbackStatus = String(
+    payload.notify_payment_success_callback_status ?? "1"
+  );
 }
 
 export function buildSecurityPayload(section: SecuritySection) {
@@ -168,6 +178,8 @@ export function buildMaintenancePayload(section: MaintenanceSection) {
     notify_event_terminal_offline: section.notifyTerminalOffline,
     notify_event_terminal_recovered: section.notifyTerminalRecovered,
     notify_event_expired_order_cleanup: section.notifyExpiredOrderCleanup,
-    notify_event_maintenance_exception: section.notifyMaintenanceException
+    notify_event_maintenance_exception: section.notifyMaintenanceException,
+    notify_event_payment_success: section.notifyPaymentSuccess,
+    notify_payment_success_callback_status: section.notifyPaymentCallbackStatus
   };
 }

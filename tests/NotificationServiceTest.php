@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace tests;
 
 use app\model\PayOrder;
+use app\service\OrderService;
 use app\service\notification\NotificationService;
 use app\service\notification\TelegramNotificationChannel;
 use think\facade\Db;
@@ -84,6 +85,117 @@ final class NotificationServiceTest extends TestCase
 
         self::assertTrue($service->sendTestMessage());
         self::assertStringContainsString('维护通知测试', $channel->messages[0]);
+    }
+
+    public function test_sends_payment_success_message_with_callback_status_when_enabled(): void
+    {
+        $this->seedSettings([
+            'notify_telegram_enabled' => '1',
+            'notify_telegram_bot_token' => 'bot',
+            'notify_telegram_chat_id' => 'chat',
+            'notify_event_payment_success' => '1',
+            'notify_payment_success_callback_status' => '1',
+        ]);
+        $channel = new FakeTelegramChannel();
+        $service = new TestNotificationService($channel);
+
+        $service->paymentSuccess([
+            'order_id' => 'cloud-order-001',
+            'pay_id' => 'merchant-pay-001',
+            'price' => '10.00',
+            'really_price' => '10.00',
+            'type' => PayOrder::TYPE_WECHAT,
+        ], true, '');
+
+        self::assertCount(1, $channel->messages);
+        self::assertStringContainsString('支付成功', $channel->messages[0]);
+        self::assertStringContainsString('cloud-order-001', $channel->messages[0]);
+        self::assertStringContainsString('merchant-pay-001', $channel->messages[0]);
+        self::assertStringContainsString('商户回调: 成功', $channel->messages[0]);
+    }
+
+    public function test_payment_success_message_respects_event_and_callback_status_switches(): void
+    {
+        $this->seedSettings([
+            'notify_telegram_enabled' => '1',
+            'notify_telegram_bot_token' => 'bot',
+            'notify_telegram_chat_id' => 'chat',
+            'notify_event_payment_success' => '0',
+            'notify_payment_success_callback_status' => '1',
+        ]);
+        $channel = new FakeTelegramChannel();
+        $service = new TestNotificationService($channel);
+        $order = [
+            'order_id' => 'cloud-order-muted',
+            'pay_id' => 'merchant-muted',
+            'price' => '10.00',
+            'really_price' => '10.00',
+            'type' => PayOrder::TYPE_ALIPAY,
+        ];
+
+        $service->paymentSuccess($order, false, 'timeout');
+
+        self::assertSame([], $channel->messages);
+
+        $this->seedSettings([
+            'notify_event_payment_success' => '1',
+            'notify_payment_success_callback_status' => '0',
+        ]);
+
+        $service->paymentSuccess($order, false, 'timeout');
+
+        self::assertCount(1, $channel->messages);
+        self::assertStringNotContainsString('商户回调', $channel->messages[0]);
+    }
+
+    public function test_terminal_payment_push_sends_payment_success_notification_with_callback_result(): void
+    {
+        $this->seedSettings([
+            'notify_telegram_enabled' => '1',
+            'notify_telegram_bot_token' => 'bot',
+            'notify_telegram_chat_id' => 'chat',
+            'notify_event_payment_success' => '1',
+            'notify_payment_success_callback_status' => '1',
+        ]);
+        PayOrder::create([
+            'close_date' => 0,
+            'create_date' => time(),
+            'is_auto' => 0,
+            'notify_url' => 'ftp://merchant.example/notify',
+            'order_id' => 'cloud-order-push',
+            'param' => 'param',
+            'pay_date' => 0,
+            'pay_id' => 'merchant-pay-push',
+            'pay_url' => '',
+            'price' => '10.00',
+            'really_price' => '10.00',
+            'return_url' => 'https://merchant.example/return',
+            'sign_type' => 'MD5',
+            'terminal_id' => 7,
+            'channel_id' => 17,
+            'assign_status' => PayOrder::ASSIGN_STATUS_ASSIGNED,
+            'assign_reason' => '',
+            'terminal_snapshot' => 'Terminal 7',
+            'channel_snapshot' => 'Wechat 7',
+            'state' => PayOrder::STATE_UNPAID,
+            'type' => PayOrder::TYPE_WECHAT,
+        ]);
+        $channel = new FakeTelegramChannel();
+        TestOrderServiceWithPaymentNotifications::$channel = $channel;
+
+        $result = TestOrderServiceWithPaymentNotifications::handleTerminalPayPush(
+            7,
+            '10.00',
+            PayOrder::TYPE_WECHAT,
+            'evt-payment-success',
+            ['terminalCode' => 'T7']
+        );
+
+        self::assertTrue($result['matched']);
+        self::assertFalse($result['notifyOk']);
+        self::assertCount(1, $channel->messages);
+        self::assertStringContainsString('cloud-order-push', $channel->messages[0]);
+        self::assertStringContainsString('商户回调: 失败', $channel->messages[0]);
     }
 
     public function test_heartbeat_marks_offline_terminal_online_and_can_notify_recovery(): void
@@ -279,6 +391,16 @@ class FakeTelegramChannel extends TelegramNotificationChannel
 }
 
 final class TestMonitorServiceWithNotifications extends \app\service\MonitorService
+{
+    public static FakeTelegramChannel $channel;
+
+    protected static function notificationService(): NotificationService
+    {
+        return new TestNotificationService(self::$channel);
+    }
+}
+
+final class TestOrderServiceWithPaymentNotifications extends OrderService
 {
     public static FakeTelegramChannel $channel;
 

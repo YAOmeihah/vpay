@@ -392,6 +392,8 @@ class ControllerEdgeServiceRegressionTest extends TestCase
             'notify_event_terminal_recovered',
             'notify_event_expired_order_cleanup',
             'notify_event_maintenance_exception',
+            'notify_event_payment_success',
+            'notify_payment_success_callback_status',
         ], array_keys($settings));
         $this->assertSame('admin', $settings['user']);
         $this->assertSame('', $settings['pass']);

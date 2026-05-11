@@ -85,6 +85,17 @@ const notifyMaintenanceException = computed({
     updateModel({ notifyMaintenanceException: String(value ?? "0") })
 });
 
+const notifyPaymentSuccess = computed({
+  get: () => props.model.notifyPaymentSuccess,
+  set: value => updateModel({ notifyPaymentSuccess: String(value ?? "0") })
+});
+
+const notifyPaymentCallbackStatus = computed({
+  get: () => props.model.notifyPaymentCallbackStatus,
+  set: value =>
+    updateModel({ notifyPaymentCallbackStatus: String(value ?? "0") })
+});
+
 const lastRunText = computed(() => {
   const timestamp = Number(props.model.lastRunAt);
   if (!Number.isFinite(timestamp) || timestamp <= 0) return "尚未执行";
@@ -248,6 +259,18 @@ const curlExample = computed(() => {
             active-value="1"
             inactive-value="0"
             active-text="异常"
+          />
+          <el-switch
+            v-model="notifyPaymentSuccess"
+            active-value="1"
+            inactive-value="0"
+            active-text="支付成功"
+          />
+          <el-switch
+            v-model="notifyPaymentCallbackStatus"
+            active-value="1"
+            inactive-value="0"
+            active-text="回调状态"
           />
         </div>
       </el-form-item>

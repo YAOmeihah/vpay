@@ -82,7 +82,7 @@ final class InstallWizardControllerTest extends TestCase
                     'state' => 'upgrade_required',
                     'message' => '检测到旧版系统，需要升级',
                     'current_version' => '2.0.0',
-                    'target_version' => '2.1.17',
+                    'target_version' => '2.1.18',
                 ];
             }
 
@@ -98,7 +98,7 @@ final class InstallWizardControllerTest extends TestCase
             {
                 return [
                     'current_version' => '2.0.0',
-                    'target_version' => '2.1.17',
+                    'target_version' => '2.1.18',
                     'can_run' => true,
                     'migrations' => [
                         ['relative_path' => 'database/migrations/2026_05_11_090000_ensure_payment_success_notification_settings.sql'],
@@ -111,7 +111,7 @@ final class InstallWizardControllerTest extends TestCase
 
         self::assertStringContainsString('当前版本', $html);
         self::assertStringContainsString('2.0.0', $html);
-        self::assertStringContainsString('2.1.17', $html);
+        self::assertStringContainsString('2.1.18', $html);
         self::assertStringContainsString('database/migrations/2026_05_11_090000_ensure_payment_success_notification_settings.sql', $html);
         self::assertStringContainsString('action="/install/run"', $html);
         self::assertStringContainsString('确认升级并执行', $html);
@@ -119,7 +119,7 @@ final class InstallWizardControllerTest extends TestCase
         self::assertStringContainsString('name="upgrade_admin_pass"', $html);
         self::assertStringContainsString('升级前请先完成备份', $html);
         self::assertStringContainsString('2.0.0', $html);
-        self::assertStringContainsString('2.1.17', $html);
+        self::assertStringContainsString('2.1.18', $html);
         self::assertStringContainsString('data-install-form', $html);
         self::assertStringContainsString('data-loading-text="正在升级，请勿刷新"', $html);
         self::assertStringContainsString('data-password-toggle="upgrade-admin-pass"', $html);
@@ -584,7 +584,7 @@ final class InstallWizardControllerTest extends TestCase
                     'state' => 'upgrade_required',
                     'message' => '系统待升级',
                     'current_version' => '2.0.0',
-                    'target_version' => '2.1.17',
+                    'target_version' => '2.1.18',
                 ];
             }
 

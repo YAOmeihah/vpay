@@ -42,8 +42,8 @@ final class MultiTerminalSchemaSqlTest extends TestCase
         self::assertStringContainsString('ADD INDEX `idx_type_status_terminal` (`type`,`status`,`terminal_id`)', $bootstrapSql);
         self::assertStringContainsString("('notify_ssl_verify', '1')", $bootstrapSql);
         self::assertStringContainsString("('install_status', 'pending')", $bootstrapSql);
-        self::assertStringContainsString("('schema_version', '2.1.17')", $bootstrapSql);
-        self::assertStringContainsString("('app_version', '2.1.17')", $bootstrapSql);
+        self::assertStringContainsString("('schema_version', '2.1.18')", $bootstrapSql);
+        self::assertStringContainsString("('app_version', '2.1.18')", $bootstrapSql);
         self::assertStringContainsString(
             "'2026_05_11_090000_ensure_payment_success_notification_settings'",
             $bootstrapSql

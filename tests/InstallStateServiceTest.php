@@ -143,10 +143,10 @@ final class InstallStateServiceTest extends TestCase
         file_put_contents($this->runtimeDir . DIRECTORY_SEPARATOR . 'last-error.json', '{"step":"old","message":"旧错误"}');
         $this->seedSettings([
             'install_status' => 'installed',
-            'schema_version' => '2.1.17',
-            'app_version' => '2.1.17',
+            'schema_version' => '2.1.18',
+            'app_version' => '2.1.18',
         ]);
-        $this->markAllMigrationsFinished('2.1.17');
+        $this->markAllMigrationsFinished('2.1.18');
 
         $service = new class($this->runtimeDir) extends InstallStateService {
             public function __construct(private readonly string $runtimeDir)
@@ -197,22 +197,22 @@ final class InstallStateServiceTest extends TestCase
         try {
             $this->seedSettings([
                 'install_status' => 'installed',
-                'schema_version' => '2.1.17',
-                'app_version' => '2.1.17',
+                'schema_version' => '2.1.18',
+                'app_version' => '2.1.18',
             ]);
 
             Db::execute('DROP TABLE IF EXISTS `system_migration_log`');
             app()->make(\app\service\install\MigrationLogService::class)->ensureTable();
 
             $scanner = new \app\service\install\MigrationScanner();
-            foreach ($scanner->upTo('2.1.17') as $migration) {
+            foreach ($scanner->upTo('2.1.18') as $migration) {
                 if ($migration['migration_key'] === $migrationName) {
                     continue;
                 }
 
                 Db::name('system_migration_log')->insert([
                     'migration_key' => (string) $migration['migration_key'],
-                    'from_version' => '2.1.17',
+                    'from_version' => '2.1.18',
                     'to_version' => (string) $migration['version'],
                     'status' => 'finished',
                     'started_at' => time(),
@@ -236,8 +236,8 @@ final class InstallStateServiceTest extends TestCase
             $status = $service->status();
 
             self::assertSame('upgrade_required', $status['state']);
-            self::assertSame('2.1.17', $status['current_version']);
-            self::assertSame('2.1.17', $status['target_version']);
+            self::assertSame('2.1.18', $status['current_version']);
+            self::assertSame('2.1.18', $status['target_version']);
         } finally {
             @unlink($migrationPath);
             Db::execute('DROP TABLE IF EXISTS `system_migration_log`');

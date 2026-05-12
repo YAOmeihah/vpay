@@ -158,8 +158,8 @@ INSERT INTO `setting` (`vkey`, `vvalue`) VALUES
 ('notify_event_payment_success', '1'),
 ('notify_payment_success_callback_status', '1'),
 ('install_status', 'pending'),
-('schema_version', '2.1.17'),
-('app_version', '2.1.17');
+('schema_version', '2.1.18'),
+('app_version', '2.1.18');
 
 -- --------------------------------------------------------
 
@@ -186,7 +186,7 @@ CREATE TABLE `system_migration_log` (
 --
 
 INSERT INTO `system_migration_log` (`migration_key`, `from_version`, `to_version`, `status`, `started_at`, `finished_at`, `error_message`, `checksum`) VALUES
-('2026_05_11_090000_ensure_payment_success_notification_settings', 'fresh-install', '2.1.17', 'finished', 0, 0, '', '6b0fbf76eb5c2c8fc30d42c358027be212013bff');
+('2026_05_11_090000_ensure_payment_success_notification_settings', 'fresh-install', '2.1.18', 'finished', 0, 0, '', '6b0fbf76eb5c2c8fc30d42c358027be212013bff');
 
 -- --------------------------------------------------------
 

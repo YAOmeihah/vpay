@@ -25,7 +25,7 @@ final class MigrationRunnerTest extends TestCase
 
         try {
             $scanner = new MigrationScanner();
-            $files = $scanner->upTo('2.1.17');
+            $files = $scanner->upTo('2.1.18');
             $paths = array_map(static fn (array $item): string => $item['relative_path'], $files);
 
             foreach ($paths as $path) {
@@ -69,10 +69,10 @@ final class MigrationRunnerTest extends TestCase
         Setting::setConfigValue('install_status', 'installed');
 
         $runner = new MigrationRunner();
-        $runner->runPending('2.1.16', '2.1.17');
+        $runner->runPending('2.1.16', '2.1.18');
 
-        self::assertSame('2.1.17', Setting::getConfigValue('schema_version'));
-        self::assertSame('2.1.17', Setting::getConfigValue('app_version'));
+        self::assertSame('2.1.18', Setting::getConfigValue('schema_version'));
+        self::assertSame('2.1.18', Setting::getConfigValue('app_version'));
         self::assertSame('1', Setting::getConfigValue('notify_event_payment_success'));
         self::assertSame('1', Setting::getConfigValue('notify_payment_success_callback_status'));
 
@@ -84,16 +84,16 @@ final class MigrationRunnerTest extends TestCase
 
     public function test_runner_updates_versions_when_all_migrations_are_finished(): void
     {
-        Setting::setConfigValue('schema_version', '2.1.16');
-        Setting::setConfigValue('app_version', '2.1.16');
+        Setting::setConfigValue('schema_version', '2.1.17');
+        Setting::setConfigValue('app_version', '2.1.17');
         Setting::setConfigValue('install_status', 'installed');
-        $this->markAllMigrationsFinished('2.1.16');
+        $this->markAllMigrationsFinished('2.1.17');
 
         $runner = new MigrationRunner();
-        $runner->runPending('2.1.16', '2.1.17');
+        $runner->runPending('2.1.17', '2.1.18');
 
-        self::assertSame('2.1.17', Setting::getConfigValue('schema_version'));
-        self::assertSame('2.1.17', Setting::getConfigValue('app_version'));
+        self::assertSame('2.1.18', Setting::getConfigValue('schema_version'));
+        self::assertSame('2.1.18', Setting::getConfigValue('app_version'));
     }
 
     public function test_runner_executes_unfinished_migration_when_schema_version_matches_target(): void
@@ -107,13 +107,13 @@ final class MigrationRunnerTest extends TestCase
         );
 
         try {
-            Setting::setConfigValue('schema_version', '2.1.17');
-            Setting::setConfigValue('app_version', '2.1.17');
+            Setting::setConfigValue('schema_version', '2.1.18');
+            Setting::setConfigValue('app_version', '2.1.18');
             Setting::setConfigValue('install_status', 'installed');
-            $this->markAllMigrationsFinished('2.1.17', [$migrationName]);
+            $this->markAllMigrationsFinished('2.1.18', [$migrationName]);
 
             $runner = new MigrationRunner();
-            $runner->runPending('2.1.17', '2.1.17');
+            $runner->runPending('2.1.18', '2.1.18');
 
             self::assertSame('ran', Setting::getConfigValue('log_aware_migration'));
         } finally {
@@ -131,14 +131,14 @@ final class MigrationRunnerTest extends TestCase
         );
 
         try {
-            Setting::setConfigValue('schema_version', '2.1.17');
-            Setting::setConfigValue('app_version', '2.1.17');
+            Setting::setConfigValue('schema_version', '2.1.18');
+            Setting::setConfigValue('app_version', '2.1.18');
             Setting::setConfigValue('install_status', 'installed');
             Setting::setConfigValue('log_aware_skip', 'keep');
-            $this->markAllMigrationsFinished('2.1.17');
+            $this->markAllMigrationsFinished('2.1.18');
 
             $runner = new MigrationRunner();
-            $runner->runPending('2.1.17', '2.1.17');
+            $runner->runPending('2.1.18', '2.1.18');
 
             self::assertSame('keep', Setting::getConfigValue('log_aware_skip'));
         } finally {
@@ -156,15 +156,15 @@ final class MigrationRunnerTest extends TestCase
         );
 
         try {
-            Setting::setConfigValue('schema_version', '2.1.17');
-            Setting::setConfigValue('app_version', '2.1.17');
+            Setting::setConfigValue('schema_version', '2.1.18');
+            Setting::setConfigValue('app_version', '2.1.18');
             Setting::setConfigValue('install_status', 'installed');
-            $this->markAllMigrationsFinished('2.1.17', [$migrationName]);
+            $this->markAllMigrationsFinished('2.1.18', [$migrationName]);
 
             $runner = new MigrationRunner();
-            $runner->runPending('2.1.17', '2.1.17');
+            $runner->runPending('2.1.18', '2.1.18');
 
-            self::assertSame('2.1.17', Setting::getConfigValue('schema_version'));
+            self::assertSame('2.1.18', Setting::getConfigValue('schema_version'));
         } finally {
             @unlink($migrationPath);
         }

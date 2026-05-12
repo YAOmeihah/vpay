@@ -33,8 +33,6 @@ class InstallGuardService
 
     public function installUrl(string $state): string
     {
-        return in_array($state, ['locked', 'recovery_required'], true)
-            ? '/install/recover'
-            : '/install';
+        return '/install';
     }
 }

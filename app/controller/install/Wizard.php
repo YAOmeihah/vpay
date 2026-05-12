@@ -76,35 +76,19 @@ class Wizard extends BaseController
                     'content' => (string) (($result['env']['content'] ?? '')),
                 ],
             ];
-            $this->persistRecoveryContext($context);
+            $this->persistLastErrorContext($context);
 
-            return $this->htmlResponse(View::fetch('install@/recover', [
-                'title' => '恢复',
-                'context' => $context,
-            ]));
+            return $this->renderCheck($this->state(), $this->installContext(), null, $context);
         } catch (\Throwable $exception) {
             $context = [
                 'step' => 'run',
                 'message' => $exception->getMessage(),
             ];
 
-            $this->persistRecoveryContext($context);
+            $this->persistLastErrorContext($context);
 
-            return $this->htmlResponse(View::fetch('install@/recover', [
-                'title' => '恢复',
-                'context' => $context,
-            ]));
+            return $this->renderCheck($this->state(), $this->installContext(), null, $context);
         }
-    }
-
-    public function recover(): Response
-    {
-        $this->ensureInstallerAvailable($this->state());
-
-        return $this->htmlResponse(View::fetch('install@/recover', [
-            'title' => '恢复',
-            'context' => $this->recoveryContext(),
-        ]));
     }
 
     protected function state(): array
@@ -112,7 +96,7 @@ class Wizard extends BaseController
         return $this->app->make(InstallStateService::class)->status();
     }
 
-    protected function recoveryContext(): array
+    protected function lastErrorContext(): array
     {
         $path = $this->installRuntimePath() . DIRECTORY_SEPARATOR . 'last-error.json';
         if (is_file($path)) {
@@ -156,7 +140,7 @@ class Wizard extends BaseController
         return match ($state) {
             'not_installed' => [['href' => '/install/check', 'label' => '开始安装']],
             'upgrade_required' => [['href' => '/install/check', 'label' => '开始升级']],
-            'recovery_required', 'locked' => [['href' => '/install/recover', 'label' => '查看恢复信息']],
+            'locked' => [['href' => '/install', 'label' => '查看状态']],
             default => [],
         };
     }
@@ -495,7 +479,12 @@ class Wizard extends BaseController
      *   can_run: bool
      * } $install
      */
-    private function renderCheck(array $state, array $install, ?array $upgradeOverride = null): Response
+    private function renderCheck(
+        array $state,
+        array $install,
+        ?array $upgradeOverride = null,
+        ?array $lastErrorOverride = null
+    ): Response
     {
         $checks = $this->environmentChecks();
 
@@ -509,13 +498,14 @@ class Wizard extends BaseController
                     : []
             ),
             'install' => $install,
+            'lastError' => $lastErrorOverride ?? $this->lastErrorContext(),
         ]));
     }
 
     /**
      * @param array<string, mixed> $context
      */
-    private function persistRecoveryContext(array $context): void
+    private function persistLastErrorContext(array $context): void
     {
         $runtimePath = $this->installRuntimePath();
         if (!is_dir($runtimePath)) {

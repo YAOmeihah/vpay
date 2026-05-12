@@ -4,6 +4,9 @@ require_once __DIR__ . DIRECTORY_SEPARATOR . '_helpers.php';
 $stateName = (string) ($state['state'] ?? 'not_installed');
 $isUpgrade = $stateName === 'upgrade_required';
 $failedChecks = array_values(array_filter($checks, static fn (array $check): bool => ($check['ok'] ?? false) !== true));
+$lastError = is_array($lastError ?? null) ? $lastError : [];
+$hasLastError = trim((string) ($lastError['message'] ?? '')) !== '';
+$hasLastErrorEnv = trim((string) ($lastError['env']['content'] ?? '')) !== '';
 $installShell = [
     'title' => $title,
     'state' => $stateName,
@@ -13,6 +16,25 @@ $installShell = [
 ];
 include __DIR__ . DIRECTORY_SEPARATOR . '_shell_start.php';
 ?>
+<?php if ($hasLastError): ?>
+  <section class="installer-panel" style="margin-bottom: 18px;">
+    <span class="installer-badge">上次失败</span>
+    <h2>上次执行失败</h2>
+    <div class="installer-alert" role="alert">
+      <strong>失败步骤：</strong><?= install_e($lastError['step'] ?? '') ?><br />
+      <strong>错误信息：</strong><?= install_e($lastError['message'] ?? '') ?>
+    </div>
+    <?php if ($hasLastErrorEnv): ?>
+      <div class="installer-panel" style="margin-top: 16px;">
+        <h3>手工写入 `.env`</h3>
+        <p>目标文件：<code><?= install_e($lastError['env']['path'] ?? '') ?></code></p>
+        <p>手工写入以下内容：</p>
+        <button class="installer-copy" type="button" data-copy-target="manual-env-content">复制配置内容</button>
+        <pre id="manual-env-content" class="installer-code"><?= install_e($lastError['env']['content'] ?? '') ?></pre>
+      </div>
+    <?php endif; ?>
+  </section>
+<?php endif; ?>
 <div class="installer-grid">
   <aside class="installer-panel" aria-label="环境检查结果">
     <h2>环境检查</h2>

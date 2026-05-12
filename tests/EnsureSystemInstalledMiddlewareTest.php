@@ -218,7 +218,7 @@ final class EnsureSystemInstalledMiddlewareTest extends BaseTestCase
         self::assertSame('/install', $response->getHeader('Location'));
     }
 
-    public function test_recovery_state_points_json_clients_to_recovery_page(): void
+    public function test_legacy_recovery_state_points_json_clients_to_installer(): void
     {
         $request = (clone self::$app->request)
             ->withServer(['REQUEST_METHOD' => 'GET'])
@@ -243,7 +243,7 @@ final class EnsureSystemInstalledMiddlewareTest extends BaseTestCase
 
         self::assertSame(503, $response->getCode());
         self::assertSame(50304, $payload['code']);
-        self::assertSame('/install/recover', $payload['data']['installUrl']);
+        self::assertSame('/install', $payload['data']['installUrl']);
     }
 
     public function test_returns_maintenance_error_for_regular_api_while_update_is_running(): void

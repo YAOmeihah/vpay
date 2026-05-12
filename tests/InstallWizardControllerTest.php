@@ -54,20 +54,20 @@ final class InstallWizardControllerTest extends TestCase
         $this->app->request->setController('');
     }
 
-    public function test_recover_renders_last_error_details(): void
+    public function test_check_renders_last_error_details(): void
     {
         $this->app->view->forgetDriver();
 
         $controller = new class($this->app) extends Wizard {
-            protected function recoveryContext(): array
+            protected function lastErrorContext(): array
             {
                 return ['step' => 'bootstrap-schema', 'message' => 'SQL 导入失败'];
             }
         };
 
-        $html = (string) $controller->recover()->getContent();
+        $html = (string) $controller->check()->getContent();
 
-        self::assertStringContainsString('恢复', $html);
+        self::assertStringContainsString('上次执行失败', $html);
         self::assertStringContainsString('SQL 导入失败', $html);
     }
 
@@ -269,7 +269,7 @@ final class InstallWizardControllerTest extends TestCase
         $controller->index();
     }
 
-    public function test_run_renders_recovery_page_when_install_step_throws(): void
+    public function test_run_renders_check_page_with_last_error_when_install_step_throws(): void
     {
         $this->app->view->forgetDriver();
 
@@ -288,7 +288,7 @@ final class InstallWizardControllerTest extends TestCase
 
         $html = (string) $controller->run()->getContent();
 
-        self::assertStringContainsString('恢复', $html);
+        self::assertStringContainsString('上次执行失败', $html);
         self::assertStringContainsString('写入 .env 失败', $html);
     }
 
@@ -426,8 +426,7 @@ final class InstallWizardControllerTest extends TestCase
         self::assertStringContainsString('DB_NAME = vmq_install_check', $html);
         self::assertStringContainsString('复制配置内容', $html);
         self::assertStringContainsString('data-copy-target="manual-env-content"', $html);
-        self::assertStringContainsString('返回检查页', $html);
-        self::assertStringContainsString('/install/check', $html);
+        self::assertStringContainsString('上次执行失败', $html);
     }
 
     public function test_run_uses_legacy_schema_baseline_when_upgrade_state_has_no_schema_version(): void

@@ -50,7 +50,6 @@ final class UpdatePreflightService
         $checks[] = $this->checkBool('HTTPS 下载能力可用', function_exists('curl_init') || (bool) ini_get('allow_url_fopen'), 'curl 或 allow_url_fopen 可用');
         $checks[] = $this->checkBool('没有更新锁', !$store->hasLock(), '当前已有更新任务正在执行');
         $checks[] = $this->checkBool('没有安装锁', !is_file($root . 'runtime' . DIRECTORY_SEPARATOR . 'install' . DIRECTORY_SEPARATOR . 'lock.json'), '安装或升级正在执行');
-        $checks[] = $this->checkBool('没有安装恢复错误', !is_file($root . 'runtime' . DIRECTORY_SEPARATOR . 'install' . DIRECTORY_SEPARATOR . 'last-error.json'), '安装或升级失败状态需要先处理');
 
         $zipSize = $this->releaseZipSize($release);
         $free = @disk_free_space($root);

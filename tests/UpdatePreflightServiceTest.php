@@ -116,6 +116,19 @@ final class UpdatePreflightServiceTest extends TestCase
         self::assertContains('当前已有更新任务正在执行', array_column($result['checks'], 'message'));
     }
 
+    public function test_preflight_ignores_stale_install_recovery_log(): void
+    {
+        file_put_contents(
+            $this->root . DIRECTORY_SEPARATOR . 'runtime' . DIRECTORY_SEPARATOR . 'install' . DIRECTORY_SEPARATOR . 'last-error.json',
+            '{"step":"old","message":"旧错误"}'
+        );
+
+        $result = (new UpdatePreflightService($this->root, new UpdateStateStore($this->root)))->check(['zip_size' => 1024]);
+
+        self::assertTrue($result['ok']);
+        self::assertNotContains('安装或升级失败状态需要先处理', array_column($result['checks'], 'message'));
+    }
+
     public function test_state_store_writes_and_reads_last_error(): void
     {
         $store = new UpdateStateStore($this->root);

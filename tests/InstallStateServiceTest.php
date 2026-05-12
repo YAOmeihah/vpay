@@ -138,6 +138,56 @@ final class InstallStateServiceTest extends TestCase
         self::assertSame('upgrade_required', $service->status()['state']);
     }
 
+    public function test_stale_last_error_does_not_override_installed_state(): void
+    {
+        file_put_contents($this->runtimeDir . DIRECTORY_SEPARATOR . 'last-error.json', '{"step":"old","message":"旧错误"}');
+        $this->seedSettings([
+            'install_status' => 'installed',
+            'schema_version' => '2.1.17',
+            'app_version' => '2.1.17',
+        ]);
+        $this->markAllMigrationsFinished('2.1.17');
+
+        $service = new class($this->runtimeDir) extends InstallStateService {
+            public function __construct(private readonly string $runtimeDir)
+            {
+            }
+
+            protected function installRuntimePath(): string
+            {
+                return $this->runtimeDir;
+            }
+        };
+
+        self::assertSame('installed', $service->status()['state']);
+    }
+
+    public function test_stale_last_error_does_not_override_upgrade_required_state(): void
+    {
+        file_put_contents($this->runtimeDir . DIRECTORY_SEPARATOR . 'last-error.json', '{"step":"old","message":"旧错误"}');
+        $this->seedSettings([
+            'install_status' => 'installed',
+            'schema_version' => '1.9.9',
+            'app_version' => '1.9.9',
+        ]);
+
+        $service = new class($this->runtimeDir) extends InstallStateService {
+            public function __construct(private readonly string $runtimeDir)
+            {
+            }
+
+            protected function installRuntimePath(): string
+            {
+                return $this->runtimeDir;
+            }
+        };
+
+        $status = $service->status();
+
+        self::assertSame('upgrade_required', $status['state']);
+        self::assertSame('1.9.9', $status['current_version']);
+    }
+
     public function test_reports_upgrade_required_when_current_version_has_unfinished_migrations(): void
     {
         $migrationName = '2026_05_11_100004_state_detection_test';
@@ -247,5 +297,24 @@ final class InstallStateServiceTest extends TestCase
 
         self::assertSame('upgrade_required', $status['state']);
         self::assertSame('2.0.0', $status['current_version']);
+    }
+
+    private function markAllMigrationsFinished(string $version): void
+    {
+        app()->make(\app\service\install\MigrationLogService::class)->ensureTable();
+        Db::execute('DELETE FROM `system_migration_log`');
+
+        foreach ((new \app\service\install\MigrationScanner())->upTo($version) as $migration) {
+            Db::name('system_migration_log')->insert([
+                'migration_key' => (string) $migration['migration_key'],
+                'from_version' => $version,
+                'to_version' => (string) $migration['version'],
+                'status' => 'finished',
+                'started_at' => time(),
+                'finished_at' => time(),
+                'error_message' => '',
+                'checksum' => sha1((string) file_get_contents((string) $migration['path'])),
+            ]);
+        }
     }
 }

@@ -24,7 +24,7 @@ final class RootEntryControllerTest extends TestCase
         self::assertSame('/install', $response->getHeader('Location'));
     }
 
-    public function test_root_redirects_to_recovery_when_install_state_requires_recovery(): void
+    public function test_root_redirects_legacy_recovery_state_to_installer(): void
     {
         $controller = new class($this->app) extends Index {
             protected function installState(): array
@@ -37,7 +37,7 @@ final class RootEntryControllerTest extends TestCase
 
         self::assertInstanceOf(Response::class, $response);
         self::assertSame(302, $response->getCode());
-        self::assertSame('/install/recover', $response->getHeader('Location'));
+        self::assertSame('/install', $response->getHeader('Location'));
     }
 
     public function test_root_serves_static_portal_when_system_is_installed(): void

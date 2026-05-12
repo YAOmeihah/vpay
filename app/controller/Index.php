@@ -17,7 +17,7 @@ class Index extends BaseController
         }
 
         if (in_array($state, ['locked', 'recovery_required'], true)) {
-            return $this->redirectTo('/install/recover');
+            return $this->redirectTo('/install');
         }
 
         $portal = $this->app->getRootPath() . 'public' . DIRECTORY_SEPARATOR . 'index.html';

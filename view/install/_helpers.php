@@ -14,7 +14,6 @@ if (!function_exists('install_state_label')) {
         return match ($state) {
             'not_installed' => '待安装',
             'upgrade_required' => '待升级',
-            'recovery_required' => '需恢复',
             'locked' => '执行中',
             'installed' => '已完成',
             default => '待检查',
@@ -27,7 +26,6 @@ if (!function_exists('install_mode_from_state')) {
     {
         return match ($state) {
             'upgrade_required' => 'upgrade',
-            'recovery_required' => 'recovery',
             'locked' => 'progress',
             default => 'install',
         };
@@ -42,7 +40,6 @@ if (!function_exists('install_steps_for_mode')) {
     {
         return match ($mode) {
             'upgrade' => ['环境检查', '版本确认', '管理员验证', '执行升级', '完成'],
-            'recovery' => ['检测问题', '查看详情', '修复配置', '重新检查'],
             'progress' => ['环境检查', '准备执行', '执行中', '等待结果'],
             default => ['环境检查', '数据库配置', '管理员配置', '执行安装', '完成'],
         };

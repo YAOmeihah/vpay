@@ -5,6 +5,7 @@ namespace tests;
 
 use app\model\MonitorTerminal;
 use app\model\PaymentEvent;
+use app\model\PayQrcode;
 use app\model\PayOrder;
 use app\model\TerminalChannel;
 use app\model\TmpPrice;
@@ -13,6 +14,38 @@ use app\service\OrderService;
 
 class OrderCreationServicesTest extends TestCase
 {
+    public function test_same_price_qrcodes_can_be_saved_for_different_channels(): void
+    {
+        PayQrcode::create([
+            'channel_id' => 1,
+            'type' => PayOrder::TYPE_WECHAT,
+            'price' => 10.00,
+            'pay_url' => 'weixin://channel-a',
+        ]);
+
+        PayQrcode::create([
+            'channel_id' => 2,
+            'type' => PayOrder::TYPE_WECHAT,
+            'price' => 10.00,
+            'pay_url' => 'weixin://channel-b',
+        ]);
+
+        $this->assertSame(
+            1,
+            PayQrcode::where('channel_id', 1)
+                ->where('type', PayOrder::TYPE_WECHAT)
+                ->where('price', '10.00')
+                ->count()
+        );
+        $this->assertSame(
+            1,
+            PayQrcode::where('channel_id', 2)
+                ->where('type', PayOrder::TYPE_WECHAT)
+                ->where('price', '10.00')
+                ->count()
+        );
+    }
+
     public function test_native_order_service_keeps_original_payload_shape_and_uses_qrcode_override(): void
     {
         $this->insertQrcode(PayOrder::TYPE_WECHAT, 10.00, 'weixin://matched-qrcode');

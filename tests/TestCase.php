@@ -177,8 +177,9 @@ abstract class TestCase extends BaseTestCase
                 `price` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
                 `type` INT NOT NULL DEFAULT 0,
                 PRIMARY KEY (`id`),
-                UNIQUE KEY `uniq_type_price` (`type`, `price`),
-                KEY `idx_channel_price` (`channel_id`, `price`)
+                UNIQUE KEY `uniq_channel_price` (`channel_id`, `price`),
+                KEY `idx_channel_price` (`channel_id`, `price`),
+                KEY `idx_type` (`type`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
         );
 

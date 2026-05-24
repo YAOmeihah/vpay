@@ -18,6 +18,7 @@ final class DatabaseUpgradeServiceTest extends TestCase
         self::assertSame('2.1.18', $context['target_version']);
         self::assertSame([
             ['relative_path' => 'database/migrations/2026_05_11_090000_ensure_payment_success_notification_settings.sql'],
+            ['relative_path' => 'database/migrations/2026_05_11_090100_align_pay_qrcode_channel_unique.sql'],
         ], $context['migrations']);
     }
 

@@ -186,7 +186,8 @@ CREATE TABLE `system_migration_log` (
 --
 
 INSERT INTO `system_migration_log` (`migration_key`, `from_version`, `to_version`, `status`, `started_at`, `finished_at`, `error_message`, `checksum`) VALUES
-('2026_05_11_090000_ensure_payment_success_notification_settings', 'fresh-install', '2.1.18', 'finished', 0, 0, '', '6b0fbf76eb5c2c8fc30d42c358027be212013bff');
+('2026_05_11_090000_ensure_payment_success_notification_settings', 'fresh-install', '2.1.18', 'finished', 0, 0, '', '6b0fbf76eb5c2c8fc30d42c358027be212013bff'),
+('2026_05_11_090100_align_pay_qrcode_channel_unique', 'fresh-install', '2.1.18', 'finished', 0, 0, '', '407ade6f07ea10485c61fddf71aa462fc66f7b0d');
 
 -- --------------------------------------------------------
 
@@ -223,7 +224,7 @@ ALTER TABLE `pay_order`
 --
 ALTER TABLE `pay_qrcode`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `uniq_type_price` (`type`,`price`),
+  ADD UNIQUE KEY `uniq_channel_price` (`channel_id`,`price`),
   ADD INDEX `idx_channel_price` (`channel_id`,`price`),
   ADD INDEX `idx_type` (`type`);
 

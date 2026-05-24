@@ -74,7 +74,9 @@ ALTER TABLE `tmp_price`
 
 ALTER TABLE `pay_qrcode`
   ADD COLUMN `channel_id` bigint(20) DEFAULT NULL AFTER `id`,
-  ADD KEY `idx_channel_price` (`channel_id`,`price`);
+  ADD UNIQUE KEY `uniq_channel_price` (`channel_id`,`price`),
+  ADD KEY `idx_channel_price` (`channel_id`,`price`),
+  ADD KEY `idx_type` (`type`);
 
 -- Remove the old single-terminal monitor configuration keys.
 DELETE FROM `setting`
